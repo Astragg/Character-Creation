@@ -1,4 +1,4 @@
-Level 3, 6, 10, 14 Paths
+At level 3, 6, 10, 14 you can access these paths,
 
 | [Ancestral Guardian](http://dnd5e.wikidot.com/barbarian:ancestral-guardian)       | Description: Call on spirits to defend you and your allies. (Support/Tank)
 
