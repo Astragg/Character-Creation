@@ -1,4 +1,5 @@
 Levels 3, 6, 14 Pathes
+
 | [Creation](https://dnd5e.wikidot.com/bard:creation)       |
 
 | [Eloquence](https://dnd5e.wikidot.com/bard:eloquence)       |
