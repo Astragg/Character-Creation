@@ -1,17 +1,17 @@
 Levels 3, 6, 14
 
-| [Creation](https://dnd5e.wikidot.com/bard:creation)   |
+| [Creation](https://dnd5e.wikidot.com/bard:creation)       |
 
-| [Eloquence](https://dnd5e.wikidot.com/bard:eloquence) |
+| [Eloquence](https://dnd5e.wikidot.com/bard:eloquence)       |
 
-| [Glamour](https://dnd5e.wikidot.com/bard:glamour)     |
+| [Glamour](https://dnd5e.wikidot.com/bard:glamour)       |
 
-| [Lore](https://dnd5e.wikidot.com/bard:lore)           |
+| [Lore](https://dnd5e.wikidot.com/bard:lore)       |
 
-| [Spirits](https://dnd5e.wikidot.com/bard:spirits)     |
+| [Spirits](https://dnd5e.wikidot.com/bard:spirits)       |
 
 | [Swords](https://dnd5e.wikidot.com/bard:swords)       |
 
-| [Valor](https://dnd5e.wikidot.com/bard:valor)         |
+| [Valor](https://dnd5e.wikidot.com/bard:valor)       |
 
-| [Whispers](https://dnd5e.wikidot.com/bard:whispers)   |
+| [Whispers](https://dnd5e.wikidot.com/bard:whispers)       |
