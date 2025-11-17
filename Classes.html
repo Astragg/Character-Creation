@@ -96,18 +96,18 @@
     <nav>
       <h2>Classes</h2>
       <!-- These should match folder filenames or names inside /classes -->
-      <div class="class-item" data-class="barbarian">Barbarian</div>
-      <div class="class-item" data-class="bard">Bard</div>
-      <div class="class-item" data-class="cleric">Cleric</div>
-      <div class="class-item" data-class="druid">Druid</div>
-      <div class="class-item" data-class="fighter">Fighter</div>
-      <div class="class-item" data-class="monk">Monk</div>
-      <div class="class-item" data-class="paladin">Paladin</div>
-      <div class="class-item" data-class="ranger">Ranger</div>
-      <div class="class-item" data-class="rogue">Rogue</div>
-      <div class="class-item" data-class="sorcerer">Sorcerer</div>
-      <div class="class-item" data-class="warlock">Warlock</div>
-      <div class="class-item" data-class="wizard">Wizard</div>
+      <div class="class-item" data-class="Barbarian">Barbarian</div>
+      <div class="class-item" data-class="Bard">Bard</div>
+      <div class="class-item" data-class="Cleric">Cleric</div>
+      <div class="class-item" data-class="Druid">Druid</div>
+      <div class="class-item" data-class="Fighter">Fighter</div>
+      <div class="class-item" data-class="Monk">Monk</div>
+      <div class="class-item" data-class="Paladin">Paladin</div>
+      <div class="class-item" data-class="Ranger">Ranger</div>
+      <div class="class-item" data-class="Rogue">Rogue</div>
+      <div class="class-item" data-class="Sorcerer">Sorcerer</div>
+      <div class="class-item" data-class="Warlock">Warlock</div>
+      <div class="class-item" data-class="Wizard">Wizard</div>
     </nav>
 
     <main id="content">
@@ -120,13 +120,13 @@
 
   async function loadClass(name) {
     try {
-      const res = await fetch(`classes/${name}.md`);
+      const res = await fetch(`Classes/${name}.md`);
       if (!res.ok) throw new Error("Missing class file");
       const text = await res.text();
 
       content.innerHTML = `
         <div class='card'>
-          <h2 style="margin-top:0;">${name.charAt(0).toUpperCase() + name.slice(1)}</h2>
+          <h2 style="margin-top:0;">${name(0).toUpperCase() + name.slice(1)}</h2>
           <article>${marked.parse(text)}</article>
         </div>`;
     } catch (e) {
