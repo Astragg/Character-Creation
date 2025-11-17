@@ -1,205 +1,205 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>D&D Class Guide</title>
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <style>
-    /* General Reset & Font */
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      margin: 0;
-      background-color: #f3f3f3;
-      color: #1c1c1c;
-      transition: background-color 0.3s ease, color 0.3s ease;
-    }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>D&D Class Guide</title>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+  /* General Reset & Font */
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+    background-color: #f3f3f3;
+    color: #1c1c1c;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
 
-    body.dark {
-      background-color: #1e1e1e;
-      color: #e0e0e0;
-    }
+  body.dark {
+    background-color: #1e1e1e;
+    color: #e0e0e0;
+  }
 
-    /* Header with Mica/Glass effect */
-    header {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 1rem;
-      background-color: rgba(255, 255, 255, 0.8);
-      backdrop-filter: blur(12px);
-      color: #1c1c1c;
-      padding: 1.5rem;
-      border-bottom: 1px solid #e0e0e0;
-      box-shadow: 0 2px 15px rgba(0,0,0,0.05);
-      border-radius: 0 0 20px 20px;
-      position: sticky;
-      top: 0;
-      z-index: 10;
-      transition: background-color 0.3s ease, color 0.3s ease;
-    }
+  /* Header with Mica/Glass effect */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    background-color: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(12px);
+    color: #1c1c1c;
+    padding: 1.5rem;
+    border-bottom: 1px solid #e0e0e0;
+    box-shadow: 0 2px 15px rgba(0,0,0,0.05);
+    border-radius: 0 0 20px 20px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
 
-    body.dark header {
-      background-color: rgba(30,30,30,0.8);
-      color: #e0e0e0;
-      border-bottom: 1px solid #333;
-    }
+  body.dark header {
+    background-color: rgba(30,30,30,0.8);
+    color: #e0e0e0;
+    border-bottom: 1px solid #333;
+  }
 
-    header h1 {
-      margin: 0;
-      font-weight: 600;
-      font-size: 2rem;
-    }
+  header h1 {
+    margin: 0;
+    font-weight: 600;
+    font-size: 2rem;
+  }
 
-    /* Dark/Light mode toggle */
-    .theme-toggle {
-      position: absolute;
-      left: 1.5rem;
-      top: 50%;
-      transform: translateY(-50%);
-      background-color: #e7e7e7;
-      border: none;
-      border-radius: 20px;
-      padding: 0.4rem 1rem;
-      cursor: pointer;
-      font-weight: 500;
-      transition: background-color 0.3s ease, color 0.3s ease;
-    }
+  /* Dark/Light mode toggle */
+  .theme-toggle {
+    position: absolute;
+    left: 1.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background-color: #e7e7e7;
+    border: none;
+    border-radius: 20px;
+    padding: 0.4rem 1rem;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
 
-    body.dark .theme-toggle {
-      background-color: #333;
-      color: #fff;
-    }
+  body.dark .theme-toggle {
+    background-color: #333;
+    color: #fff;
+  }
 
-    /* Navigation Sidebar */
+  /* Navigation Sidebar */
+  nav {
+    background-color: #ffffff;
+    padding: 1rem;
+    width: 220px;
+    float: left;
+    height: calc(100vh - 160px);
+    overflow-y: auto;
+    box-shadow: 2px 0 15px rgba(0,0,0,0.05);
+    border-radius: 20px 0 0 20px;
+    margin: 1rem;
+    transition: all 0.3s ease, background-color 0.3s ease, color 0.3s ease;
+  }
+
+  body.dark nav {
+    background-color: #2b2b2b;
+    color: #e0e0e0;
+  }
+
+  nav a {
+    display: block;
+    margin: 0.5rem 0;
+    text-decoration: none;
+    color: #3b3b3b;
+    padding: 0.6rem 1rem;
+    border-radius: 12px;
+    transition: all 0.2s ease, background-color 0.3s ease, color 0.3s ease;
+    font-weight: 500;
+  }
+
+  body.dark nav a {
+    color: #e0e0e0;
+  }
+
+  nav a:hover {
+    background-color: #e7e7e7;
+    color: #1c1c1c;
+    box-shadow: inset 0 0 5px rgba(0,0,0,0.05);
+  }
+
+  body.dark nav a:hover {
+    background-color: #3a3a3a;
+    color: #fff;
+  }
+
+  /* Active tab highlighting */
+  nav a.active {
+    background-color: #0a84ff;
+    color: #fff;
+    box-shadow: 0 0 8px rgba(10,132,255,0.6);
+  }
+
+  body.dark nav a.active {
+    background-color: #0a84ff;
+    color: #fff;
+    box-shadow: 0 0 8px rgba(10,132,255,0.6);
+  }
+
+  /* Main Content */
+  main {
+    margin-left: 260px;
+    padding: 2rem;
+    min-height: calc(100vh - 60px);
+    transition: margin-left 0.3s ease;
+  }
+
+  article {
+    background-color: #ffffff;
+    padding: 2rem;
+    border-radius: 20px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.05);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.3s ease, color 0.3s ease;
+  }
+
+  body.dark article {
+    background-color: #2a2a2a;
+    color: #e0e0e0;
+  }
+
+  article:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+  }
+
+  h2 {
+    font-weight: 600;
+    margin-top: 0;
+  }
+
+  p {
+    line-height: 1.6;
+  }
+
+  a.inline-link {
+    color: #0a84ff;
+    text-decoration: underline;
+  }
+
+  /* Scrollbar styling */
+  nav::-webkit-scrollbar {
+    width: 8px;
+  }
+  nav::-webkit-scrollbar-thumb {
+    background-color: rgba(0,0,0,0.2);
+    border-radius: 8px;
+  }
+  nav::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  /* Responsive */
+  @media(max-width: 768px) {
     nav {
-      background-color: #ffffff;
-      padding: 1rem;
-      width: 220px;
-      float: left;
-      height: calc(100vh - 160px);
-      overflow-y: auto;
-      box-shadow: 2px 0 15px rgba(0,0,0,0.05);
-      border-radius: 20px 0 0 20px;
-      margin: 1rem;
-      transition: all 0.3s ease, background-color 0.3s ease, color 0.3s ease;
-    }
-
-    body.dark nav {
-      background-color: #2b2b2b;
-      color: #e0e0e0;
-    }
-
-    nav a {
-      display: block;
-      margin: 0.5rem 0;
-      text-decoration: none;
-      color: #3b3b3b;
-      padding: 0.6rem 1rem;
-      border-radius: 12px;
-      transition: all 0.2s ease, background-color 0.3s ease, color 0.3s ease;
-      font-weight: 500;
-    }
-
-    body.dark nav a {
-      color: #e0e0e0;
-    }
-
-    nav a:hover {
-      background-color: #e7e7e7;
-      color: #1c1c1c;
-      box-shadow: inset 0 0 5px rgba(0,0,0,0.05);
-    }
-
-    body.dark nav a:hover {
-      background-color: #3a3a3a;
-      color: #fff;
-    }
-
-    /* Active tab highlighting */
-    nav a.active {
-      background-color: #0a84ff;
-      color: #fff;
-      box-shadow: 0 0 8px rgba(10,132,255,0.6);
-    }
-
-    body.dark nav a.active {
-      background-color: #0a84ff;
-      color: #fff;
-      box-shadow: 0 0 8px rgba(10,132,255,0.6);
-    }
-
-    /* Main Content */
-    main {
-      margin-left: 260px;
-      padding: 2rem;
-      min-height: calc(100vh - 60px);
-      transition: margin-left 0.3s ease;
-    }
-
-    article {
-      background-color: #ffffff;
-      padding: 2rem;
+      width: 100%;
+      height: auto;
+      float: none;
       border-radius: 20px;
-      box-shadow: 0 5px 20px rgba(0,0,0,0.05);
-      transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.3s ease, color 0.3s ease;
+      margin: 1rem 0;
     }
-
-    body.dark article {
-      background-color: #2a2a2a;
-      color: #e0e0e0;
+    main {
+      margin-left: 0;
     }
-
-    article:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+    .theme-toggle {
+      left: 1rem;
+      top: auto;
+      transform: none;
     }
-
-    h2 {
-      font-weight: 600;
-      margin-top: 0;
-    }
-
-    p {
-      line-height: 1.6;
-    }
-
-    a.inline-link {
-      color: #0a84ff;
-      text-decoration: underline;
-    }
-
-    /* Scrollbar styling */
-    nav::-webkit-scrollbar {
-      width: 8px;
-    }
-    nav::-webkit-scrollbar-thumb {
-      background-color: rgba(0,0,0,0.2);
-      border-radius: 8px;
-    }
-    nav::-webkit-scrollbar-track {
-      background: transparent;
-    }
-
-    /* Responsive */
-    @media(max-width: 768px) {
-      nav {
-        width: 100%;
-        height: auto;
-        float: none;
-        border-radius: 20px;
-        margin: 1rem 0;
-      }
-      main {
-        margin-left: 0;
-      }
-      .theme-toggle {
-        left: 1rem;
-        top: auto;
-        transform: none;
-      }
-    }
-  </style>
+  }
+</style>
 </head>
 <body>
 
@@ -213,11 +213,27 @@
 <main>
   <article id="content">
     <h2>Welcome</h2>
-    <p>Select a class to see its details.</p>
+    <p>Select a class from the left to see its details.</p>
   </article>
 </main>
 
 <script>
+  // Class descriptions for tooltip
+  const classDescriptions = {
+    "Barbarian": "A fierce warrior of primitive background who can enter a battle rage.",
+    "Bard": "A versatile spellcaster and performer, inspiring allies with music and magic.",
+    "Cleric": "A divine spellcaster and healer, wielding the power of their deity.",
+    "Druid": "A nature spellcaster who can transform into animals and control nature.",
+    "Fighter": "A master of martial combat, skilled with weapons and armor.",
+    "Monk": "A martial artist with mystical energy, capable of stunning strikes.",
+    "Paladin": "A holy warrior sworn to uphold justice, combining combat and divine magic.",
+    "Ranger": "A hunter and tracker, skilled with ranged attacks and animal companions.",
+    "Rogue": "A stealthy and dexterous character, expert in trickery and sneak attacks.",
+    "Sorcerer": "A natural spellcaster who wields magic from innate talent.",
+    "Warlock": "A spellcaster who gains power through a pact with a mystical patron.",
+    "Wizard": "A scholarly spellcaster, learning spells through study and practice."
+  };
+
   // Dark/Light Mode Toggle
   const toggle = document.getElementById('themeToggle');
   toggle.addEventListener('click', () => {
@@ -225,40 +241,52 @@
     toggle.textContent = document.body.classList.contains('dark') ? '☀️ Light' : '🌙 Dark';
   });
 
-  // Classes nav
-  const classes = ["Barbarian","Bard","Cleric","Druid","Fighter","Monk","Paladin","Ranger","Rogue","Sorcerer","Warlock","Wizard"];
+  const classes = Object.keys(classDescriptions);
   const nav = document.getElementById('classNav');
   const content = document.getElementById('content');
 
+  function highlightCurrentTab() {
+    const hash = window.location.hash.substring(1);
+    document.querySelectorAll('#classNav a').forEach(a => {
+      a.classList.remove('active');
+      if (a.textContent === hash) {
+        a.classList.add('active');
+        loadClass(hash);
+      }
+    });
+  }
+
   classes.forEach(cls => {
     const link = document.createElement('a');
-    link.href = '#';
+    link.href = `#${cls}`;
     link.textContent = cls;
+    link.title = classDescriptions[cls]; // tooltip
 
     link.addEventListener('click', e => {
       e.preventDefault();
-      loadClass(cls);
-
-      // Remove 'active' class from all links
-      document.querySelectorAll('#classNav a').forEach(a => a.classList.remove('active'));
-
-      // Add 'active' to the clicked link
-      link.classList.add('active');
+      window.location.hash = cls;
+      highlightCurrentTab();
     });
 
     nav.appendChild(link);
   });
 
-  async function loadClass(name){
-    try{
-      const res = await fetch(`./Classes/${name}.md`);
-      if(!res.ok) throw new Error('File not found');
-      const md = await res.text();
-      content.innerHTML = marked.parse(md);
-    }catch(e){
-      content.innerHTML = `<h2>${name}</h2><p>Could not load ${name}.md. Make sure the file exists in the Classes folder.</p>`;
-    }
+  function loadClass(name){
+    fetch(`./Classes/${name}.md`)
+      .then(res => {
+        if(!res.ok) throw new Error('File not found');
+        return res.text();
+      })
+      .then(md => {
+        content.innerHTML = marked.parse(md);
+      })
+      .catch(() => {
+        content.innerHTML = `<h2>${name}</h2><p>Could not load ${name}.md. Make sure the file exists in the Classes folder.</p>`;
+      });
   }
+
+  // Highlight tab on initial load if URL has hash
+  window.addEventListener('load', highlightCurrentTab);
 </script>
 
 </body>
