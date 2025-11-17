@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>D&D Classes</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: "Segoe UI", sans-serif;
+      background: #f3f3f3;
+      color: #333;
+    }
+
+    header {
+      backdrop-filter: blur(12px);
+      background: rgba(255, 255, 255, 0.6);
+      padding: 1rem 2rem;
+      border-bottom: 1px solid #ddd;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.5rem;
+      font-weight: 600;
+    }
+
+    .container {
+      display: grid;
+      grid-template-columns: 250px 1fr;
+      height: calc(100vh - 70px);
+    }
+
+    nav {
+      background: #ffffffc7;
+      border-right: 1px solid #ddd;
+      padding: 1rem;
+      overflow-y: auto;
+      backdrop-filter: blur(12px);
+    }
+
+    nav h2 {
+      margin-top: 0;
+      font-size: 1.2rem;
+    }
+
+    .class-item {
+      padding: 0.6rem 0.8rem;
+      margin-bottom: 0.4rem;
+      background: #fff;
+      border-radius: 8px;
+      cursor: pointer;
+      border: 1px solid #e4e4e4;
+      transition: 0.15s;
+    }
+
+    .class-item:hover {
+      background: #e9f1ff;
+      border-color: #aac7ff;
+    }
+
+    #content {
+      padding: 2rem;
+      overflow-y: auto;
+    }
+
+    .card {
+      background: #ffffffcf;
+      backdrop-filter: blur(12px);
+      border-radius: 16px;
+      padding: 2rem;
+      border: 1px solid #ddd;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+      max-width: 800px;
+    }
+
+    .placeholder {
+      font-size: 1.1rem;
+      opacity: 0.7;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>D&D Class Guide</h1>
+  </header>
+
+  <div class="container">
+    <nav>
+      <h2>Classes</h2>
+      <!-- These should match folder filenames or names inside /classes -->
+      <div class="class-item" data-class="barbarian">Barbarian</div>
+      <div class="class-item" data-class="bard">Bard</div>
+      <div class="class-item" data-class="cleric">Cleric</div>
+      <div class="class-item" data-class="druid">Druid</div>
+      <div class="class-item" data-class="fighter">Fighter</div>
+      <div class="class-item" data-class="monk">Monk</div>
+      <div class="class-item" data-class="paladin">Paladin</div>
+      <div class="class-item" data-class="ranger">Ranger</div>
+      <div class="class-item" data-class="rogue">Rogue</div>
+      <div class="class-item" data-class="sorcerer">Sorcerer</div>
+      <div class="class-item" data-class="warlock">Warlock</div>
+      <div class="class-item" data-class="wizard">Wizard</div>
+    </nav>
+
+    <main id="content">
+      <div class="card placeholder">Pick a class from the left panel to view details.</div>
+    </main>
+  </div>
+
+<script>
+  const content = document.getElementById("content");
+
+  async function loadClass(name) {
+    try {
+      const res = await fetch(`classes/${name}.md`);
+      if (!res.ok) throw new Error("Missing class file");
+      const text = await res.text();
+
+      content.innerHTML = `
+        <div class='card'>
+          <h2 style="margin-top:0;">${name.charAt(0).toUpperCase() + name.slice(1)}</h2>
+          <article>${marked.parse(text)}</article>
+        </div>`;
+    } catch (e) {
+      content.innerHTML = `<div class="card">No info found for this class.</div>`;
+    }
+  }
+
+  document.querySelectorAll(".class-item").forEach(item => {
+    item.addEventListener("click", () => {
+      loadClass(item.dataset.class);
+    });
+  });
+</script>
+<!-- Markdown parser -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</body>
+</html>
