@@ -1,4 +1,5 @@
 Level 3, 6, 10, 14 Paths
+
 | [Ancestral Guardian](http://dnd5e.wikidot.com/barbarian:ancestral-guardian) |
 
 | [Battlerager](http://dnd5e.wikidot.com/barbarian:battlerager)               |
