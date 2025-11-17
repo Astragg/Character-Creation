@@ -1,6 +1,6 @@
 Levels 3, 6, 14
 
-|[Creation](https://dnd5e.wikidot.com/bard:creation)   |
+| [Creation](https://dnd5e.wikidot.com/bard:creation)   |
 
 | [Eloquence](https://dnd5e.wikidot.com/bard:eloquence) |
 
