@@ -1,7 +1,5 @@
 Level 3, 5, 7, 9 Paths
 
-| Domains                                                |
-
 | [Arcana](http://dnd5e.wikidot.com/cleric:arcana)       |
 
 | [Death](http://dnd5e.wikidot.com/cleric:death)         |
