@@ -77,18 +77,21 @@ nav {
   padding: 1rem;
   width: 240px;
   float: left;
-  height: calc(100vh - 160px);
+  height: calc(100vh - 112px); /* 112px = header height (1.5rem top + 1.5rem bottom padding ~ 48px) + extra spacing if needed */
   overflow-y: auto;
   box-shadow: 2px 0 20px rgba(0,0,0,0.08);
   border-radius: 20px; /* fully rounded */
-  margin: 1rem;
+  margin: 0; /* remove top margin */
   transition: all 0.3s ease, background-color 0.3s ease, color 0.3s ease;
 }
 
-/* Dark mode sidebar */
-body.dark nav {
-  background-color: #2b2b2b;
-  color: #e0e0e0;
+/* Main Content */
+main {
+  margin-left: 260px; /* leave space for the sidebar */
+  padding: 2rem;
+  min-height: calc(100vh - 60px);
+  transition: margin-left 0.3s ease;
+  margin-top: 1rem; /* align visually with the top of sidebar */
 }
 
 
