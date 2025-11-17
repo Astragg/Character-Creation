@@ -120,7 +120,7 @@
 
   async function loadClass(name) {
     try {
-      const res = await fetch(`Classes/${name}.md`);
+      const res = await fetch(`./Classes/${name}.md`);
       if (!res.ok) throw new Error("Missing class file");
       const text = await res.text();
 
