@@ -1,7 +1,5 @@
 Level 3, 6, 10, 14 Paths
-
 | [Ancestral Guardian](http://dnd5e.wikidot.com/barbarian:ancestral-guardian) |
-| --------------------------------------------------------------------------- |
 | [Battlerager](http://dnd5e.wikidot.com/barbarian:battlerager)               |
 | [Beast](http://dnd5e.wikidot.com/barbarian:beast)                           |
 | [Berserker](http://dnd5e.wikidot.com/barbarian:berserker)                   |
@@ -10,4 +8,3 @@ Level 3, 6, 10, 14 Paths
 | [Totem Warrior](http://dnd5e.wikidot.com/barbarian:totem-warrior)           |
 | [Wild Magic](http://dnd5e.wikidot.com/barbarian:wild-magic)                 |
 | [Zealot](http://dnd5e.wikidot.com/barbarian:zealot)                         |
-
