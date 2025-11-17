@@ -1,30 +1,106 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>D&D Simple Class Viewer</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>D&D Class Guide</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      margin: 0;
+      background-color: #f9f9f9;
+      color: #222;
+    }
+    header {
+      background-color: #4a3f35;
+      color: #fff;
+      padding: 1rem;
+      text-align: center;
+    }
+    header h1 {
+      margin: 0;
+    }
+    nav {
+      background-color: #eee;
+      padding: 1rem;
+      width: 200px;
+      float: left;
+      height: calc(100vh - 60px);
+      overflow-y: auto;
+      box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+    }
+    nav a {
+      display: block;
+      margin: 0.5rem 0;
+      text-decoration: none;
+      color: #333;
+      padding: 0.5rem;
+      border-radius: 4px;
+    }
+    nav a:hover {
+      background-color: #ddd;
+    }
+    main {
+      margin-left: 220px;
+      padding: 2rem;
+    }
+    article {
+      background-color: #fff;
+      padding: 1.5rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+    a.inline-link {
+      color: #4a3f35;
+      text-decoration: underline;
+    }
+  </style>
 </head>
 <body>
-  <h1>D&D Classes</h1>
-  <ul>
-    <li><a href="#" onclick="loadClass('Barbarian')">Barbarian</a></li>
-    <li><a href="#" onclick="loadClass('Wizard')">Wizard</a></li>
-    <li><a href="#" onclick="loadClass('Cleric')">Cleric</a></li>
-  </ul>
 
-  <div id="content">Select a class.</div>
+<header>
+  <h1>D&D Class Guide</h1>
+</header>
 
-  <script>
-    async function loadClass(name) {
-      try {
-        const res = await fetch(`Classes/${name}.md`);
-        if (!res.ok) throw new Error();
-        const text = await res.text();
-        document.getElementById('content').innerText = text;
-      } catch {
-        document.getElementById('content').innerText = `Could not load Classes/${name}.md`;
-      }
+<nav id="classNav">
+</nav>
+
+<main>
+  <article id="content">
+    <h2>Welcome</h2>
+    <p>Select a class from the left to see its details. Markdown files will render with hyperlinks included.</p>
+  </article>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+  const classes = ["Barbarian","Bard","Cleric","Druid","Fighter","Monk","Paladin","Ranger","Rogue","Sorcerer","Warlock","Wizard"];
+  const nav = document.getElementById('classNav');
+  const content = document.getElementById('content');
+
+  // Create links in the nav
+  classes.forEach(cls => {
+    const link = document.createElement('a');
+    link.href = '#';
+    link.textContent = cls;
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      loadClass(cls);
+    });
+    nav.appendChild(link);
+  });
+
+  async function loadClass(name) {
+    try {
+      const res = await fetch(`./Classes/${name}.md`);
+      if(!res.ok) throw new Error('File not found');
+      const md = await res.text();
+      content.innerHTML = marked.parse(md);
+    } catch (e) {
+      content.innerHTML = `<h2>${name}</h2><p>Could not load ${name}.md. Make sure the file exists in the Classes folder.</p>`;
     }
-  </script>
+  }
+</script>
+
 </body>
 </html>
