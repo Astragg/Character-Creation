@@ -1,590 +1,764 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Play, Pause, MousePointer, Hand, 
-  Zap, Skull, Heart, Shield, Hammer, Coins, Users, 
-  CloudRain, Flame, Map as MapIcon, 
-  ZoomIn, ZoomOut, Sword, Crown, Scroll, Gift, 
-  Ghost, Anchor, Sparkles, Hourglass
-} from 'lucide-react';
-
-// --- CONFIGURATION ---
-
-const WORLD_WIDTH = 5000;
-const WORLD_HEIGHT = 4000;
-const TILE_SIZE = 100;
-const MAX_ENTITIES = 800; // Increased limit now that engine is optimized
-
-const RACES = {
-  HUMAN: { name: 'Human', hp: 100, age: 80, color: '#fca5a5', icon: '👤', speed: 1.5, greed: 0.5 },
-  ELF: { name: 'Elf', hp: 90, age: 300, color: '#86efac', icon: '🧝', speed: 1.8, greed: 0.2 },
-  DWARF: { name: 'Dwarf', hp: 140, age: 150, color: '#fdba74', icon: '🧔', speed: 1.2, greed: 0.8 },
-  ORC: { name: 'Orc', hp: 180, age: 60, color: '#4ade80', icon: '👹', speed: 1.6, greed: 0.6 },
-  DRAGON: { name: 'Dragon', hp: 3000, age: 9999, color: '#ef4444', icon: '🐉', speed: 3.0, greed: 1.0 }
-};
-
-const BIOMES = {
-  OCEAN: { color: '#0f172a', name: 'Deep Sea' },
-  WATER: { color: '#3b82f6', name: 'Coastal' },
-  SAND: { color: '#fde047', name: 'Desert' },
-  PLAINS: { color: '#4ade80', name: 'Grasslands' },
-  FOREST: { color: '#166534', name: 'Deep Forest' },
-  MOUNTAIN: { color: '#57534e', name: 'High Peaks' },
-  MAGIC: { color: '#a855f7', name: 'Arcane Wastes' },
-  SNOW: { color: '#f1f5f9', name: 'Tundra' },
-};
-
-const ITEMS = [
-  { name: 'Rusty Dagger', type: 'weapon', val: 5 },
-  { name: 'Iron Sword', type: 'weapon', val: 20 },
-  { name: 'Mithril Plate', type: 'armor', val: 150 },
-  { name: 'Health Potion', type: 'consumable', val: 10 },
-  { name: 'Ancient Relic', type: 'artifact', val: 500 },
-  { name: 'Bread', type: 'food', val: 1 },
-  { name: 'Godslayer Blade', type: 'weapon', val: 9999 }
-];
-
-// --- UTILS ---
-
-const rng = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
-const distSq = (a, b) => (a.x - b.x)**2 + (a.y - b.y)**2;
-const clamp = (val, min, max) => Math.min(Math.max(val, min), max);
-const formatMoney = (totalBronze) => {
-  const g = Math.floor(totalBronze / 100);
-  const s = Math.floor((totalBronze % 100) / 10);
-  const b = totalBronze % 10;
-  return { g, s, b };
-};
-
-// --- COMPONENT ---
-
-export default function OmniSimFantasy() {
-  const canvasRef = useRef(null);
-  
-  // Optimized Game State
-  const gameRef = useRef({
-    tiles: [],
-    entities: [],
-    buildings: [],
-    particles: [],
-    camera: { x: WORLD_WIDTH/2, y: WORLD_HEIGHT/2, zoom: 0.6 },
-    time: { tick: 0, year: 1, speed: 1, paused: false },
-    input: { dragging: false, lastX: 0, lastY: 0 },
-    history: []
-  });
-
-  const [ui, setUi] = useState({
-    fps: 0,
-    pop: 0,
-    year: 1,
-    selected: null,
-    godTool: 'select',
-  });
-
-  // --- INIT & LOOP ---
-
-  useEffect(() => {
-    initWorld();
-    
-    // Canvas Resize Listener
-    const handleResize = () => {
-      if(canvasRef.current) {
-        canvasRef.current.width = window.innerWidth;
-        canvasRef.current.height = window.innerHeight;
-      }
-    };
-    window.addEventListener('resize', handleResize);
-    handleResize(); // Initial size
-
-    let lastTime = performance.now();
-    let frameCount = 0;
-    let animationFrameId;
-
-    const loop = (time) => {
-      const delta = time - lastTime;
-      
-      if (delta >= 1000) {
-        setUi(p => ({ ...p, fps: frameCount, pop: gameRef.current.entities.length }));
-        frameCount = 0;
-        lastTime = time;
-      }
-      
-      update();
-      draw();
-      frameCount++;
-      animationFrameId = requestAnimationFrame(loop);
-    };
-    
-    animationFrameId = requestAnimationFrame(loop);
-    return () => {
-      cancelAnimationFrame(animationFrameId);
-      window.removeEventListener('resize', handleResize);
-    };
-  }, []);
-
-  const initWorld = () => {
-    const g = gameRef.current;
-    g.entities = [];
-    g.tiles = [];
-    g.buildings = [];
-    g.particles = [];
-
-    const cols = WORLD_WIDTH / TILE_SIZE;
-    const rows = WORLD_HEIGHT / TILE_SIZE;
-    for (let y = 0; y < rows; y++) {
-      for (let x = 0; x < cols; x++) {
-        const nx = x * 0.05; 
-        const ny = y * 0.05;
-        const h = Math.sin(nx) + Math.cos(ny) + Math.sin(nx*3)*0.5 + Math.random()*0.2;
-        let type = 'PLAINS';
-        if (h < -1.5) type = 'OCEAN';
-        else if (h < -1.0) type = 'WATER';
-        else if (h < -0.8) type = 'SAND';
-        else if (h > 1.5) type = 'SNOW';
-        else if (h > 1.0) type = 'MOUNTAIN';
-        else if (h > 0.5) type = 'FOREST';
-        else if (Math.random() > 0.98) type = 'MAGIC'; 
-        g.tiles.push({ x: x * TILE_SIZE, y: y * TILE_SIZE, type, ...BIOMES[type] });
-      }
-    }
-
-    spawnCiv('HUMAN', 1500, 1500, 20);
-    spawnCiv('ELF', 3500, 1500, 15);
-    spawnCiv('DWARF', 1500, 3000, 15);
-    spawnCiv('ORC', 3500, 3000, 25);
-  };
-
-  const spawnCiv = (raceKey, x, y, count) => {
-    const g = gameRef.current;
-    g.buildings.push({
-      id: Math.random(), type: 'Town Hall', race: raceKey,
-      x, y, w: 120, h: 120, hp: 2000, maxHp: 2000,
-      built: true, progress: 100
-    });
-    for(let i=0; i<count; i++) spawnUnit(raceKey, x + rng(-200, 200), y + rng(-200, 200));
-  };
-
-  const spawnUnit = (raceKey, x, y) => {
-    const race = RACES[raceKey];
-    const unit = {
-      id: Math.random(), type: 'unit', race: raceKey,
-      name: `${race.name} ${rng(1, 999)}`,
-      x, y, hp: race.hp, maxHp: race.hp, age: rng(18, race.age/2),
-      state: 'WANDER', target: null, buildingTarget: null,
-      inventory: [], money: rng(0, 50), cooldown: 0,
-      isKing: false, status: 'Wandering'
-    };
-    gameRef.current.entities.push(unit);
-  };
-
-  const spawnBuilding = (x, y, type, race) => {
-    gameRef.current.buildings.push({
-      id: Math.random(), type, race, x, y, w: 80, h: 80, hp: 1, maxHp: 500, built: false, progress: 0
-    });
-  };
-
-  // --- UPDATE LOOP (HIGH PERFORMANCE) ---
-  
-  const update = () => {
-    const g = gameRef.current;
-    if (g.time.paused) return;
-
-    g.time.tick += g.time.speed;
-    if (g.time.tick > 1000) {
-      g.time.tick = 0;
-      g.time.year++;
-      if (g.time.year % 1 === 0) setUi(p => ({ ...p, year: g.time.year }));
-    }
-
-    // 1. Particles (In-place compaction)
-    let pActive = 0;
-    for(let i=0; i<g.particles.length; i++) {
-      let p = g.particles[i];
-      p.x += p.vx; p.y += p.vy; p.life -= 0.02;
-      if (p.life > 0) g.particles[pActive++] = p;
-    }
-    g.particles.length = pActive;
-
-    // 2. Entities (In-place compaction & Logic)
-    let activeCount = 0;
-    const entities = g.entities;
-    const buildings = g.buildings;
-    const count = entities.length;
-    const buildingsCount = buildings.length;
-
-    for (let i = 0; i < count; i++) {
-      const u = entities[i];
-      if (u.hp <= 0) continue; // Skip dead
-
-      // --- AI ---
-      
-      // Status Check (Throttled)
-      if (i % 60 === 0) {
-         if (u.hp < u.maxHp * 0.3) u.status = "Injured";
-         else if (u.money < 10) u.status = "Destitute";
-         else if (u.isKing) u.status = "Ruling";
-         else if (u.state === 'BUILD') u.status = "Building";
-         else u.status = "Active";
-      }
-
-      // Movement
-      if (u.target) {
-        const dx = u.target.x - u.x;
-        const dy = u.target.y - u.y;
-        const dist = dx*dx + dy*dy;
-        if (dist > 25) {
-           const angle = Math.atan2(dy, dx);
-           u.x += Math.cos(angle) * RACES[u.race].speed * g.time.speed;
-           u.y += Math.sin(angle) * RACES[u.race].speed * g.time.speed;
-        } else {
-           // Reached
-           if (u.state === 'MOVE') u.state = 'IDLE';
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aetheria 11.0: Life & Lies</title>
+    <style>
+        :root {
+            --bg-color: #1a1a1a;
+            --surface: rgba(32, 32, 32, 0.85);
+            --surface-border: rgba(255, 255, 255, 0.1);
+            --surface-hover: rgba(255, 255, 255, 0.08);
+            --accent: #60cdff;
+            --text-primary: #ffffff;
+            --text-secondary: #b0b0b0;
+            --danger: #ff99a4;
+            --success: #6cc287;
+            --font-main: 'Segoe UI Variable', 'Segoe UI', system-ui, -apple-system, sans-serif;
         }
-      } else if (u.state === 'WANDER' && Math.random() < 0.01) {
-        u.target = { x: u.x + rng(-100, 100), y: u.y + rng(-100, 100) };
-      }
 
-      // Job Finding (Throttled logic - Critical for FPS)
-      if (u.state === 'IDLE' && Math.random() < 0.005) {
-         // Manual loop instead of .find() to avoid closure allocation
-         let foundSite = null;
-         for(let b=0; b<buildingsCount; b++) {
-            const build = buildings[b];
-            if (!build.built && build.race === u.race) {
-               foundSite = build;
-               break;
-            }
-         }
-         
-         if (foundSite) {
-            u.state = 'BUILD';
-            u.target = { x: foundSite.x, y: foundSite.y };
-            u.buildingTarget = foundSite.id;
-         } else if (Math.random() < 0.05) {
-            spawnBuilding(u.x + rng(-60, 60), u.y + rng(-60, 60), 'House', u.race);
-         }
-      }
+        * { box-sizing: border-box; user-select: none; font-family: var(--font-main); cursor: default; }
 
-      // Building Logic
-      if (u.state === 'BUILD') {
-         // Manual find
-         let site = null;
-         for(let b=0; b<buildingsCount; b++) {
-            if (buildings[b].id === u.buildingTarget) { site = buildings[b]; break; }
-         }
+        body {
+            margin: 0;
+            background-color: #050505;
+            color: var(--text-primary);
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+        }
 
-         if (site && !site.built) {
-            const dx = site.x - u.x;
-            const dy = site.y - u.y;
-            if ((dx*dx + dy*dy) < 4000) { // Range check
-               site.progress += 0.5 * g.time.speed;
-               site.hp += 1 * g.time.speed;
-               if (Math.random() < 0.1) spawnParticle(u.x, u.y, '#fbbf24');
-               if (site.progress >= 100) {
-                  site.built = true;
-                  site.hp = site.maxHp;
-                  u.state = 'IDLE';
-                  u.money += 50;
-               }
-            }
-         } else {
-            u.state = 'IDLE';
-         }
-      }
+        canvas { position: absolute; top: 0; left: 0; z-index: 0; cursor: crosshair; }
+        canvas:active { cursor: grabbing; }
 
-      // Combat (Dragon Only)
-      if (u.race === 'DRAGON') {
-         if (u.cooldown <= 0) {
-            let target = null;
-            let minDist = 90000;
-            // Optimization: Only scan a subset or break early
-            // We scan random entities instead of all to save CPU
-            const startIdx = rng(0, count-10);
-            const endIdx = Math.min(count, startIdx + 20);
-            
-            for(let k=startIdx; k<endIdx; k++) {
-               const other = entities[k];
-               if (other && other.race !== 'DRAGON' && other.hp > 0) {
-                  const d2 = distSq(u, other);
-                  if (d2 < minDist) { minDist = d2; target = other; }
-               }
-            }
-            
-            if (target) {
-               u.target = { x: target.x, y: target.y };
-               if (minDist < 2500) {
-                  spawnParticle(target.x, target.y, '#ef4444', 'burst');
-                  target.hp -= 50;
-                  u.cooldown = 20;
-               }
-            }
-            u.cooldown = 30;
-         } else {
-            u.cooldown -= g.time.speed;
-         }
-      }
+        #ui-layer {
+            position: absolute; inset: 0; pointer-events: none; z-index: 10; padding: 16px;
+            display: flex; flex-direction: column; justify-content: space-between;
+        }
 
-      // Keep alive
-      entities[activeCount++] = u;
-    }
-    
-    // Truncate dead units
-    entities.length = activeCount;
-  };
+        .mica-panel {
+            background: var(--surface);
+            backdrop-filter: blur(40px) saturate(120%);
+            -webkit-backdrop-filter: blur(40px) saturate(120%);
+            border: 1px solid var(--surface-border);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            pointer-events: auto;
+            transition: transform 0.1s ease-out;
+        }
 
-  const spawnParticle = (x, y, color, type = 'spark') => {
-    const g = gameRef.current;
-    if (g.particles.length > 200) return; 
-    g.particles.push({ x, y, vx: rng(-2,2), vy: rng(-2,2), life: 1.0, color, type });
-  };
+        /* Top Bar */
+        #top-bar {
+            align-self: center; display: flex; align-items: center; gap: 24px;
+            padding: 12px 24px; border-radius: 50px; margin-top: 10px;
+        }
 
-  // --- RENDER ---
+        .stat-group { display: flex; flex-direction: column; align-items: center; min-width: 60px; }
+        .stat-label { font-size: 10px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+        .stat-value { font-size: 14px; font-weight: 600; color: var(--text-primary); margin-top: 2px; }
 
-  const draw = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    const g = gameRef.current;
+        /* Time Controls */
+        .time-controls {
+            display: flex; background: rgba(0, 0, 0, 0.3); border-radius: 20px; padding: 4px; border: 1px solid var(--surface-border);
+        }
+        .time-btn {
+            background: transparent; border: none; color: var(--text-secondary); padding: 6px 12px;
+            border-radius: 16px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s;
+        }
+        .time-btn:hover { color: var(--text-primary); background: rgba(255, 255, 255, 0.1); }
+        .time-btn.active { background: var(--accent); color: #000; box-shadow: 0 2px 8px rgba(96, 205, 255, 0.3); }
 
-    // Clear
-    ctx.fillStyle = '#000';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+        /* Notifications */
+        #notif-area {
+            position: absolute; bottom: 100px; right: 20px; display: flex; flex-direction: column;
+            gap: 8px; align-items: flex-end; pointer-events: none; width: 320px;
+        }
+        .toast {
+            background: #1e1e1e; border: 1px solid var(--surface-border); border-left: 4px solid var(--accent);
+            padding: 12px 16px; border-radius: 8px; color: #fff; font-size: 13px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4); animation: slideInRight 0.3s cubic-bezier(0.1, 0.9, 0.2, 1), fadeOut 0.5s 4.5s forwards;
+            display: flex; align-items: center; gap: 10px; width: 100%;
+        }
+        .toast.drama { border-color: #ff4d4d; }
+        @keyframes slideInRight { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes fadeOut { to { opacity: 0; transform: translateY(5px); } }
 
-    ctx.save();
-    ctx.translate(canvas.width/2, canvas.height/2);
-    ctx.scale(g.camera.zoom, g.camera.zoom);
-    ctx.translate(-g.camera.x, -g.camera.y);
+        /* Inspector */
+        #inspector {
+            position: absolute; right: 20px; top: 90px; width: 320px; max-height: calc(100vh - 220px);
+            display: none; flex-direction: column; overflow-y: auto; padding: 0;
+        }
+        #inspector.visible { display: flex; }
 
-    // Strict Culling Calculation
-    const camW = canvas.width / g.camera.zoom;
-    const camH = canvas.height / g.camera.zoom;
-    const camX = g.camera.x - camW/2;
-    const camY = g.camera.y - camH/2;
-    const pad = 100; // Buffer
+        .inspector-header {
+            padding: 16px; background: rgba(255, 255, 255, 0.03); border-bottom: 1px solid var(--surface-border);
+            display: flex; gap: 12px; align-items: center;
+        }
+        .entity-avatar {
+            width: 54px; height: 54px; background: #2a2a2a; border-radius: 16px; display: flex;
+            align-items: center; justify-content: center; font-size: 28px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            position: relative; border: 1px solid var(--surface-border);
+        }
+        .gender-icon { position: absolute; bottom: -2px; right: -2px; font-size: 14px; background: #333; border-radius: 50%; padding: 2px; }
+        
+        .inspector-body { padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+        .section-label { font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
+        
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .stat-card {
+            background: rgba(255, 255, 255, 0.03); padding: 8px 10px; border-radius: 6px;
+            border: 1px solid var(--surface-border); display: flex; flex-direction: column;
+        }
+        .stat-card span:first-child { font-size: 10px; color: var(--text-secondary); }
+        .stat-card span:last-child { font-size: 14px; font-weight: 600; color: var(--text-primary); }
 
-    // 1. Terrain
-    const tiles = g.tiles;
-    const tCount = tiles.length;
-    for(let i=0; i<tCount; i++) {
-      const t = tiles[i];
-      if (t.x > camX - TILE_SIZE && t.x < camX + camW && t.y > camY - TILE_SIZE && t.y < camY + camH) {
-         ctx.fillStyle = t.color;
-         ctx.fillRect(t.x, t.y, TILE_SIZE+1, TILE_SIZE+1);
-      }
-    }
+        .chip {
+            display: inline-flex; align-items: center; gap: 4px; background: rgba(255,255,255,0.05);
+            border: 1px solid var(--surface-border); padding: 4px 8px; border-radius: 16px;
+            font-size: 11px; margin-right: 4px; margin-bottom: 4px;
+        }
 
-    // 2. Buildings
-    const buildings = g.buildings;
-    const bCount = buildings.length;
-    for(let i=0; i<bCount; i++) {
-      const b = buildings[i];
-      if (b.x < camX - 200 || b.x > camX + camW + 200 || b.y < camY - 200 || b.y > camY + camH + 200) continue;
+        /* Tools */
+        #tools-bar {
+            align-self: center; display: flex; gap: 6px; padding: 10px; margin-bottom: 10px;
+            flex-wrap: wrap; justify-content: center; max-width: 90%;
+        }
+        .tool-icon {
+            width: 42px; height: 42px; border-radius: 8px; background: rgba(255,255,255,0.02); border: 1px solid var(--surface-border);
+            color: var(--text-secondary); font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+            transition: all 0.2s; position: relative;
+        }
+        .tool-icon:hover { background: var(--surface-hover); color: var(--text-primary); transform: translateY(-2px); }
+        .tool-icon.active { background: rgba(96, 205, 255, 0.15); color: var(--accent); border-color: var(--accent); box-shadow: 0 0 15px rgba(96, 205, 255, 0.2); }
+        
+        .tool-icon:hover::after {
+            content: attr(title); position: absolute; bottom: 120%; left: 50%; transform: translateX(-50%);
+            background: #1a1a1a; padding: 6px 10px; font-size: 11px; border-radius: 6px;
+            white-space: nowrap; pointer-events: none; border: 1px solid var(--surface-border); color: #fff;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5); z-index: 100;
+        }
+        .divider { width: 1px; height: 24px; background: var(--surface-border); margin: 0 4px; align-self: center; }
 
-      ctx.fillStyle = 'rgba(0,0,0,0.3)';
-      ctx.fillRect(b.x + 10, b.y + 10, b.w, b.h);
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+    </style>
+</head>
+<body>
 
-      if (!b.built) {
-        ctx.strokeStyle = '#fbbf24';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(b.x, b.y, b.w, b.h);
-        ctx.beginPath();
-        ctx.moveTo(b.x, b.y); ctx.lineTo(b.x+b.w, b.y+b.h);
-        ctx.moveTo(b.x+b.w, b.y); ctx.lineTo(b.x, b.y+b.h);
-        ctx.stroke();
-        ctx.fillStyle = '#22c55e';
-        ctx.fillRect(b.x, b.y - 15, b.w * (b.progress/100), 8);
-      } else {
-        ctx.fillStyle = RACES[b.race]?.color || '#fff';
-        ctx.fillRect(b.x, b.y, b.w, b.h);
-        ctx.fillStyle = '#333'; // Roof
-        ctx.beginPath();
-        ctx.moveTo(b.x-5, b.y); ctx.lineTo(b.x+b.w/2, b.y-30); ctx.lineTo(b.x+b.w+5, b.y);
-        ctx.fill();
-      }
-    }
+    <canvas id="gameCanvas"></canvas>
 
-    // 3. Entities
-    const entities = g.entities;
-    const eCount = entities.length;
-    for(let i=0; i<eCount; i++) {
-      const e = entities[i];
-      if (e.x < camX - 50 || e.x > camX + camW + 50 || e.y < camY - 50 || e.y > camY + camH + 50) continue;
-
-      if (ui.selected === e.id) {
-        ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.beginPath();
-        ctx.arc(e.x, e.y, 25, 0, Math.PI*2); ctx.stroke();
-      }
-
-      if (e.isKing) {
-        ctx.font = '24px Arial'; ctx.textAlign = 'center';
-        ctx.fillText('👑', e.x, e.y - 25);
-      }
-
-      ctx.fillStyle = RACES[e.race]?.color || '#fff';
-      ctx.beginPath();
-      ctx.arc(e.x, e.y, e.race === 'DRAGON' ? 40 : 15, 0, Math.PI*2);
-      ctx.fill();
-
-      ctx.font = e.race === 'DRAGON' ? '40px Arial' : '20px Arial';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(RACES[e.race]?.icon, e.x, e.y);
-      
-      if (e.state === 'BUILD') {
-         ctx.font = '12px Arial'; ctx.fillText('🔨', e.x + 15, e.y - 15);
-      }
-    }
-
-    // 4. Particles
-    const particles = g.particles;
-    const pCount = particles.length;
-    for(let i=0; i<pCount; i++) {
-      const p = particles[i];
-      ctx.globalAlpha = p.life;
-      ctx.fillStyle = p.color;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, 4, 0, Math.PI*2);
-      ctx.fill();
-    }
-    ctx.globalAlpha = 1.0;
-
-    ctx.restore();
-  };
-
-  // --- INPUT ---
-  
-  const handleMouseDown = (e) => {
-    const g = gameRef.current;
-    g.input.dragging = true;
-    g.input.lastX = e.clientX;
-    g.input.lastY = e.clientY;
-
-    const rect = canvasRef.current.getBoundingClientRect();
-    const wx = (e.clientX - rect.width/2)/g.camera.zoom + g.camera.x;
-    const wy = (e.clientY - rect.height/2)/g.camera.zoom + g.camera.y;
-
-    if (ui.godTool === 'select') {
-      // Manual loop find
-      let clicked = null;
-      const ents = g.entities;
-      for(let i=0; i<ents.length; i++) {
-         if (distSq(ents[i], {x: wx, y: wy}) < 900) { clicked = ents[i]; break; }
-      }
-      setUi(p => ({ ...p, selected: clicked ? clicked.id : null }));
-    } 
-    else if (ui.godTool === 'spawn_dragon') {
-      spawnUnit('DRAGON', wx, wy);
-    }
-    else if (ui.godTool === 'smite') {
-      spawnParticle(wx, wy, '#facc15', 'burst');
-      const ents = g.entities;
-      for(let i=0; i<ents.length; i++) {
-         if (distSq(ents[i], {x: wx, y: wy}) < 2500) ents[i].hp = 0;
-      }
-    }
-    else if (ui.godTool === 'gift' && ui.selected) {
-      const u = g.entities.find(e => e.id === ui.selected);
-      if (u) {
-         const item = ITEMS[rng(2, ITEMS.length-1)];
-         u.inventory.push({ ...item, id: Math.random() });
-         u.money += 10000;
-         spawnParticle(u.x, u.y, '#22c55e', 'burst');
-      }
-    }
-  };
-
-  const handleMouseMove = (e) => {
-    const g = gameRef.current;
-    if (g.input.dragging) {
-      const dx = e.clientX - g.input.lastX;
-      const dy = e.clientY - g.input.lastY;
-      g.input.lastX = e.clientX;
-      g.input.lastY = e.clientY;
-      g.camera.x -= dx / g.camera.zoom;
-      g.camera.y -= dy / g.camera.zoom;
-    }
-  };
-
-  const handleMouseUp = () => gameRef.current.input.dragging = false;
-  const handleWheel = (e) => {
-    const g = gameRef.current;
-    g.camera.zoom = clamp(g.camera.zoom - e.deltaY * 0.001, 0.1, 2.0);
-  };
-
-  const cycleSpeed = () => {
-    const s = gameRef.current.time.speed;
-    let next = 1;
-    if (s === 1) next = 2; else if (s === 2) next = 5; else if (s === 5) next = 10; else if (s === 10) next = 0.5;
-    gameRef.current.time.speed = next;
-  };
-
-  const renderInspector = () => {
-    if (!ui.selected) return null;
-    const u = gameRef.current.entities.find(e => e.id === ui.selected);
-    if (!u) return null;
-    const { g, s, b } = formatMoney(u.money);
-
-    return (
-      <div className="absolute top-20 right-6 w-80 bg-slate-900/95 border border-slate-700 text-slate-200 p-4 rounded-lg shadow-2xl">
-        <div className="flex justify-between items-start mb-4">
-           <div>
-             <h2 className="text-xl font-bold text-amber-500 flex items-center gap-2">
-               {u.isKing && <span title="King">👑</span>} {u.name}
-             </h2>
-             <div className="text-xs text-slate-400">{RACES[u.race].name} • Age {u.age}</div>
-           </div>
-           <div className="text-3xl">{RACES[u.race].icon}</div>
+    <div id="ui-layer">
+        <div id="top-bar" class="mica-panel">
+            <div class="stat-group"><span class="stat-label">Year</span><div class="stat-value" id="ui-year">1</div></div>
+            <div class="divider"></div>
+            <div class="stat-group"><span class="stat-label">Time</span><div class="stat-value" id="ui-time">Day</div></div>
+            <div class="divider"></div>
+            <div class="time-controls">
+                <button class="time-btn" onclick="setSpeed(0)" id="btn-pause">||</button>
+                <button class="time-btn active" onclick="setSpeed(1)" id="btn-1x">1x</button>
+                <button class="time-btn" onclick="setSpeed(5)" id="btn-5x">5x</button>
+                <button class="time-btn" onclick="setSpeed(20)" id="btn-20x">20x</button>
+            </div>
+            <div class="divider"></div>
+            <div class="stat-group"><span class="stat-label">Pop</span><div class="stat-value" id="ui-pop">0</div></div>
         </div>
-        <div className="mb-4 bg-slate-800 p-2 rounded text-xs font-mono text-center border border-slate-600">
-            <span className="text-slate-400 uppercase tracking-wide">Status</span>
-            <div className={`text-sm font-bold mt-1 ${u.status.includes('Destitute') ? 'text-red-400' : 'text-green-400'}`}>{u.status}</div>
-        </div>
-        <div className="space-y-2 mb-4">
-           <div className="flex justify-between text-xs"><span>Health</span><span>{Math.round(u.hp)}/{u.maxHp}</span></div>
-           <div className="w-full h-2 bg-slate-800 rounded overflow-hidden"><div className="h-full bg-red-500" style={{width: `${(u.hp/u.maxHp)*100}%`}}></div></div>
-        </div>
-        <div className="bg-slate-950 p-3 rounded border border-slate-800 mb-4">
-           <div className="grid grid-cols-3 gap-1 text-center text-sm font-mono">
-              <div className="text-amber-400">{g} G</div><div className="text-slate-300">{s} S</div><div className="text-orange-400">{b} B</div>
-           </div>
-        </div>
-        <div className="space-y-1 max-h-40 overflow-y-auto bg-slate-800 p-1 rounded mb-4">
-             {u.inventory.map((item, idx) => (
-               <div key={idx} className="flex justify-between text-xs bg-slate-700 p-1.5 rounded"><span>{item.name}</span><span className="text-amber-300">{item.val}v</span></div>
-             ))}
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-           {!u.isKing && <button onClick={() => { u.isKing = true; u.money += 50000; spawnParticle(u.x, u.y, '#fbbf24'); }} className="col-span-2 p-2 bg-amber-700 rounded text-xs font-bold">Anoint King</button>}
-           <button onClick={() => setUi(p => ({...p, godTool: 'gift'}))} className="p-2 bg-green-600 rounded text-xs">Gift</button>
-           <button onClick={() => { u.hp = 0; spawnParticle(u.x, u.y, '#f00'); }} className="p-2 bg-red-900 rounded text-xs">Kill</button>
-        </div>
-      </div>
-    );
-  };
 
-  return (
-    <div className="w-full h-screen bg-black overflow-hidden text-white font-sans select-none">
-      <canvas ref={canvasRef} className={`block w-full h-full cursor-${ui.godTool === 'select' ? 'default' : 'crosshair'}`}
-        onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onWheel={handleWheel} />
-      
-      <div className="absolute top-0 left-0 w-full h-14 bg-slate-900/80 backdrop-blur flex items-center justify-between px-6 border-b border-slate-700">
-         <h1 className="text-xl font-bold text-amber-500 flex items-center gap-2"><Crown className="w-5 h-5"/> OmniSim: Aethelgard</h1>
-         <div className="flex items-center gap-6 text-sm font-mono text-slate-300">
-            <span>Pop: {ui.pop}</span><span>Year: {ui.year}</span><span className={ui.fps < 30 ? 'text-red-500' : 'text-green-400'}>FPS: {ui.fps}</span>
-         </div>
-      </div>
+        <div id="notif-area"></div>
+        <div id="inspector" class="mica-panel"></div>
 
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-slate-900/90 backdrop-blur border border-slate-700 rounded-2xl p-2 flex gap-2 shadow-2xl">
-         {[
-           { id: 'select', icon: <MousePointer className="w-5 h-5"/> }, { id: 'spawn_dragon', icon: <Flame className="w-5 h-5 text-red-500"/> },
-           { id: 'smite', icon: <Zap className="w-5 h-5 text-yellow-400"/> }, { id: 'gift', icon: <Gift className="w-5 h-5 text-green-400"/> },
-         ].map(tool => (
-           <button key={tool.id} onClick={() => setUi(p => ({...p, godTool: tool.id}))} className={`p-3 rounded-xl transition-all ${ui.godTool === tool.id ? 'bg-amber-600' : 'hover:bg-slate-700 text-slate-400'}`}>{tool.icon}</button>
-         ))}
-         <div className="w-px h-10 bg-slate-700 mx-1"></div>
-         <button onClick={() => { gameRef.current.time.paused = !gameRef.current.time.paused }} className="p-3 hover:text-amber-400">{gameRef.current.time.paused ? <Play className="w-5 h-5"/> : <Pause className="w-5 h-5"/>}</button>
-         <button onClick={cycleSpeed} className="p-3 hover:text-amber-400 font-bold w-12 text-center">{gameRef.current.time.speed}x</button>
-      </div>
-
-      {renderInspector()}
+        <div id="tools-bar" class="mica-panel">
+            <button class="tool-icon active" onclick="setTool('select')" title="Select">👆</button>
+            <button class="tool-icon" onclick="setTool('drag')" title="Pan">✋</button>
+            <div class="divider"></div>
+            <button class="tool-icon" onclick="setTool('human')" title="Human">🧑</button>
+            <button class="tool-icon" onclick="setTool('elf')" title="Elf">🧝</button>
+            <button class="tool-icon" onclick="setTool('dwarf')" title="Dwarf">🧔</button>
+            <button class="tool-icon" onclick="setTool('orc')" title="Orc">👹</button>
+            <button class="tool-icon" onclick="setTool('gnome')" title="Gnome">🧙‍♂️</button>
+            <button class="tool-icon" onclick="setTool('tiefling')" title="Tiefling">😈</button>
+            <button class="tool-icon" onclick="setTool('vampire')" title="Vampire">🧛</button>
+            <button class="tool-icon" onclick="setTool('undead')" title="Undead">💀</button>
+            <div class="divider"></div>
+            <button class="tool-icon" onclick="setTool('loot')" title="Loot">💎</button>
+            <button class="tool-icon" onclick="setTool('bless')" title="Bless">✨</button>
+            <button class="tool-icon" onclick="setTool('lust')" title="Lust">💋</button>
+            <button class="tool-icon" onclick="setTool('smite')" title="Smite">⚡</button>
+        </div>
     </div>
-  );
-}
+
+    <script>
+        /* --- CONSTANTS --- */
+        const TILE_SIZE = 32;
+        const WORLD_W = 120;
+        const WORLD_H = 100;
+
+        const COLORS = { water: '#1a3c5e', sand: '#d4b483', grass: '#3a5f3a', forest: '#1e361e', mountain: '#5c5c5c' };
+        
+        const RACES = {
+            human: { name: 'Human', emoji: '🧑', hp: 100, spd: 0.8, maxAge: 80 },
+            elf: { name: 'Elf', emoji: '🧝', hp: 90, spd: 1.0, maxAge: 300 },
+            dwarf: { name: 'Dwarf', emoji: '🧔', hp: 140, spd: 0.6, maxAge: 150 },
+            orc: { name: 'Orc', emoji: '👹', hp: 160, spd: 0.75, maxAge: 60 },
+            gnome: { name: 'Gnome', emoji: '🧙‍♂️', hp: 60, spd: 0.9, maxAge: 200 },
+            halfling: { name: 'Halfling', emoji: '🦶', hp: 70, spd: 0.9, maxAge: 100 },
+            dragonborn: { name: 'Dragonborn', emoji: '🐲', hp: 150, spd: 0.8, maxAge: 100 },
+            tiefling: { name: 'Tiefling', emoji: '😈', hp: 100, spd: 0.9, maxAge: 90 },
+            troll: { name: 'Troll', emoji: '🧟', hp: 200, spd: 0.5, maxAge: 80 },
+            goblin: { name: 'Goblin', emoji: '👺', hp: 50, spd: 1.2, maxAge: 40 },
+            fairy: { name: 'Fairy', emoji: '🧚', hp: 30, spd: 1.5, maxAge: 500 },
+            vampire: { name: 'Vampire', emoji: '🧛', hp: 120, spd: 1.1, maxAge: 9999 },
+            lycan: { name: 'Lycan', emoji: '🐺', hp: 140, spd: 1.3, maxAge: 70 },
+            golem: { name: 'Golem', emoji: '🗿', hp: 300, spd: 0.4, maxAge: 9999 },
+            ent: { name: 'Ent', emoji: '🌳', hp: 400, spd: 0.3, maxAge: 9999 },
+            undead: { name: 'Undead', emoji: '💀', hp: 60, spd: 0.5, maxAge: 9999 }
+        };
+
+        const JOBS = [
+            'Builder', 'Farmer', 'Woodcutter', 'Miner', 'Guard', 'Explorer',
+            'Blacksmith', 'Baker', 'Alchemist', 'Tailor', 'Cobbler', 'Merchant',
+            'Priest', 'Fisherman', 'Hunter', 'Jester', 'Scribe', 'Mason',
+            'Tanner', 'Weaver', 'Brewer', 'Innkeeper', 'Healer', 'Bard', 'Servant'
+        ];
+
+        const TRAITS = [
+            'Brave', 'Cowardly', 'Greedy', 'Generous', 'Lazy', 'Hardworking', 
+            'Genius', 'Dull', 'Strong', 'Weak', 'Charismatic', 'Annoying',
+            'Gluttonous', 'Ascetic', 'Mad', 'Blessed', 'Cursed', 'Lucky',
+            'Lustful', 'Chaste', 'Jealous', 'Loyal'
+        ];
+
+        const BUILDINGS = {
+            House: { emoji: '🏠', wood: 50, cap: 5 },
+            Farm: { emoji: '🌾', wood: 20, cap: 2 },
+            Smithy: { emoji: '⚒️', wood: 100, stone: 50, cap: 2 },
+            Tavern: { emoji: '🍺', wood: 80, cap: 20 },
+            Temple: { emoji: '⛩️', stone: 200, cap: 5 },
+            Mine: { emoji: '⛏️', wood: 50, cap: 5 },
+            Market: { emoji: '⚖️', wood: 80, cap: 10 },
+            Library: { emoji: '📜', stone: 100, cap: 5 }
+        };
+
+        const ITEM_PREFIXES = ['Old', 'Rusty', 'Iron', 'Steel', 'Mithril', 'Adamantite', 'Flaming', 'Frozen', 'Holy', 'Cursed'];
+        const ITEM_BASES = ['Sword', 'Axe', 'Bow', 'Shield', 'Helm', 'Ring', 'Amulet', 'Boots', 'Tome'];
+
+        /* --- STATE --- */
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d', { alpha: false });
+
+        let state = {
+            tiles: [],
+            units: [],
+            cities: [],
+            buildings: [],
+            loot: [],
+            particles: [],
+            cam: { x: 0, y: 0, z: 1 },
+            time: { year: 1, day: 1, hour: 12 },
+            gameSpeed: 1,
+            tool: 'select',
+            selection: null,
+            input: { drag: false, lx: 0, ly: 0 }
+        };
+
+        /* --- INIT --- */
+        function init() {
+            resize();
+            window.addEventListener('resize', resize);
+            canvas.addEventListener('mousedown', onDown);
+            window.addEventListener('mousemove', onMove);
+            window.addEventListener('mouseup', onUp);
+            canvas.addEventListener('wheel', onWheel);
+
+            generateMap();
+            // Initial Civs
+            createCity(20, 20, RACES.human);
+            createCity(90, 20, RACES.elf);
+            createCity(60, 80, RACES.orc);
+            
+            requestAnimationFrame(loop);
+        }
+        function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+
+        /* --- GENERATION --- */
+        function generateMap() {
+            state.tiles = [];
+            for(let y=0; y<WORLD_H; y++) {
+                let row = [];
+                for(let x=0; x<WORLD_W; x++) {
+                    let n = Math.sin(x*0.1) * Math.cos(y*0.1) + Math.random()*0.1;
+                    let t = 'grass';
+                    if(n < -0.5) t='water'; else if(n < -0.3) t='sand'; else if(n>0.5) t='forest'; else if(n>0.8) t='mountain';
+                    row.push({ x, y, type: t });
+                }
+                state.tiles.push(row);
+            }
+        }
+
+        function createCity(x, y, race) {
+            let id = Math.random();
+            let city = { id, x, y, race, name: `${race.name} City`, pop: 0, res: {wood:500, stone:200, food:500}, radius: 12 };
+            state.cities.push(city);
+            
+            placeBuilding(x, y, 'House', id);
+            placeBuilding(x+2, y, 'Farm', id);
+            placeBuilding(x-2, y, 'Tavern', id);
+            
+            for(let i=0; i<20; i++) {
+                spawnUnit(x + Math.random()*4-2, y + Math.random()*4-2, race, id);
+            }
+        }
+
+        function placeBuilding(x, y, type, cityId) {
+            state.buildings.push({
+                id: Math.random(), type, x, y, cityId, 
+                emoji: BUILDINGS[type].emoji,
+                level: 1,
+                inventory: [],
+                residents: []
+            });
+        }
+
+        function spawnUnit(x, y, race, cityId, parentA=null, parentB=null) {
+            let traits = [];
+            if(parentA) traits = [...parentA.traits]; // Inherit
+            if(traits.length < 3 && Math.random()<0.3) traits.push(TRAITS[Math.floor(Math.random()*TRAITS.length)]);
+            
+            // Gender 50/50
+            let gender = Math.random() > 0.5 ? 'M' : 'F';
+            let age = (parentA) ? 0 : 18 + Math.floor(Math.random()*30);
+
+            let u = {
+                id: Math.random(), x, y, tx: x, ty: y, race, cityId, 
+                gender, hp: race.hp, maxHp: race.hp, age,
+                job: 'Idle',
+                homeId: (parentA) ? parentA.homeId : null, // Live with parents
+                partnerId: null,
+                children: [],
+                traits: traits,
+                inv: { gold: 10 }, gear: [],
+                mood: 'Happy',
+                state: 'idle', cooldown: 0
+            };
+            
+            if(!parentA) {
+                u.job = JOBS[Math.floor(Math.random() * JOBS.length)];
+            } else {
+                if(parentA.homeId) {
+                     let h = state.buildings.find(b=>b.id===parentA.homeId);
+                     if(h) h.residents.push(u.id);
+                }
+            }
+
+            state.units.push(u);
+        }
+
+        /* --- LOGIC --- */
+        function loop() {
+            if(state.gameSpeed > 0) {
+                let steps = state.gameSpeed;
+                for(let i=0; i<steps; i++) update();
+            }
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        function update() {
+            state.time.hour += 0.05;
+            if(state.time.hour >= 24) { state.time.hour = 0; state.time.day++; }
+            if(state.time.hour%1 < 0.05) updateUI(); 
+
+            state.units.forEach(u => {
+                if(u.hp <= 0) return;
+                
+                // 1. Life Cycle
+                if(Math.random() < 0.001) {
+                    u.age += 0.05;
+                    if(u.race.name !== 'Undead' && u.age > u.race.maxAge) {
+                        u.hp = 0; // Old age death
+                        notify(`${u.race.name} died of old age.`, 'normal');
+                    }
+                    // Grow up
+                    if(u.age >= 18 && u.job === 'Idle') {
+                        u.job = JOBS[Math.floor(Math.random() * JOBS.length)];
+                    }
+                }
+
+                // 2. Social / Romantic Logic
+                let isNight = state.time.hour < 6 || state.time.hour > 20;
+                
+                if(u.age >= 18) {
+                    // Find Partner
+                    if(!u.partnerId && Math.random() < 0.001) {
+                         let potential = findPartner(u);
+                         if(potential) {
+                             u.partnerId = potential.id;
+                             potential.partnerId = u.id;
+                             // Move in together
+                             if(u.homeId && !potential.homeId) potential.homeId = u.homeId;
+                             else if(!u.homeId && potential.homeId) u.homeId = potential.homeId;
+                             else if(!u.homeId && !potential.homeId) { /* Need house */ }
+                             addParticle(u.x, u.y, '❤️', '#f0f');
+                         }
+                    }
+                    
+                    // Cheating Logic (ADJUSTED: Made much less common)
+                    // Lustful characters now have a small chance per tick instead of 100%, and base chance reduced
+                    if(u.partnerId && ((u.traits.includes('Lustful') && Math.random() < 0.0005) || Math.random() < 0.00002)) {
+                        let affair = findAffair(u);
+                        if(affair) {
+                            moveTowards(u, affair.x, affair.y, u.race.spd);
+                            if(dist(u, affair) < 1) {
+                                addParticle(u.x, u.y, '💋', '#f0a');
+                                // Check if spouse sees
+                                let spouse = state.units.find(s => s.id === u.partnerId);
+                                if(spouse && dist(u, spouse) < 10) {
+                                    spouse.mood = 'Furious';
+                                    spouse.partnerId = null; // Divorce
+                                    u.partnerId = null;
+                                    notify('Drama!', `${u.race.name} caught cheating!`, 'drama');
+                                    addParticle(spouse.x, spouse.y, '💔', '#f00');
+                                }
+                            }
+                            return; // Busy cheating
+                        }
+                    }
+                }
+
+                // 3. Night/Day Cycle
+                if(isNight) {
+                    if(u.homeId) {
+                        let home = state.buildings.find(b=>b.id===u.homeId);
+                        if(home) {
+                            moveTowards(u, home.x, home.y, u.race.spd);
+                            // Breeding
+                            if(dist(u, home)<1 && u.partnerId && u.gender==='F' && u.age > 18 && Math.random()<0.002) {
+                                let partner = state.units.find(p=>p.id===u.partnerId);
+                                if(partner && dist(u, partner) < 2) {
+                                    spawnUnit(u.x, u.y, u.race, u.cityId, u, partner);
+                                    addParticle(u.x, u.y, '👶', '#fff');
+                                }
+                            }
+                        }
+                    } else {
+                        // Go to Tavern if homeless
+                        let tavern = state.buildings.find(b=>b.cityId===u.cityId && b.type==='Tavern');
+                        if(tavern) moveTowards(u, tavern.x, tavern.y, u.race.spd);
+                    }
+                } else {
+                    // Day Work
+                    doJob(u);
+                }
+
+                // Physics
+                u.x = Math.max(0, Math.min(WORLD_W-1, u.x));
+                u.y = Math.max(0, Math.min(WORLD_H-1, u.y));
+            });
+            
+            state.units = state.units.filter(u => u.hp > 0);
+
+            if(Math.random() < 0.05) updateCities();
+        }
+
+        function findPartner(u) {
+            return state.units.find(t => 
+                t.id !== u.id && 
+                t.cityId === u.cityId && 
+                !t.partnerId && 
+                t.age >= 18 && 
+                t.gender !== u.gender &&
+                dist(u, t) < 5
+            );
+        }
+
+        function findAffair(u) {
+             return state.units.find(t => 
+                t.id !== u.id && 
+                t.id !== u.partnerId &&
+                t.age >= 18 && 
+                t.gender !== u.gender &&
+                dist(u, t) < 8
+            );
+        }
+
+        function doJob(u) {
+            if(u.age < 18) { wander(u); return; } // Kids play
+            
+            let city = state.cities.find(c=>c.id===u.cityId);
+            if(!city) return wander(u);
+
+            // Job Specific Logic (Simplified categories)
+            if(['Builder', 'Mason'].includes(u.job)) {
+                // Build Logic
+                if(city.res.wood > 100 && Math.random()<0.01) {
+                    let angle = Math.random() * Math.PI * 2;
+                    let r = Math.random() * city.radius;
+                    let bx = Math.floor(city.x + Math.cos(angle)*r);
+                    let by = Math.floor(city.y + Math.sin(angle)*r);
+                    // Collision check
+                    if(!state.buildings.find(b=>dist({x:bx,y:by}, b)<2)) {
+                        placeBuilding(bx, by, 'House', u.cityId);
+                        city.res.wood -= 50;
+                        addParticle(bx, by, '🏠', '#fff');
+                    }
+                }
+                wander(u);
+            }
+            else if(['Farmer', 'Brewer', 'Baker'].includes(u.job)) {
+                let farm = state.buildings.find(b=>b.cityId===u.cityId && b.type==='Farm');
+                if(farm) { moveTowards(u, farm.x, farm.y, u.race.spd); if(dist(u,farm)<1) city.res.food++; }
+                else wander(u);
+            }
+            else if(['Miner', 'Blacksmith'].includes(u.job)) {
+                 let m = findNearest(u, 'mountain');
+                 if(m) { moveTowards(u, m.x, m.y, u.race.spd); if(dist(u,m)<1) city.res.stone++; }
+            }
+            else if(['Woodcutter', 'Hunter'].includes(u.job)) {
+                 let f = findNearest(u, 'forest');
+                 if(f) { moveTowards(u, f.x, f.y, u.race.spd); if(dist(u,f)<1) city.res.wood++; }
+            }
+            else if(['Priest', 'Healer'].includes(u.job)) {
+                // Visit Temple or Sick
+                let sick = state.units.find(t=>t.hp < t.maxHp && dist(u,t)<10);
+                if(sick) { moveTowards(u, sick.x, sick.y, u.race.spd); if(dist(u,sick)<1) sick.hp+=1; }
+                else {
+                    let temple = state.buildings.find(b=>b.cityId===u.cityId && b.type==='Temple');
+                    if(temple) moveTowards(u, temple.x, temple.y, u.race.spd);
+                    else wander(u);
+                }
+            }
+            else if(['Guard'].includes(u.job)) {
+                let angle = Date.now()/2000;
+                moveTowards(u, city.x + Math.cos(angle)*city.radius, city.y + Math.sin(angle)*city.radius, u.race.spd);
+            }
+            else if(['Bard', 'Jester', 'Innkeeper'].includes(u.job)) {
+                let tavern = state.buildings.find(b=>b.cityId===u.cityId && b.type==='Tavern');
+                if(tavern) moveTowards(u, tavern.x, tavern.y, u.race.spd);
+                else wander(u);
+            }
+            else wander(u);
+        }
+
+        function updateCities() {
+            // Simple growth
+            state.cities.forEach(c => {
+                c.pop = state.units.filter(u=>u.cityId===c.id).length;
+                if(c.pop > 10 && Math.random()<0.01) c.radius = Math.min(30, c.radius+1);
+            });
+        }
+
+        /* --- HELPERS --- */
+        function moveTowards(u, tx, ty, s) {
+            let dx = tx - u.x, dy = ty - u.y;
+            let d = Math.sqrt(dx*dx + dy*dy);
+            if(d > 0.1) { u.x += (dx/d)*0.1*s; u.y += (dy/d)*0.1*s; }
+        }
+        function wander(u) { if(Math.random()<0.05) { u.tx=u.x+Math.random()*4-2; u.ty=u.y+Math.random()*4-2; } moveTowards(u, u.tx, u.ty, u.race.spd*0.5); }
+        function dist(a, b) { return Math.sqrt((a.x-b.x)**2 + (a.y-b.y)**2); }
+        function findNearest(u, type) {
+             for(let i=0; i<20; i++) {
+                 let tx = Math.floor(u.x + Math.random()*30-15);
+                 let ty = Math.floor(u.y + Math.random()*30-15);
+                 if(tx>=0 && tx<WORLD_W && ty>=0 && ty<WORLD_H && state.tiles[ty][tx].type === type) return {x:tx, y:ty};
+             }
+             return null;
+        }
+        function addParticle(x, y, txt, col) { state.particles.push({x,y,txt,col,life:40}); }
+        function notify(title, msg, type) {
+            let d = document.createElement('div'); d.className = `toast ${type||''}`;
+            d.innerHTML = `<strong>${title}</strong> <span>${msg}</span>`;
+            document.getElementById('notif-area').appendChild(d);
+            setTimeout(()=>d.remove(), 5000);
+        }
+
+        /* --- DRAW --- */
+        function draw() {
+            ctx.fillStyle = '#000'; ctx.fillRect(0,0,canvas.width, canvas.height);
+            ctx.save();
+            ctx.translate(canvas.width/2, canvas.height/2);
+            ctx.scale(state.cam.z, state.cam.z);
+            ctx.translate(-state.cam.x*TILE_SIZE, -state.cam.y*TILE_SIZE);
+
+            // Tiles
+            let vw = (canvas.width/state.cam.z)/TILE_SIZE;
+            let vh = (canvas.height/state.cam.z)/TILE_SIZE;
+            let sx = Math.floor(state.cam.x - vw/2 - 2);
+            let sy = Math.floor(state.cam.y - vh/2 - 2);
+            
+            for(let y=Math.max(0,sy); y<Math.min(WORLD_H, sy+vh+4); y++) {
+                for(let x=Math.max(0,sx); x<Math.min(WORLD_W, sx+vw+4); x++) {
+                    let t = state.tiles[y][x];
+                    ctx.fillStyle = COLORS[t.type];
+                    ctx.fillRect(x*TILE_SIZE, y*TILE_SIZE, TILE_SIZE+1, TILE_SIZE+1);
+                    if(t.type==='forest') { ctx.fillStyle='rgba(0,0,0,0.3)'; ctx.font='20px Serif'; ctx.fillText('🌲', x*TILE_SIZE+2, y*TILE_SIZE+24); }
+                    if(t.type==='mountain') { ctx.font='20px Serif'; ctx.fillText('🏔️', x*TILE_SIZE+2, y*TILE_SIZE+24); }
+                }
+            }
+
+            // Buildings
+            state.buildings.forEach(b => {
+                ctx.font = '24px Serif';
+                ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillText(b.emoji, b.x*TILE_SIZE+2, b.y*TILE_SIZE+2);
+                ctx.fillText(b.emoji, b.x*TILE_SIZE, b.y*TILE_SIZE);
+                if(state.selection && state.selection.id === b.id) {
+                    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.strokeRect(b.x*TILE_SIZE-2, b.y*TILE_SIZE-24, 36, 36);
+                }
+            });
+
+            // Units
+            state.units.forEach(u => {
+                let px = u.x*TILE_SIZE+16, py = u.y*TILE_SIZE+16;
+                ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.beginPath(); ctx.ellipse(px, py+8, 6, 3, 0, 0, Math.PI*2); ctx.fill();
+                
+                if(state.selection && state.selection.id === u.id) { ctx.strokeStyle = '#fff'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(px, py, 14, 0, Math.PI*2); ctx.stroke(); }
+                
+                ctx.fillStyle = u.race.emoji ? '#fff' : '#f00';
+                // Show kid emoji if age < 18
+                let displayEmoji = u.age < 18 ? '👶' : u.race.emoji;
+                ctx.font='20px Serif'; ctx.textAlign='center';
+                ctx.fillText(displayEmoji, px, py+6);
+                
+                // Job Icon if zoomed
+                if(state.cam.z > 1.5 && u.age >= 18) {
+                    let jobIcon = '';
+                    if(u.job === 'Guard') jobIcon='🛡️';
+                    else if(u.job === 'Blacksmith') jobIcon='⚒️';
+                    else if(u.job === 'Farmer') jobIcon='🌾';
+                    else if(u.job === 'Priest') jobIcon='⛪';
+                    if(jobIcon) { ctx.font='10px Serif'; ctx.fillText(jobIcon, px+8, py-8); }
+                }
+            });
+
+            // Particles
+            state.particles.forEach((p, i) => {
+                ctx.fillStyle = p.col || '#fff'; ctx.font='12px Sans'; ctx.fillText(p.txt, p.x*TILE_SIZE, p.y*TILE_SIZE - (30-p.life));
+                p.life--; if(p.life<=0) state.particles.splice(i,1);
+            });
+            
+            // Night Overlay
+            let hour = state.time.hour;
+            if(hour < 6 || hour > 20) {
+                ctx.fillStyle = 'rgba(0, 5, 15, 0.4)';
+                ctx.fillRect(state.cam.x*TILE_SIZE - vw*TILE_SIZE, state.cam.y*TILE_SIZE - vh*TILE_SIZE, vw*TILE_SIZE*2, vh*TILE_SIZE*2);
+            }
+
+            ctx.restore();
+        }
+
+        /* --- INPUT --- */
+        function onDown(e) { state.input.drag = false; state.input.lx = e.clientX; state.input.ly = e.clientY; if(state.tool==='drag') state.input.drag=true; else handleClick(e); }
+        function onMove(e) {
+            if(state.input.drag) {
+                state.cam.x -= (e.clientX-state.input.lx)/state.cam.z/TILE_SIZE;
+                state.cam.y -= (e.clientY-state.input.ly)/state.cam.z/TILE_SIZE;
+                state.input.lx = e.clientX; state.input.ly = e.clientY;
+            }
+        }
+        function onUp() { state.input.drag = false; }
+        function onWheel(e) { let s = e.deltaY>0 ? 0.9 : 1.1; state.cam.z = Math.max(0.4, Math.min(4, state.cam.z*s)); }
+
+        function handleClick(e) {
+            let cx = canvas.width/2, cy = canvas.height/2;
+            let wx = (e.clientX-cx)/state.cam.z + state.cam.x*TILE_SIZE;
+            let wy = (e.clientY-cy)/state.cam.z + state.cam.y*TILE_SIZE;
+            let tx = Math.floor(wx/TILE_SIZE), ty = Math.floor(wy/TILE_SIZE);
+
+            if(state.tool === 'select') {
+                let u = state.units.find(unit => dist({x:tx, y:ty}, unit) < 1.5);
+                if(u) { state.selection = { type: 'unit', ...u, ref: u }; updateInspector(); return; }
+                let b = state.buildings.find(build => dist({x:tx, y:ty}, build) < 1.5);
+                if(b) { state.selection = { type: 'building', ...b, ref: b }; updateInspector(); return; }
+                document.getElementById('inspector').classList.remove('visible');
+                state.selection = null;
+            } else {
+                let rKey = state.tool;
+                if(RACES[rKey]) spawnUnit(tx, ty, RACES[rKey], null);
+                if(state.tool === 'loot') { state.loot.push({x:tx, y:ty}); addParticle(tx,ty,'💎','#fff'); }
+                if(state.tool === 'forest') { state.tiles[ty][tx].type = 'forest'; }
+                if(state.tool === 'mountain') { state.tiles[ty][tx].type = 'mountain'; }
+                if(state.tool === 'smite') { addParticle(tx, ty, '⚡', '#ff0'); state.units.forEach(u=>{ if(dist(u,{x:tx,y:ty})<2) u.hp=0; }); }
+                if(state.tool === 'lust') { 
+                    let u = state.units.find(unit => dist({x:tx, y:ty}, unit) < 1.5);
+                    if(u) { u.traits.push('Lustful'); notify('Curse', `${u.race.name} is now Lustful`, 'drama'); }
+                }
+            }
+        }
+
+        function updateInspector() {
+            let panel = document.getElementById('inspector');
+            let s = state.selection;
+            if(!s) { panel.classList.remove('visible'); return; }
+            
+            panel.classList.add('visible');
+            let html = '';
+
+            if(s.type === 'unit') {
+                let u = state.units.find(x=>x.id===s.id);
+                if(!u || u.hp<=0) { panel.classList.remove('visible'); return; }
+                
+                let traits = u.traits.map(t=>`<span class="chip">${t}</span>`).join('');
+                let partnerName = 'None';
+                if(u.partnerId) {
+                    let p = state.units.find(x=>x.id===u.partnerId);
+                    partnerName = p ? p.race.name : 'Deceased';
+                }
+                
+                html = `
+                    <div class="inspector-header">
+                        <div class="entity-avatar" style="border-color:${u.race.color}">${u.race.emoji}
+                            <div class="gender-icon" style="color:${u.gender==='M'?'#0af':'#f0a'}">${u.gender==='M'?'♂':'♀'}</div>
+                        </div>
+                        <div>
+                            <h3 style="margin:0">${u.race.name} ${u.job}</h3>
+                            <p style="margin:0;font-size:12px;opacity:0.7">Age ${Math.floor(u.age)}</p>
+                            <div style="margin-top:4px">${traits}</div>
+                        </div>
+                    </div>
+                    <div class="inspector-body">
+                        <div class="stats-grid">
+                            <div class="stat-card"><span>HP</span><span>${Math.floor(u.hp)}</span></div>
+                            <div class="stat-card"><span>Gold</span><span>${Math.floor(u.inv.gold)}</span></div>
+                        </div>
+                        <div class="section-label">Relations</div>
+                        <div style="background:rgba(255,255,255,0.05); padding:8px; border-radius:6px;">
+                            <div style="font-size:12px; margin-bottom:4px">Spouse: <strong style="color:#f0a">${partnerName}</strong></div>
+                            <div style="font-size:12px">Children: ${u.children.length}</div>
+                        </div>
+                    </div>
+                `;
+            } else if (s.type === 'building') {
+                let b = state.buildings.find(x=>x.id===s.id);
+                if(!b) { panel.classList.remove('visible'); return; }
+                html = `
+                    <div class="inspector-header">
+                        <div class="entity-avatar" style="border-color:#aaa">${b.emoji}</div>
+                        <div>
+                            <h3 style="margin:0">${b.type}</h3>
+                            <p style="margin:0;font-size:12px;opacity:0.7">Level ${b.level}</p>
+                        </div>
+                    </div>
+                    <div class="inspector-body">
+                         <div class="stats-grid">
+                            <div class="stat-card"><span>Residents</span><span>${b.residents.length}</span></div>
+                        </div>
+                    </div>
+                `;
+            }
+            panel.innerHTML = html;
+        }
+
+        function updateUI() {
+             document.getElementById('ui-year').innerText = Math.floor(state.time.day/365)+1;
+             document.getElementById('ui-time').innerText = (state.time.hour>6 && state.time.hour<20)?'Day':'Night';
+             document.getElementById('ui-pop').innerText = state.units.length;
+             if(state.selection) updateInspector();
+        }
+
+        function setSpeed(s) { state.gameSpeed = s; document.querySelectorAll('.time-btn').forEach(b=>b.classList.remove('active')); event.target.classList.add('active'); }
+        function setTool(t) { state.tool = t; document.querySelectorAll('.tool-icon').forEach(b=>b.classList.remove('active')); event.currentTarget.classList.add('active'); }
+
+        init();
+    </script>
+</body>
+</html>
