@@ -1,289 +1,590 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>D&D Class Guide</title>
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-<style>
-  /* General Reset & Font */
-  body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    margin: 0;
-    background-color: #f3f3f3;
-    color: #1c1c1c;
-    transition: background-color 0.3s ease, color 0.3s ease;
-  }
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  Play, Pause, MousePointer, Hand, 
+  Zap, Skull, Heart, Shield, Hammer, Coins, Users, 
+  CloudRain, Flame, Map as MapIcon, 
+  ZoomIn, ZoomOut, Sword, Crown, Scroll, Gift, 
+  Ghost, Anchor, Sparkles, Hourglass
+} from 'lucide-react';
 
-  body.dark {
-    background-color: #1e1e1e;
-    color: #e0e0e0;
-  }
+// --- CONFIGURATION ---
 
-  /* Header with Mica/Glass effect */
-  header {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 1rem;
-    background-color: rgba(255, 255, 255, 0.8);
-    backdrop-filter: blur(12px);
-    color: #1c1c1c;
-    padding: 1.5rem;
-    border-bottom: 1px solid #e0e0e0;
-    box-shadow: 0 2px 15px rgba(0,0,0,0.05);
-    border-radius: 0 0 20px 20px;
-    position: sticky;
-    top: 0;
-    z-index: 10;
-    transition: background-color 0.3s ease, color 0.3s ease;
-  }
+const WORLD_WIDTH = 5000;
+const WORLD_HEIGHT = 4000;
+const TILE_SIZE = 100;
+const MAX_ENTITIES = 800; // Increased limit now that engine is optimized
 
-  body.dark header {
-    background-color: rgba(30,30,30,0.8);
-    color: #e0e0e0;
-    border-bottom: 1px solid #333;
-  }
+const RACES = {
+  HUMAN: { name: 'Human', hp: 100, age: 80, color: '#fca5a5', icon: '👤', speed: 1.5, greed: 0.5 },
+  ELF: { name: 'Elf', hp: 90, age: 300, color: '#86efac', icon: '🧝', speed: 1.8, greed: 0.2 },
+  DWARF: { name: 'Dwarf', hp: 140, age: 150, color: '#fdba74', icon: '🧔', speed: 1.2, greed: 0.8 },
+  ORC: { name: 'Orc', hp: 180, age: 60, color: '#4ade80', icon: '👹', speed: 1.6, greed: 0.6 },
+  DRAGON: { name: 'Dragon', hp: 3000, age: 9999, color: '#ef4444', icon: '🐉', speed: 3.0, greed: 1.0 }
+};
 
-  header h1 {
-    margin: 0;
-    font-weight: 600;
-    font-size: 2rem;
-  }
+const BIOMES = {
+  OCEAN: { color: '#0f172a', name: 'Deep Sea' },
+  WATER: { color: '#3b82f6', name: 'Coastal' },
+  SAND: { color: '#fde047', name: 'Desert' },
+  PLAINS: { color: '#4ade80', name: 'Grasslands' },
+  FOREST: { color: '#166534', name: 'Deep Forest' },
+  MOUNTAIN: { color: '#57534e', name: 'High Peaks' },
+  MAGIC: { color: '#a855f7', name: 'Arcane Wastes' },
+  SNOW: { color: '#f1f5f9', name: 'Tundra' },
+};
 
-  /* Dark/Light mode toggle */
-  .theme-toggle {
-    position: absolute;
-    left: 1.5rem;
-    top: 50%;
-    transform: translateY(-50%);
-    background-color: #e7e7e7;
-    border: none;
-    border-radius: 20px;
-    padding: 0.4rem 1rem;
-    cursor: pointer;
-    font-weight: 500;
-    transition: background-color 0.3s ease, color 0.3s ease;
-  }
+const ITEMS = [
+  { name: 'Rusty Dagger', type: 'weapon', val: 5 },
+  { name: 'Iron Sword', type: 'weapon', val: 20 },
+  { name: 'Mithril Plate', type: 'armor', val: 150 },
+  { name: 'Health Potion', type: 'consumable', val: 10 },
+  { name: 'Ancient Relic', type: 'artifact', val: 500 },
+  { name: 'Bread', type: 'food', val: 1 },
+  { name: 'Godslayer Blade', type: 'weapon', val: 9999 }
+];
 
-  body.dark .theme-toggle {
-    background-color: #333;
-    color: #fff;
-  }
+// --- UTILS ---
 
-/* Sidebar background */
-nav {
-  background-color: #ffffff;
-  padding: 1rem;
-  width: 240px;
-  float: left;
-  height: calc(100vh - 112px); /* adjust for header height */
-  overflow-y: auto;
-  box-shadow: 2px 0 20px rgba(0,0,0,0.08);
-  border-radius: 20px;
-  margin: 0;
-  transition: all 0.3s ease, background-color 0.3s ease, color 0.3s ease;
-}
+const rng = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+const distSq = (a, b) => (a.x - b.x)**2 + (a.y - b.y)**2;
+const clamp = (val, min, max) => Math.min(Math.max(val, min), max);
+const formatMoney = (totalBronze) => {
+  const g = Math.floor(totalBronze / 100);
+  const s = Math.floor((totalBronze % 100) / 10);
+  const b = totalBronze % 10;
+  return { g, s, b };
+};
 
-/* Sidebar links */
-nav a {
-  display: block;
-  margin: 0.5rem 0;
-  text-decoration: none;
-  color: #3b3b3b;
-  padding: 0.6rem 1rem;
-  border-radius: 12px;
-  transition: all 0.2s ease, background-color 0.3s ease, color 0.3s ease;
-  font-weight: 500;
-}
+// --- COMPONENT ---
 
-/* Sidebar hover */
-nav a:hover {
-  background-color: #e7e7e7;
-  color: #1c1c1c;
-  box-shadow: inset 0 0 5px rgba(0,0,0,0.05);
-}
+export default function OmniSimFantasy() {
+  const canvasRef = useRef(null);
+  
+  // Optimized Game State
+  const gameRef = useRef({
+    tiles: [],
+    entities: [],
+    buildings: [],
+    particles: [],
+    camera: { x: WORLD_WIDTH/2, y: WORLD_HEIGHT/2, zoom: 0.6 },
+    time: { tick: 0, year: 1, speed: 1, paused: false },
+    input: { dragging: false, lastX: 0, lastY: 0 },
+    history: []
+  });
 
-/* Dark mode overrides */
-body.dark nav {
-  background-color: #2b2b2b; /* dark background */
-}
+  const [ui, setUi] = useState({
+    fps: 0,
+    pop: 0,
+    year: 1,
+    selected: null,
+    godTool: 'select',
+  });
 
-body.dark nav a {
-  color: #e0e0e0; /* light text */
-}
+  // --- INIT & LOOP ---
 
-body.dark nav a:hover {
-  background-color: #3a3a3a; /* hover effect in dark mode */
-  color: #fff;
-}
+  useEffect(() => {
+    initWorld();
+    
+    // Canvas Resize Listener
+    const handleResize = () => {
+      if(canvasRef.current) {
+        canvasRef.current.width = window.innerWidth;
+        canvasRef.current.height = window.innerHeight;
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    handleResize(); // Initial size
 
-/* Active tab in dark mode */
-body.dark nav a.active {
-  background-color: #0a84ff;
-  color: #fff;
-  box-shadow: 0 0 8px rgba(10,132,255,0.6);
-}
+    let lastTime = performance.now();
+    let frameCount = 0;
+    let animationFrameId;
 
-  /* Main Content */
-  main {
-    margin-left: 260px;
-    padding: 2rem;
-    min-height: calc(100vh - 60px);
-    transition: margin-left 0.3s ease;
-  }
+    const loop = (time) => {
+      const delta = time - lastTime;
+      
+      if (delta >= 1000) {
+        setUi(p => ({ ...p, fps: frameCount, pop: gameRef.current.entities.length }));
+        frameCount = 0;
+        lastTime = time;
+      }
+      
+      update();
+      draw();
+      frameCount++;
+      animationFrameId = requestAnimationFrame(loop);
+    };
+    
+    animationFrameId = requestAnimationFrame(loop);
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
 
-  article {
-    background-color: #ffffff;
-    padding: 2rem;
-    border-radius: 20px;
-    box-shadow: 0 5px 20px rgba(0,0,0,0.05);
-    transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.3s ease, color 0.3s ease;
-  }
+  const initWorld = () => {
+    const g = gameRef.current;
+    g.entities = [];
+    g.tiles = [];
+    g.buildings = [];
+    g.particles = [];
 
-  body.dark article {
-    background-color: #2a2a2a;
-    color: #e0e0e0;
-  }
-
-  article:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 25px rgba(0,0,0,0.08);
-  }
-
-  h2 {
-    font-weight: 600;
-    margin-top: 0;
-  }
-
-  p {
-    line-height: 1.6;
-  }
-
-  a.inline-link {
-    color: #0a84ff;
-    text-decoration: underline;
-  }
-
-  /* Scrollbar styling */
-  nav::-webkit-scrollbar {
-    width: 8px;
-  }
-  nav::-webkit-scrollbar-thumb {
-    background-color: rgba(0,0,0,0.2);
-    border-radius: 8px;
-  }
-  nav::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  /* Responsive */
-  @media(max-width: 768px) {
-    nav {
-      width: 100%;
-      height: auto;
-      float: none;
-      border-radius: 20px;
-      margin: 1rem 0;
+    const cols = WORLD_WIDTH / TILE_SIZE;
+    const rows = WORLD_HEIGHT / TILE_SIZE;
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        const nx = x * 0.05; 
+        const ny = y * 0.05;
+        const h = Math.sin(nx) + Math.cos(ny) + Math.sin(nx*3)*0.5 + Math.random()*0.2;
+        let type = 'PLAINS';
+        if (h < -1.5) type = 'OCEAN';
+        else if (h < -1.0) type = 'WATER';
+        else if (h < -0.8) type = 'SAND';
+        else if (h > 1.5) type = 'SNOW';
+        else if (h > 1.0) type = 'MOUNTAIN';
+        else if (h > 0.5) type = 'FOREST';
+        else if (Math.random() > 0.98) type = 'MAGIC'; 
+        g.tiles.push({ x: x * TILE_SIZE, y: y * TILE_SIZE, type, ...BIOMES[type] });
+      }
     }
-    main {
-      margin-left: 0;
-    }
-    .theme-toggle {
-      left: 1rem;
-      top: auto;
-      transform: none;
-    }
-  }
-</style>
-</head>
-<body>
 
-<header>
-  <button class="theme-toggle" id="themeToggle">🌙 Dark</button>
-  <h1>D&D Class Guide</h1>
-</header>
-
-<nav id="classNav"></nav>
-
-<main>
-  <article id="content">
-    <h2>Welcome</h2>
-    <p>Select a class from the left to see its details.</p>
-  </article>
-</main>
-
-<script>
-  // Class descriptions for tooltip
-  const classDescriptions = {
-    "Barbarian": "A fierce warrior of primitive background who can enter a battle rage.",
-    "Bard": "A versatile spellcaster and performer, inspiring allies with music and magic.",
-    "Cleric": "A divine spellcaster and healer, wielding the power of their deity.",
-    "Druid": "A nature spellcaster who can transform into animals and control nature.",
-    "Fighter": "A master of martial combat, skilled with weapons and armor.",
-    "Monk": "A martial artist with mystical energy, capable of stunning strikes.",
-    "Paladin": "A holy warrior sworn to uphold justice, combining combat and divine magic.",
-    "Ranger": "A hunter and tracker, skilled with ranged attacks and animal companions.",
-    "Rogue": "A stealthy and dexterous character, expert in trickery and sneak attacks.",
-    "Sorcerer": "A natural spellcaster who wields magic from innate talent.",
-    "Warlock": "A spellcaster who gains power through a pact with a mystical patron.",
-    "Wizard": "A scholarly spellcaster, learning spells through study and practice."
+    spawnCiv('HUMAN', 1500, 1500, 20);
+    spawnCiv('ELF', 3500, 1500, 15);
+    spawnCiv('DWARF', 1500, 3000, 15);
+    spawnCiv('ORC', 3500, 3000, 25);
   };
 
-  // Dark/Light Mode Toggle
-  const toggle = document.getElementById('themeToggle');
-  toggle.addEventListener('click', () => {
-    document.body.classList.toggle('dark');
-    toggle.textContent = document.body.classList.contains('dark') ? '☀️ Light' : '🌙 Dark';
-  });
+  const spawnCiv = (raceKey, x, y, count) => {
+    const g = gameRef.current;
+    g.buildings.push({
+      id: Math.random(), type: 'Town Hall', race: raceKey,
+      x, y, w: 120, h: 120, hp: 2000, maxHp: 2000,
+      built: true, progress: 100
+    });
+    for(let i=0; i<count; i++) spawnUnit(raceKey, x + rng(-200, 200), y + rng(-200, 200));
+  };
 
-  const classes = Object.keys(classDescriptions);
-  const nav = document.getElementById('classNav');
-  const content = document.getElementById('content');
+  const spawnUnit = (raceKey, x, y) => {
+    const race = RACES[raceKey];
+    const unit = {
+      id: Math.random(), type: 'unit', race: raceKey,
+      name: `${race.name} ${rng(1, 999)}`,
+      x, y, hp: race.hp, maxHp: race.hp, age: rng(18, race.age/2),
+      state: 'WANDER', target: null, buildingTarget: null,
+      inventory: [], money: rng(0, 50), cooldown: 0,
+      isKing: false, status: 'Wandering'
+    };
+    gameRef.current.entities.push(unit);
+  };
 
-  function highlightCurrentTab() {
-    const hash = window.location.hash.substring(1);
-    document.querySelectorAll('#classNav a').forEach(a => {
-      a.classList.remove('active');
-      if (a.textContent === hash) {
-        a.classList.add('active');
-        loadClass(hash);
+  const spawnBuilding = (x, y, type, race) => {
+    gameRef.current.buildings.push({
+      id: Math.random(), type, race, x, y, w: 80, h: 80, hp: 1, maxHp: 500, built: false, progress: 0
+    });
+  };
+
+  // --- UPDATE LOOP (HIGH PERFORMANCE) ---
+  
+  const update = () => {
+    const g = gameRef.current;
+    if (g.time.paused) return;
+
+    g.time.tick += g.time.speed;
+    if (g.time.tick > 1000) {
+      g.time.tick = 0;
+      g.time.year++;
+      if (g.time.year % 1 === 0) setUi(p => ({ ...p, year: g.time.year }));
+    }
+
+    // 1. Particles (In-place compaction)
+    let pActive = 0;
+    for(let i=0; i<g.particles.length; i++) {
+      let p = g.particles[i];
+      p.x += p.vx; p.y += p.vy; p.life -= 0.02;
+      if (p.life > 0) g.particles[pActive++] = p;
+    }
+    g.particles.length = pActive;
+
+    // 2. Entities (In-place compaction & Logic)
+    let activeCount = 0;
+    const entities = g.entities;
+    const buildings = g.buildings;
+    const count = entities.length;
+    const buildingsCount = buildings.length;
+
+    for (let i = 0; i < count; i++) {
+      const u = entities[i];
+      if (u.hp <= 0) continue; // Skip dead
+
+      // --- AI ---
+      
+      // Status Check (Throttled)
+      if (i % 60 === 0) {
+         if (u.hp < u.maxHp * 0.3) u.status = "Injured";
+         else if (u.money < 10) u.status = "Destitute";
+         else if (u.isKing) u.status = "Ruling";
+         else if (u.state === 'BUILD') u.status = "Building";
+         else u.status = "Active";
       }
-    });
-  }
 
-  classes.forEach(cls => {
-    const link = document.createElement('a');
-    link.href = `#${cls}`;
-    link.textContent = cls;
-    link.title = classDescriptions[cls]; // tooltip
+      // Movement
+      if (u.target) {
+        const dx = u.target.x - u.x;
+        const dy = u.target.y - u.y;
+        const dist = dx*dx + dy*dy;
+        if (dist > 25) {
+           const angle = Math.atan2(dy, dx);
+           u.x += Math.cos(angle) * RACES[u.race].speed * g.time.speed;
+           u.y += Math.sin(angle) * RACES[u.race].speed * g.time.speed;
+        } else {
+           // Reached
+           if (u.state === 'MOVE') u.state = 'IDLE';
+        }
+      } else if (u.state === 'WANDER' && Math.random() < 0.01) {
+        u.target = { x: u.x + rng(-100, 100), y: u.y + rng(-100, 100) };
+      }
 
-    link.addEventListener('click', e => {
-      e.preventDefault();
-      window.location.hash = cls;
-      highlightCurrentTab();
-    });
+      // Job Finding (Throttled logic - Critical for FPS)
+      if (u.state === 'IDLE' && Math.random() < 0.005) {
+         // Manual loop instead of .find() to avoid closure allocation
+         let foundSite = null;
+         for(let b=0; b<buildingsCount; b++) {
+            const build = buildings[b];
+            if (!build.built && build.race === u.race) {
+               foundSite = build;
+               break;
+            }
+         }
+         
+         if (foundSite) {
+            u.state = 'BUILD';
+            u.target = { x: foundSite.x, y: foundSite.y };
+            u.buildingTarget = foundSite.id;
+         } else if (Math.random() < 0.05) {
+            spawnBuilding(u.x + rng(-60, 60), u.y + rng(-60, 60), 'House', u.race);
+         }
+      }
 
-    nav.appendChild(link);
-  });
+      // Building Logic
+      if (u.state === 'BUILD') {
+         // Manual find
+         let site = null;
+         for(let b=0; b<buildingsCount; b++) {
+            if (buildings[b].id === u.buildingTarget) { site = buildings[b]; break; }
+         }
 
-  function loadClass(name){
-    fetch(`./Classes/${name}.md`)
-      .then(res => {
-        if(!res.ok) throw new Error('File not found');
-        return res.text();
-      })
-      .then(md => {
-        content.innerHTML = marked.parse(md);
-      })
-      .catch(() => {
-        content.innerHTML = `<h2>${name}</h2><p>Could not load ${name}.md. Make sure the file exists in the Classes folder.</p>`;
-      });
-  }
+         if (site && !site.built) {
+            const dx = site.x - u.x;
+            const dy = site.y - u.y;
+            if ((dx*dx + dy*dy) < 4000) { // Range check
+               site.progress += 0.5 * g.time.speed;
+               site.hp += 1 * g.time.speed;
+               if (Math.random() < 0.1) spawnParticle(u.x, u.y, '#fbbf24');
+               if (site.progress >= 100) {
+                  site.built = true;
+                  site.hp = site.maxHp;
+                  u.state = 'IDLE';
+                  u.money += 50;
+               }
+            }
+         } else {
+            u.state = 'IDLE';
+         }
+      }
 
-  // Highlight tab on initial load if URL has hash
-  window.addEventListener('load', highlightCurrentTab);
-</script>
+      // Combat (Dragon Only)
+      if (u.race === 'DRAGON') {
+         if (u.cooldown <= 0) {
+            let target = null;
+            let minDist = 90000;
+            // Optimization: Only scan a subset or break early
+            // We scan random entities instead of all to save CPU
+            const startIdx = rng(0, count-10);
+            const endIdx = Math.min(count, startIdx + 20);
+            
+            for(let k=startIdx; k<endIdx; k++) {
+               const other = entities[k];
+               if (other && other.race !== 'DRAGON' && other.hp > 0) {
+                  const d2 = distSq(u, other);
+                  if (d2 < minDist) { minDist = d2; target = other; }
+               }
+            }
+            
+            if (target) {
+               u.target = { x: target.x, y: target.y };
+               if (minDist < 2500) {
+                  spawnParticle(target.x, target.y, '#ef4444', 'burst');
+                  target.hp -= 50;
+                  u.cooldown = 20;
+               }
+            }
+            u.cooldown = 30;
+         } else {
+            u.cooldown -= g.time.speed;
+         }
+      }
 
-</body>
-</html>
+      // Keep alive
+      entities[activeCount++] = u;
+    }
+    
+    // Truncate dead units
+    entities.length = activeCount;
+  };
+
+  const spawnParticle = (x, y, color, type = 'spark') => {
+    const g = gameRef.current;
+    if (g.particles.length > 200) return; 
+    g.particles.push({ x, y, vx: rng(-2,2), vy: rng(-2,2), life: 1.0, color, type });
+  };
+
+  // --- RENDER ---
+
+  const draw = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const g = gameRef.current;
+
+    // Clear
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.save();
+    ctx.translate(canvas.width/2, canvas.height/2);
+    ctx.scale(g.camera.zoom, g.camera.zoom);
+    ctx.translate(-g.camera.x, -g.camera.y);
+
+    // Strict Culling Calculation
+    const camW = canvas.width / g.camera.zoom;
+    const camH = canvas.height / g.camera.zoom;
+    const camX = g.camera.x - camW/2;
+    const camY = g.camera.y - camH/2;
+    const pad = 100; // Buffer
+
+    // 1. Terrain
+    const tiles = g.tiles;
+    const tCount = tiles.length;
+    for(let i=0; i<tCount; i++) {
+      const t = tiles[i];
+      if (t.x > camX - TILE_SIZE && t.x < camX + camW && t.y > camY - TILE_SIZE && t.y < camY + camH) {
+         ctx.fillStyle = t.color;
+         ctx.fillRect(t.x, t.y, TILE_SIZE+1, TILE_SIZE+1);
+      }
+    }
+
+    // 2. Buildings
+    const buildings = g.buildings;
+    const bCount = buildings.length;
+    for(let i=0; i<bCount; i++) {
+      const b = buildings[i];
+      if (b.x < camX - 200 || b.x > camX + camW + 200 || b.y < camY - 200 || b.y > camY + camH + 200) continue;
+
+      ctx.fillStyle = 'rgba(0,0,0,0.3)';
+      ctx.fillRect(b.x + 10, b.y + 10, b.w, b.h);
+
+      if (!b.built) {
+        ctx.strokeStyle = '#fbbf24';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(b.x, b.y, b.w, b.h);
+        ctx.beginPath();
+        ctx.moveTo(b.x, b.y); ctx.lineTo(b.x+b.w, b.y+b.h);
+        ctx.moveTo(b.x+b.w, b.y); ctx.lineTo(b.x, b.y+b.h);
+        ctx.stroke();
+        ctx.fillStyle = '#22c55e';
+        ctx.fillRect(b.x, b.y - 15, b.w * (b.progress/100), 8);
+      } else {
+        ctx.fillStyle = RACES[b.race]?.color || '#fff';
+        ctx.fillRect(b.x, b.y, b.w, b.h);
+        ctx.fillStyle = '#333'; // Roof
+        ctx.beginPath();
+        ctx.moveTo(b.x-5, b.y); ctx.lineTo(b.x+b.w/2, b.y-30); ctx.lineTo(b.x+b.w+5, b.y);
+        ctx.fill();
+      }
+    }
+
+    // 3. Entities
+    const entities = g.entities;
+    const eCount = entities.length;
+    for(let i=0; i<eCount; i++) {
+      const e = entities[i];
+      if (e.x < camX - 50 || e.x > camX + camW + 50 || e.y < camY - 50 || e.y > camY + camH + 50) continue;
+
+      if (ui.selected === e.id) {
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.beginPath();
+        ctx.arc(e.x, e.y, 25, 0, Math.PI*2); ctx.stroke();
+      }
+
+      if (e.isKing) {
+        ctx.font = '24px Arial'; ctx.textAlign = 'center';
+        ctx.fillText('👑', e.x, e.y - 25);
+      }
+
+      ctx.fillStyle = RACES[e.race]?.color || '#fff';
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, e.race === 'DRAGON' ? 40 : 15, 0, Math.PI*2);
+      ctx.fill();
+
+      ctx.font = e.race === 'DRAGON' ? '40px Arial' : '20px Arial';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(RACES[e.race]?.icon, e.x, e.y);
+      
+      if (e.state === 'BUILD') {
+         ctx.font = '12px Arial'; ctx.fillText('🔨', e.x + 15, e.y - 15);
+      }
+    }
+
+    // 4. Particles
+    const particles = g.particles;
+    const pCount = particles.length;
+    for(let i=0; i<pCount; i++) {
+      const p = particles[i];
+      ctx.globalAlpha = p.life;
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 4, 0, Math.PI*2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1.0;
+
+    ctx.restore();
+  };
+
+  // --- INPUT ---
+  
+  const handleMouseDown = (e) => {
+    const g = gameRef.current;
+    g.input.dragging = true;
+    g.input.lastX = e.clientX;
+    g.input.lastY = e.clientY;
+
+    const rect = canvasRef.current.getBoundingClientRect();
+    const wx = (e.clientX - rect.width/2)/g.camera.zoom + g.camera.x;
+    const wy = (e.clientY - rect.height/2)/g.camera.zoom + g.camera.y;
+
+    if (ui.godTool === 'select') {
+      // Manual loop find
+      let clicked = null;
+      const ents = g.entities;
+      for(let i=0; i<ents.length; i++) {
+         if (distSq(ents[i], {x: wx, y: wy}) < 900) { clicked = ents[i]; break; }
+      }
+      setUi(p => ({ ...p, selected: clicked ? clicked.id : null }));
+    } 
+    else if (ui.godTool === 'spawn_dragon') {
+      spawnUnit('DRAGON', wx, wy);
+    }
+    else if (ui.godTool === 'smite') {
+      spawnParticle(wx, wy, '#facc15', 'burst');
+      const ents = g.entities;
+      for(let i=0; i<ents.length; i++) {
+         if (distSq(ents[i], {x: wx, y: wy}) < 2500) ents[i].hp = 0;
+      }
+    }
+    else if (ui.godTool === 'gift' && ui.selected) {
+      const u = g.entities.find(e => e.id === ui.selected);
+      if (u) {
+         const item = ITEMS[rng(2, ITEMS.length-1)];
+         u.inventory.push({ ...item, id: Math.random() });
+         u.money += 10000;
+         spawnParticle(u.x, u.y, '#22c55e', 'burst');
+      }
+    }
+  };
+
+  const handleMouseMove = (e) => {
+    const g = gameRef.current;
+    if (g.input.dragging) {
+      const dx = e.clientX - g.input.lastX;
+      const dy = e.clientY - g.input.lastY;
+      g.input.lastX = e.clientX;
+      g.input.lastY = e.clientY;
+      g.camera.x -= dx / g.camera.zoom;
+      g.camera.y -= dy / g.camera.zoom;
+    }
+  };
+
+  const handleMouseUp = () => gameRef.current.input.dragging = false;
+  const handleWheel = (e) => {
+    const g = gameRef.current;
+    g.camera.zoom = clamp(g.camera.zoom - e.deltaY * 0.001, 0.1, 2.0);
+  };
+
+  const cycleSpeed = () => {
+    const s = gameRef.current.time.speed;
+    let next = 1;
+    if (s === 1) next = 2; else if (s === 2) next = 5; else if (s === 5) next = 10; else if (s === 10) next = 0.5;
+    gameRef.current.time.speed = next;
+  };
+
+  const renderInspector = () => {
+    if (!ui.selected) return null;
+    const u = gameRef.current.entities.find(e => e.id === ui.selected);
+    if (!u) return null;
+    const { g, s, b } = formatMoney(u.money);
+
+    return (
+      <div className="absolute top-20 right-6 w-80 bg-slate-900/95 border border-slate-700 text-slate-200 p-4 rounded-lg shadow-2xl">
+        <div className="flex justify-between items-start mb-4">
+           <div>
+             <h2 className="text-xl font-bold text-amber-500 flex items-center gap-2">
+               {u.isKing && <span title="King">👑</span>} {u.name}
+             </h2>
+             <div className="text-xs text-slate-400">{RACES[u.race].name} • Age {u.age}</div>
+           </div>
+           <div className="text-3xl">{RACES[u.race].icon}</div>
+        </div>
+        <div className="mb-4 bg-slate-800 p-2 rounded text-xs font-mono text-center border border-slate-600">
+            <span className="text-slate-400 uppercase tracking-wide">Status</span>
+            <div className={`text-sm font-bold mt-1 ${u.status.includes('Destitute') ? 'text-red-400' : 'text-green-400'}`}>{u.status}</div>
+        </div>
+        <div className="space-y-2 mb-4">
+           <div className="flex justify-between text-xs"><span>Health</span><span>{Math.round(u.hp)}/{u.maxHp}</span></div>
+           <div className="w-full h-2 bg-slate-800 rounded overflow-hidden"><div className="h-full bg-red-500" style={{width: `${(u.hp/u.maxHp)*100}%`}}></div></div>
+        </div>
+        <div className="bg-slate-950 p-3 rounded border border-slate-800 mb-4">
+           <div className="grid grid-cols-3 gap-1 text-center text-sm font-mono">
+              <div className="text-amber-400">{g} G</div><div className="text-slate-300">{s} S</div><div className="text-orange-400">{b} B</div>
+           </div>
+        </div>
+        <div className="space-y-1 max-h-40 overflow-y-auto bg-slate-800 p-1 rounded mb-4">
+             {u.inventory.map((item, idx) => (
+               <div key={idx} className="flex justify-between text-xs bg-slate-700 p-1.5 rounded"><span>{item.name}</span><span className="text-amber-300">{item.val}v</span></div>
+             ))}
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+           {!u.isKing && <button onClick={() => { u.isKing = true; u.money += 50000; spawnParticle(u.x, u.y, '#fbbf24'); }} className="col-span-2 p-2 bg-amber-700 rounded text-xs font-bold">Anoint King</button>}
+           <button onClick={() => setUi(p => ({...p, godTool: 'gift'}))} className="p-2 bg-green-600 rounded text-xs">Gift</button>
+           <button onClick={() => { u.hp = 0; spawnParticle(u.x, u.y, '#f00'); }} className="p-2 bg-red-900 rounded text-xs">Kill</button>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="w-full h-screen bg-black overflow-hidden text-white font-sans select-none">
+      <canvas ref={canvasRef} className={`block w-full h-full cursor-${ui.godTool === 'select' ? 'default' : 'crosshair'}`}
+        onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onWheel={handleWheel} />
+      
+      <div className="absolute top-0 left-0 w-full h-14 bg-slate-900/80 backdrop-blur flex items-center justify-between px-6 border-b border-slate-700">
+         <h1 className="text-xl font-bold text-amber-500 flex items-center gap-2"><Crown className="w-5 h-5"/> OmniSim: Aethelgard</h1>
+         <div className="flex items-center gap-6 text-sm font-mono text-slate-300">
+            <span>Pop: {ui.pop}</span><span>Year: {ui.year}</span><span className={ui.fps < 30 ? 'text-red-500' : 'text-green-400'}>FPS: {ui.fps}</span>
+         </div>
+      </div>
+
+      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-slate-900/90 backdrop-blur border border-slate-700 rounded-2xl p-2 flex gap-2 shadow-2xl">
+         {[
+           { id: 'select', icon: <MousePointer className="w-5 h-5"/> }, { id: 'spawn_dragon', icon: <Flame className="w-5 h-5 text-red-500"/> },
+           { id: 'smite', icon: <Zap className="w-5 h-5 text-yellow-400"/> }, { id: 'gift', icon: <Gift className="w-5 h-5 text-green-400"/> },
+         ].map(tool => (
+           <button key={tool.id} onClick={() => setUi(p => ({...p, godTool: tool.id}))} className={`p-3 rounded-xl transition-all ${ui.godTool === tool.id ? 'bg-amber-600' : 'hover:bg-slate-700 text-slate-400'}`}>{tool.icon}</button>
+         ))}
+         <div className="w-px h-10 bg-slate-700 mx-1"></div>
+         <button onClick={() => { gameRef.current.time.paused = !gameRef.current.time.paused }} className="p-3 hover:text-amber-400">{gameRef.current.time.paused ? <Play className="w-5 h-5"/> : <Pause className="w-5 h-5"/>}</button>
+         <button onClick={cycleSpeed} className="p-3 hover:text-amber-400 font-bold w-12 text-center">{gameRef.current.time.speed}x</button>
+      </div>
+
+      {renderInspector()}
+    </div>
+  );
+}
