@@ -213,22 +213,29 @@ class Game {
             if(ui.tool === 'drag') { this.camera.drag = true; this.camera.lx = e.clientX; this.camera.ly = e.clientY; }
             else this.click(e);
         };
+        
+        // FIXED CAMERA MOVEMENT LOGIC
         window.onmousemove = e => {
             if(this.camera.drag) {
                 this.camera.x -= (e.clientX - this.camera.lx) / this.camera.z;
                 this.camera.y -= (e.clientY - this.camera.ly) / this.camera.z;
                 
-                // Camera Bounds Check
-                const vx = this.width/this.camera.z/this.tileSize;
-                const vy = this.height/this.camera.z/this.tileSize;
-                this.camera.x = clamp(this.camera.x, -10, CFG.w + 10);
-                this.camera.y = clamp(this.camera.y, -10, CFG.h + 10);
+                // Camera Bounds Check - Fixed Math (Pixels, not Tiles)
+                // Allowing some buffer (-500) so you can pan a bit into the void
+                const maxW = CFG.w * CFG.tileSize;
+                const maxH = CFG.h * CFG.tileSize;
+                this.camera.x = clamp(this.camera.x, -500, maxW + 500); 
+                this.camera.y = clamp(this.camera.y, -500, maxH + 500);
 
                 this.camera.lx = e.clientX; this.camera.ly = e.clientY;
             }
         };
-        window.onmouseup = () => this.camera.drag = false;
-        window.onwheel = e => this.camera.z = clamp(this.camera.z - Math.sign(e.deltaY)*0.1, 0.5, 4);
+        
+        // FIXED ZOOM
+        window.onwheel = e => {
+            e.preventDefault(); // Prevent scrolling the page
+            this.camera.z = clamp(this.camera.z - Math.sign(e.deltaY)*0.1, 0.5, 4);
+        };
     }
 
     init() {
