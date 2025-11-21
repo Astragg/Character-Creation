@@ -1,764 +1,1272 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aetheria 11.0: Life & Lies</title>
-    <style>
-        :root {
-            --bg-color: #1a1a1a;
-            --surface: rgba(32, 32, 32, 0.85);
-            --surface-border: rgba(255, 255, 255, 0.1);
-            --surface-hover: rgba(255, 255, 255, 0.08);
-            --accent: #60cdff;
-            --text-primary: #ffffff;
-            --text-secondary: #b0b0b0;
-            --danger: #ff99a4;
-            --success: #6cc287;
-            --font-main: 'Segoe UI Variable', 'Segoe UI', system-ui, -apple-system, sans-serif;
-        }
-
-        * { box-sizing: border-box; user-select: none; font-family: var(--font-main); cursor: default; }
-
-        body {
-            margin: 0;
-            background-color: #050505;
-            color: var(--text-primary);
-            overflow: hidden;
-            height: 100vh;
-            width: 100vw;
-        }
-
-        canvas { position: absolute; top: 0; left: 0; z-index: 0; cursor: crosshair; }
-        canvas:active { cursor: grabbing; }
-
-        #ui-layer {
-            position: absolute; inset: 0; pointer-events: none; z-index: 10; padding: 16px;
-            display: flex; flex-direction: column; justify-content: space-between;
-        }
-
-        .mica-panel {
-            background: var(--surface);
-            backdrop-filter: blur(40px) saturate(120%);
-            -webkit-backdrop-filter: blur(40px) saturate(120%);
-            border: 1px solid var(--surface-border);
-            border-radius: 12px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-            pointer-events: auto;
-            transition: transform 0.1s ease-out;
-        }
-
-        /* Top Bar */
-        #top-bar {
-            align-self: center; display: flex; align-items: center; gap: 24px;
-            padding: 12px 24px; border-radius: 50px; margin-top: 10px;
-        }
-
-        .stat-group { display: flex; flex-direction: column; align-items: center; min-width: 60px; }
-        .stat-label { font-size: 10px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
-        .stat-value { font-size: 14px; font-weight: 600; color: var(--text-primary); margin-top: 2px; }
-
-        /* Time Controls */
-        .time-controls {
-            display: flex; background: rgba(0, 0, 0, 0.3); border-radius: 20px; padding: 4px; border: 1px solid var(--surface-border);
-        }
-        .time-btn {
-            background: transparent; border: none; color: var(--text-secondary); padding: 6px 12px;
-            border-radius: 16px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s;
-        }
-        .time-btn:hover { color: var(--text-primary); background: rgba(255, 255, 255, 0.1); }
-        .time-btn.active { background: var(--accent); color: #000; box-shadow: 0 2px 8px rgba(96, 205, 255, 0.3); }
-
-        /* Notifications */
-        #notif-area {
-            position: absolute; bottom: 100px; right: 20px; display: flex; flex-direction: column;
-            gap: 8px; align-items: flex-end; pointer-events: none; width: 320px;
-        }
-        .toast {
-            background: #1e1e1e; border: 1px solid var(--surface-border); border-left: 4px solid var(--accent);
-            padding: 12px 16px; border-radius: 8px; color: #fff; font-size: 13px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.4); animation: slideInRight 0.3s cubic-bezier(0.1, 0.9, 0.2, 1), fadeOut 0.5s 4.5s forwards;
-            display: flex; align-items: center; gap: 10px; width: 100%;
-        }
-        .toast.drama { border-color: #ff4d4d; }
-        @keyframes slideInRight { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
-        @keyframes fadeOut { to { opacity: 0; transform: translateY(5px); } }
-
-        /* Inspector */
-        #inspector {
-            position: absolute; right: 20px; top: 90px; width: 320px; max-height: calc(100vh - 220px);
-            display: none; flex-direction: column; overflow-y: auto; padding: 0;
-        }
-        #inspector.visible { display: flex; }
-
-        .inspector-header {
-            padding: 16px; background: rgba(255, 255, 255, 0.03); border-bottom: 1px solid var(--surface-border);
-            display: flex; gap: 12px; align-items: center;
-        }
-        .entity-avatar {
-            width: 54px; height: 54px; background: #2a2a2a; border-radius: 16px; display: flex;
-            align-items: center; justify-content: center; font-size: 28px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            position: relative; border: 1px solid var(--surface-border);
-        }
-        .gender-icon { position: absolute; bottom: -2px; right: -2px; font-size: 14px; background: #333; border-radius: 50%; padding: 2px; }
-        
-        .inspector-body { padding: 16px; display: flex; flex-direction: column; gap: 16px; }
-        .section-label { font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
-        
-        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        .stat-card {
-            background: rgba(255, 255, 255, 0.03); padding: 8px 10px; border-radius: 6px;
-            border: 1px solid var(--surface-border); display: flex; flex-direction: column;
-        }
-        .stat-card span:first-child { font-size: 10px; color: var(--text-secondary); }
-        .stat-card span:last-child { font-size: 14px; font-weight: 600; color: var(--text-primary); }
-
-        .chip {
-            display: inline-flex; align-items: center; gap: 4px; background: rgba(255,255,255,0.05);
-            border: 1px solid var(--surface-border); padding: 4px 8px; border-radius: 16px;
-            font-size: 11px; margin-right: 4px; margin-bottom: 4px;
-        }
-
-        /* Tools */
-        #tools-bar {
-            align-self: center; display: flex; gap: 6px; padding: 10px; margin-bottom: 10px;
-            flex-wrap: wrap; justify-content: center; max-width: 90%;
-        }
-        .tool-icon {
-            width: 42px; height: 42px; border-radius: 8px; background: rgba(255,255,255,0.02); border: 1px solid var(--surface-border);
-            color: var(--text-secondary); font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center;
-            transition: all 0.2s; position: relative;
-        }
-        .tool-icon:hover { background: var(--surface-hover); color: var(--text-primary); transform: translateY(-2px); }
-        .tool-icon.active { background: rgba(96, 205, 255, 0.15); color: var(--accent); border-color: var(--accent); box-shadow: 0 0 15px rgba(96, 205, 255, 0.2); }
-        
-        .tool-icon:hover::after {
-            content: attr(title); position: absolute; bottom: 120%; left: 50%; transform: translateX(-50%);
-            background: #1a1a1a; padding: 6px 10px; font-size: 11px; border-radius: 6px;
-            white-space: nowrap; pointer-events: none; border: 1px solid var(--surface-border); color: #fff;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.5); z-index: 100;
-        }
-        .divider { width: 1px; height: 24px; background: var(--surface-border); margin: 0 4px; align-self: center; }
-
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Aethelgard: Fantasy Civilization Simulator</title>
+<style>
+    :root {
+        --bg: #121214;
+        --panel: rgba(20, 20, 25, 0.85);
+        --border: rgba(255, 255, 255, 0.1);
+        --accent: #5e9cd1;
+        --text: #e0e0e0;
+        --text-dim: #888;
+        --danger: #d15e5e;
+        --success: #5ed185;
+        --gold: #ffd700;
+    }
+    body { margin: 0; overflow: hidden; background: var(--bg); font-family: 'Segoe UI', system-ui, sans-serif; color: var(--text); user-select: none; }
+    canvas { display: block; width: 100vw; height: 100vh; cursor: crosshair; }
+    
+    /* UI Layout */
+    .ui-layer { position: absolute; pointer-events: none; padding: 15px; display: flex; flex-direction: column; gap: 10px; }
+    .top-bar { top: 0; left: 0; right: 0; flex-direction: row; justify-content: space-between; pointer-events: auto; background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent); padding: 10px 20px; }
+    .bottom-bar { bottom: 0; left: 0; right: 0; pointer-events: auto; justify-content: center; align-items: center; padding-bottom: 20px; }
+    .panel { background: var(--panel); backdrop-filter: blur(10px); border: 1px solid var(--border); border-radius: 8px; padding: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); pointer-events: auto; }
+    
+    /* Stats & Text */
+    .stat-group { display: flex; gap: 20px; font-size: 14px; font-weight: 600; text-shadow: 0 2px 4px black; }
+    .stat-item span { color: var(--accent); margin-left: 5px; }
+    h2 { margin: 0 0 10px 0; font-size: 16px; border-bottom: 1px solid var(--border); padding-bottom: 5px; color: var(--gold); }
+    h3 { margin: 8px 0 4px 0; font-size: 13px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
+    
+    /* Inspector */
+    #inspector { top: 60px; left: 20px; width: 280px; max-height: 80vh; overflow-y: auto; display: none; }
+    .inspector-row { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px; }
+    .avatar { width: 40px; height: 40px; background: #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; margin-right: 10px; border: 2px solid var(--accent); }
+    .header-row { display: flex; align-items: center; margin-bottom: 10px; }
+    .journal-entry { font-size: 11px; color: #aaa; padding: 4px; border-left: 2px solid #444; margin-bottom: 4px; background: rgba(0,0,0,0.2); }
+    
+    /* Controls */
+    .toolbar { display: flex; gap: 8px; background: var(--panel); padding: 8px 16px; border-radius: 50px; border: 1px solid var(--border); }
+    button { background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: var(--text); padding: 6px 12px; border-radius: 4px; cursor: pointer; transition: all 0.2s; font-size: 12px; display: flex; align-items: center; gap: 5px; }
+    button:hover { background: rgba(255,255,255,0.15); transform: translateY(-1px); }
+    button.active { background: var(--accent); color: #fff; border-color: transparent; box-shadow: 0 0 10px rgba(94, 156, 209, 0.4); }
+    button.danger { border-color: rgba(209, 94, 94, 0.3); color: #ff8888; }
+    button.danger.active { background: var(--danger); color: white; }
+    
+    /* Notifications */
+    #toast-container { bottom: 100px; right: 20px; width: 300px; align-items: flex-end; pointer-events: none; }
+    .toast { background: rgba(0,0,0,0.85); border-left: 3px solid var(--accent); color: white; padding: 10px 15px; border-radius: 4px; margin-top: 8px; font-size: 12px; animation: slideIn 0.3s ease-out, fadeOut 1s 5s forwards; box-shadow: 0 4px 10px rgba(0,0,0,0.5); width: fit-content; pointer-events: auto; }
+    .toast.war { border-color: var(--danger); }
+    .toast.good { border-color: var(--success); }
+    .toast.magic { border-color: #d500f9; }
+    .toast.tech { border-color: #00bcd4; } /* Added tech toast style */
+    
+    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    @keyframes fadeOut { to { opacity: 0; pointer-events: none; } }
+    
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #222; }
+    ::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
+</style>
 </head>
 <body>
 
-    <canvas id="gameCanvas"></canvas>
+<!-- Game Canvas -->
+<canvas id="gameCanvas"></canvas>
 
-    <div id="ui-layer">
-        <div id="top-bar" class="mica-panel">
-            <div class="stat-group"><span class="stat-label">Year</span><div class="stat-value" id="ui-year">1</div></div>
-            <div class="divider"></div>
-            <div class="stat-group"><span class="stat-label">Time</span><div class="stat-value" id="ui-time">Day</div></div>
-            <div class="divider"></div>
-            <div class="time-controls">
-                <button class="time-btn" onclick="setSpeed(0)" id="btn-pause">||</button>
-                <button class="time-btn active" onclick="setSpeed(1)" id="btn-1x">1x</button>
-                <button class="time-btn" onclick="setSpeed(5)" id="btn-5x">5x</button>
-                <button class="time-btn" onclick="setSpeed(20)" id="btn-20x">20x</button>
-            </div>
-            <div class="divider"></div>
-            <div class="stat-group"><span class="stat-label">Pop</span><div class="stat-value" id="ui-pop">0</div></div>
-        </div>
-
-        <div id="notif-area"></div>
-        <div id="inspector" class="mica-panel"></div>
-
-        <div id="tools-bar" class="mica-panel">
-            <button class="tool-icon active" onclick="setTool('select')" title="Select">👆</button>
-            <button class="tool-icon" onclick="setTool('drag')" title="Pan">✋</button>
-            <div class="divider"></div>
-            <button class="tool-icon" onclick="setTool('human')" title="Human">🧑</button>
-            <button class="tool-icon" onclick="setTool('elf')" title="Elf">🧝</button>
-            <button class="tool-icon" onclick="setTool('dwarf')" title="Dwarf">🧔</button>
-            <button class="tool-icon" onclick="setTool('orc')" title="Orc">👹</button>
-            <button class="tool-icon" onclick="setTool('gnome')" title="Gnome">🧙‍♂️</button>
-            <button class="tool-icon" onclick="setTool('tiefling')" title="Tiefling">😈</button>
-            <button class="tool-icon" onclick="setTool('vampire')" title="Vampire">🧛</button>
-            <button class="tool-icon" onclick="setTool('undead')" title="Undead">💀</button>
-            <div class="divider"></div>
-            <button class="tool-icon" onclick="setTool('loot')" title="Loot">💎</button>
-            <button class="tool-icon" onclick="setTool('bless')" title="Bless">✨</button>
-            <button class="tool-icon" onclick="setTool('lust')" title="Lust">💋</button>
-            <button class="tool-icon" onclick="setTool('smite')" title="Smite">⚡</button>
-        </div>
+<!-- Top UI -->
+<div class="ui-layer top-bar">
+    <div class="stat-group">
+        <div class="stat-item">Year: <span id="ui-year">1</span></div>
+        <div class="stat-item">Season: <span id="ui-season">Spring</span></div>
+        <div class="stat-item">Pop: <span id="ui-pop">0</span></div>
+        <div class="stat-item">Cities: <span id="ui-cities">0</span></div>
     </div>
+    <div class="toolbar">
+        <button onclick="game.speed=0">⏸️</button>
+        <button onclick="game.speed=1" class="active" id="spd-1">▶️</button>
+        <button onclick="game.speed=5" id="spd-5">⏩</button>
+        <button onclick="game.speed=20" id="spd-20">🚀</button>
+    </div>
+</div>
 
-    <script>
-        /* --- CONSTANTS --- */
-        const TILE_SIZE = 32;
-        const WORLD_W = 120;
-        const WORLD_H = 100;
+<!-- Inspector Panel -->
+<div id="inspector" class="ui-layer panel">
+    <!-- Dynamic Content -->
+</div>
 
-        const COLORS = { water: '#1a3c5e', sand: '#d4b483', grass: '#3a5f3a', forest: '#1e361e', mountain: '#5c5c5c' };
+<!-- Bottom Toolbar -->
+<div class="ui-layer bottom-bar">
+    <div class="toolbar">
+        <button onclick="ui.setTool('select')" id="btn-select" class="active">👆 Select</button>
+        <button onclick="ui.setTool('drag')" id="btn-drag">✋ Pan</button>
+        <div style="width:1px; background:#444; margin:0 4px;"></div>
+        <button onclick="ui.setTool('god_tree')">🌲 Forest</button>
+        <button onclick="ui.setTool('god_rain')">🌧️ Rain</button>
+        <button onclick="ui.setTool('god_bless')" style="color:var(--gold)">✨ Bless</button>
+        <button onclick="ui.setTool('god_smite')" class="danger">⚡ Smite</button>
+        <button onclick="ui.setTool('spawn_rabbit')">🐇 Rabbit</button>
+        <button onclick="ui.setTool('spawn_wolf')" style="color:#ff8888">🐺 Wolf</button>
+        <button onclick="ui.setTool('spawn_demigod')" style="color:#00e5ff; font-weight:bold;">🦸 Demi-God</button>
+    </div>
+</div>
+
+<!-- Toast Container -->
+<div id="toast-container" class="ui-layer"></div>
+
+<script>
+/**
+ * ENGINE CONFIGURATION
+ */
+const CFG = {
+    w: 500, h: 500,
+    tileSize: 24,
+    tickRate: 30, // Ticks per second at 1x speed
+    dayTicks: 100, // Ticks per day
+    yearDays: 365, // Days per year
+    startCities: 5
+};
+
+/**
+ * ASSETS & DATA
+ */
+const TILES = { WATER: 0, SAND: 1, GRASS: 2, FOREST: 3, MOUNTAIN: 4, DEEP_WATER: 5, SNOW: 6, CAVE: 7 };
+const PALETTE = {
+    [TILES.DEEP_WATER]: '#2b4c70', [TILES.WATER]: '#4173a3', [TILES.SAND]: '#dcd099',
+    [TILES.GRASS]: '#5c9e63', [TILES.FOREST]: '#3a7042', [TILES.MOUNTAIN]: '#7a7a7a', 
+    [TILES.SNOW]: '#eef4f7', [TILES.CAVE]: '#4a4a4a'
+};
+const RACES = {
+    HUMAN: { name: 'Human', emoji: '🧑', life: 70, color: '#f0c7a1', traits: ['Diplomatic'], build: 'rounded' },
+    ELF: { name: 'Elf', emoji: '🧝', life: 200, color: '#fcebb6', traits: ['Ageless', 'Nature'], build: 'pointed' },
+    DWARF: { name: 'Dwarf', emoji: '🧔', life: 100, color: '#e0ac84', traits: ['Greedy', 'Sturdy'], build: 'square' },
+    ORC: { name: 'Orc', emoji: '👹', life: 50, color: '#6db56d', traits: ['Strong', 'Brutal'], build: 'spiky' },
+    UNDEAD: { name: 'Lich', emoji: '💀', life: 999, color: '#ccc', traits: ['Evil'], build: 'ruin' }
+};
+const JOBS = {
+    IDLE: 'Idler', FARMER: 'Farmer', MINER: 'Miner', BUILDER: 'Builder', GUARD: 'Guard',
+    LEADER: 'Mayor', SCHOLAR: 'Scholar', SMITH: 'Blacksmith', ARTIST: 'Artist', HUNTER: 'Hunter', CHILD: 'Child'
+};
+const ANIMALS = {
+    RABBIT: { name: 'Rabbit', emoji: '🐇', life: 5, hostile: false, speed: 0.15 },
+    WOLF: { name: 'Wolf', emoji: '🐺', life: 40, hostile: true, speed: 0.12, dmg: 10 }
+};
+const BUILDINGS = {
+    HOUSE: { emoji: '🏠', cost: 10, type: 'res' },
+    HALL: { emoji: '🏛️', cost: 50, type: 'civic' },
+    FARM: { emoji: '🌾', cost: 15, type: 'food' },
+    MINE: { emoji: '⛏️', cost: 20, type: 'prod' },
+    BARRACKS: { emoji: '⚔️', cost: 40, type: 'mil', req: 'Masonry' }, 
+    TOWER: { emoji: '🏰', cost: 180, type: 'def', req: 'Masonry' }, 
+    SHRINE: { emoji: '⛩️', cost: 200, type: 'rel', req: 'Philosophy' },
+    PUB: { emoji: '🍺', cost: 50, type: 'fun' }
+};
+const ITEMS_PREFIX = ['Broken', 'Rusty', 'Fine', 'Masterwork', 'Enchanted', 'Cursed', 'Glowing'];
+const ITEMS_BASE = ['Sword', 'Shield', 'Hoe', 'Book', 'Amulet', 'Ring', 'Ale', 'Gem'];
+const ADVANCEMENTS = ['Basic Tools', 'Sailing', 'Masonry', 'Philosophy', 'Metallurgy']; 
+
+/**
+ * UTILITIES
+ */
+const rand = (n) => Math.floor(Math.random() * n);
+const pick = (arr) => arr[rand(arr.length)];
+const dist = (a, b) => Math.sqrt((a.x-b.x)**2 + (a.y-b.y)**2);
+const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+const uuid = () => Math.random().toString(36).substr(2, 9);
+const noise = (x, y) => Math.sin(x * 0.1) + Math.cos(y * 0.1);
+
+/**
+ * CORE CLASSES
+ */
+
+class Game {
+    constructor() {
+        this.canvas = document.getElementById('gameCanvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.width = window.innerWidth;
+        this.height = window.innerHeight;
+        this.canvas.width = this.width;
+        this.canvas.height = this.height;
         
-        const RACES = {
-            human: { name: 'Human', emoji: '🧑', hp: 100, spd: 0.8, maxAge: 80 },
-            elf: { name: 'Elf', emoji: '🧝', hp: 90, spd: 1.0, maxAge: 300 },
-            dwarf: { name: 'Dwarf', emoji: '🧔', hp: 140, spd: 0.6, maxAge: 150 },
-            orc: { name: 'Orc', emoji: '👹', hp: 160, spd: 0.75, maxAge: 60 },
-            gnome: { name: 'Gnome', emoji: '🧙‍♂️', hp: 60, spd: 0.9, maxAge: 200 },
-            halfling: { name: 'Halfling', emoji: '🦶', hp: 70, spd: 0.9, maxAge: 100 },
-            dragonborn: { name: 'Dragonborn', emoji: '🐲', hp: 150, spd: 0.8, maxAge: 100 },
-            tiefling: { name: 'Tiefling', emoji: '😈', hp: 100, spd: 0.9, maxAge: 90 },
-            troll: { name: 'Troll', emoji: '🧟', hp: 200, spd: 0.5, maxAge: 80 },
-            goblin: { name: 'Goblin', emoji: '👺', hp: 50, spd: 1.2, maxAge: 40 },
-            fairy: { name: 'Fairy', emoji: '🧚', hp: 30, spd: 1.5, maxAge: 500 },
-            vampire: { name: 'Vampire', emoji: '🧛', hp: 120, spd: 1.1, maxAge: 9999 },
-            lycan: { name: 'Lycan', emoji: '🐺', hp: 140, spd: 1.3, maxAge: 70 },
-            golem: { name: 'Golem', emoji: '🗿', hp: 300, spd: 0.4, maxAge: 9999 },
-            ent: { name: 'Ent', emoji: '🌳', hp: 400, spd: 0.3, maxAge: 9999 },
-            undead: { name: 'Undead', emoji: '💀', hp: 60, spd: 0.5, maxAge: 9999 }
-        };
+        this.ticks = 0;
+        this.speed = 1;
+        this.paused = false;
+        
+        this.camera = { x: 0, y: 0, z: 2, drag: false, lx: 0, ly: 0 };
+        this.map = new Map(CFG.w, CFG.h);
+        this.entities = []; // Units & Animals
+        this.cities = [];
+        this.particles = [];
+        this.events = [];
+        
+        this.initInput();
+    }
 
-        const JOBS = [
-            'Builder', 'Farmer', 'Woodcutter', 'Miner', 'Guard', 'Explorer',
-            'Blacksmith', 'Baker', 'Alchemist', 'Tailor', 'Cobbler', 'Merchant',
-            'Priest', 'Fisherman', 'Hunter', 'Jester', 'Scribe', 'Mason',
-            'Tanner', 'Weaver', 'Brewer', 'Innkeeper', 'Healer', 'Bard', 'Servant'
-        ];
+    init() {
+        this.map.generate();
+        this.spawnInitialCivs();
+        // Spawn some initial animals
+        for(let i=0; i<20; i++) this.spawnAnimal(ANIMALS.RABBIT);
+        for(let i=0; i<5; i++) this.spawnAnimal(ANIMALS.WOLF);
+        
+        requestAnimationFrame(t => this.loop(t));
+    }
 
-        const TRAITS = [
-            'Brave', 'Cowardly', 'Greedy', 'Generous', 'Lazy', 'Hardworking', 
-            'Genius', 'Dull', 'Strong', 'Weak', 'Charismatic', 'Annoying',
-            'Gluttonous', 'Ascetic', 'Mad', 'Blessed', 'Cursed', 'Lucky',
-            'Lustful', 'Chaste', 'Jealous', 'Loyal'
-        ];
-
-        const BUILDINGS = {
-            House: { emoji: '🏠', wood: 50, cap: 5 },
-            Farm: { emoji: '🌾', wood: 20, cap: 2 },
-            Smithy: { emoji: '⚒️', wood: 100, stone: 50, cap: 2 },
-            Tavern: { emoji: '🍺', wood: 80, cap: 20 },
-            Temple: { emoji: '⛩️', stone: 200, cap: 5 },
-            Mine: { emoji: '⛏️', wood: 50, cap: 5 },
-            Market: { emoji: '⚖️', wood: 80, cap: 10 },
-            Library: { emoji: '📜', stone: 100, cap: 5 }
-        };
-
-        const ITEM_PREFIXES = ['Old', 'Rusty', 'Iron', 'Steel', 'Mithril', 'Adamantite', 'Flaming', 'Frozen', 'Holy', 'Cursed'];
-        const ITEM_BASES = ['Sword', 'Axe', 'Bow', 'Shield', 'Helm', 'Ring', 'Amulet', 'Boots', 'Tome'];
-
-        /* --- STATE --- */
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d', { alpha: false });
-
-        let state = {
-            tiles: [],
-            units: [],
-            cities: [],
-            buildings: [],
-            loot: [],
-            particles: [],
-            cam: { x: 0, y: 0, z: 1 },
-            time: { year: 1, day: 1, hour: 12 },
-            gameSpeed: 1,
-            tool: 'select',
-            selection: null,
-            input: { drag: false, lx: 0, ly: 0 }
-        };
-
-        /* --- INIT --- */
-        function init() {
-            resize();
-            window.addEventListener('resize', resize);
-            canvas.addEventListener('mousedown', onDown);
-            window.addEventListener('mousemove', onMove);
-            window.addEventListener('mouseup', onUp);
-            canvas.addEventListener('wheel', onWheel);
-
-            generateMap();
-            // Initial Civs
-            createCity(20, 20, RACES.human);
-            createCity(90, 20, RACES.elf);
-            createCity(60, 80, RACES.orc);
-            
-            requestAnimationFrame(loop);
-        }
-        function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
-
-        /* --- GENERATION --- */
-        function generateMap() {
-            state.tiles = [];
-            for(let y=0; y<WORLD_H; y++) {
-                let row = [];
-                for(let x=0; x<WORLD_W; x++) {
-                    let n = Math.sin(x*0.1) * Math.cos(y*0.1) + Math.random()*0.1;
-                    let t = 'grass';
-                    if(n < -0.5) t='water'; else if(n < -0.3) t='sand'; else if(n>0.5) t='forest'; else if(n>0.8) t='mountain';
-                    row.push({ x, y, type: t });
-                }
-                state.tiles.push(row);
+    spawnInitialCivs() {
+        const raceKeys = Object.keys(RACES).filter(r => r !== 'UNDEAD');
+        for(let i=0; i<CFG.startCities; i++) {
+            let t = this.map.getRandomLandTile();
+            if(t) {
+                const race = RACES[raceKeys[i % raceKeys.length]];
+                this.createCity(t.x, t.y, race);
             }
         }
-
-        function createCity(x, y, race) {
-            let id = Math.random();
-            let city = { id, x, y, race, name: `${race.name} City`, pop: 0, res: {wood:500, stone:200, food:500}, radius: 12 };
-            state.cities.push(city);
-            
-            placeBuilding(x, y, 'House', id);
-            placeBuilding(x+2, y, 'Farm', id);
-            placeBuilding(x-2, y, 'Tavern', id);
-            
-            for(let i=0; i<20; i++) {
-                spawnUnit(x + Math.random()*4-2, y + Math.random()*4-2, race, id);
-            }
+    }
+    
+    spawnAnimal(type, x, y) {
+        if(!x || !y) {
+            let t = this.map.getRandomLandTile();
+            if(!t) return;
+            x = t.x; y = t.y;
         }
+        const a = new Animal(x, y, type);
+        this.entities.push(a);
+        return a;
+    }
 
-        function placeBuilding(x, y, type, cityId) {
-            state.buildings.push({
-                id: Math.random(), type, x, y, cityId, 
-                emoji: BUILDINGS[type].emoji,
-                level: 1,
-                inventory: [],
-                residents: []
-            });
+    createCity(x, y, race) {
+        const city = new City(x, y, race);
+        this.cities.push(city);
+        // Spawn initial pop
+        for(let i=0; i<6; i++) {
+            this.spawnUnit(x, y, race, city);
         }
+        // Initial Building
+        city.addBuilding(x, y, 'HALL');
+        // Start with enough wood for a few homes
+        city.resources.wood = 120;
+        ui.toast(`${city.name} founded by ${race.name}s!`, 'good');
+    }
 
-        function spawnUnit(x, y, race, cityId, parentA=null, parentB=null) {
-            let traits = [];
-            if(parentA) traits = [...parentA.traits]; // Inherit
-            if(traits.length < 3 && Math.random()<0.3) traits.push(TRAITS[Math.floor(Math.random()*TRAITS.length)]);
-            
-            // Gender 50/50
-            let gender = Math.random() > 0.5 ? 'M' : 'F';
-            let age = (parentA) ? 0 : 18 + Math.floor(Math.random()*30);
+    spawnUnit(x, y, race, city=null) {
+        const u = new Unit(x, y, race);
+        if(city) {
+            u.city = city;
+            city.pop.push(u);
+        }
+        this.entities.push(u);
+        return u;
+    }
 
-            let u = {
-                id: Math.random(), x, y, tx: x, ty: y, race, cityId, 
-                gender, hp: race.hp, maxHp: race.hp, age,
-                job: 'Idle',
-                homeId: (parentA) ? parentA.homeId : null, // Live with parents
-                partnerId: null,
-                children: [],
-                traits: traits,
-                inv: { gold: 10 }, gear: [],
-                mood: 'Happy',
-                state: 'idle', cooldown: 0
-            };
-            
-            if(!parentA) {
-                u.job = JOBS[Math.floor(Math.random() * JOBS.length)];
+    initInput() {
+        this.canvas.addEventListener('mousedown', e => {
+            if(ui.tool === 'drag') {
+                this.camera.drag = true;
+                this.camera.lx = e.clientX;
+                this.camera.ly = e.clientY;
             } else {
-                if(parentA.homeId) {
-                     let h = state.buildings.find(b=>b.id===parentA.homeId);
-                     if(h) h.residents.push(u.id);
-                }
+                this.handleClick(e);
+            }
+        });
+        window.addEventListener('mousemove', e => {
+            if(this.camera.drag) {
+                this.camera.x -= (e.clientX - this.camera.lx) / this.camera.z;
+                this.camera.y -= (e.clientY - this.camera.ly) / this.camera.z;
+                this.camera.lx = e.clientX;
+                this.camera.ly = e.clientY;
+            }
+        });
+        window.addEventListener('mouseup', () => this.camera.drag = false);
+        this.canvas.addEventListener('wheel', e => {
+            const dir = Math.sign(e.deltaY);
+            this.camera.z = clamp(this.camera.z - dir * 0.2, 0.5, 6);
+        });
+        window.addEventListener('resize', () => {
+            this.width = this.canvas.width = window.innerWidth;
+            this.height = this.canvas.height = window.innerHeight;
+        });
+    }
+
+    handleClick(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const wx = (e.clientX - rect.left) / this.camera.z + this.camera.x;
+        const wy = (e.clientY - rect.top) / this.camera.z + this.camera.y;
+        const tx = Math.floor(wx / CFG.tileSize);
+        const ty = Math.floor(wy / CFG.tileSize);
+
+        if(ui.tool === 'select') {
+            // Check units
+            const clickedUnit = this.entities.find(u => Math.abs(u.x - tx) < 0.5 && Math.abs(u.y - ty) < 0.5);
+            if(clickedUnit) { ui.select(clickedUnit); return; }
+            
+            // Check Buildings
+            for(let c of this.cities) {
+                const b = c.buildings.find(b => b.x === tx && b.y === ty);
+                if(b) { ui.select({type: 'building', data: b, city: c}); return; }
             }
 
-            state.units.push(u);
+            // Check City
+            const clickedCity = this.cities.find(c => dist(c, {x:tx, y:ty}) < 4);
+            if(clickedCity) { ui.select(clickedCity); return; }
+            
+            ui.select(null);
+        } else {
+            this.applyTool(tx, ty);
         }
+    }
 
-        /* --- LOGIC --- */
-        function loop() {
-            if(state.gameSpeed > 0) {
-                let steps = state.gameSpeed;
-                for(let i=0; i<steps; i++) update();
+    applyTool(x, y) {
+        if(!this.map.isValid(x, y)) return;
+        const t = this.map.tiles[y][x];
+        
+        if(ui.tool === 'god_tree' && t.type !== TILES.WATER) {
+            t.type = TILES.FOREST;
+            this.addParticle(x, y, '🌲');
+        }
+        if(ui.tool === 'god_rain') {
+            this.world.weather = 'rain';
+            ui.toast('You summon a great storm', 'magic');
+        }
+        if(ui.tool === 'god_smite') {
+            const victim = this.entities.find(u => Math.abs(u.x - x) < 1 && Math.abs(u.y - y) < 1);
+            if(victim) {
+                victim.takeDamage(100);
+                this.addParticle(x, y, '⚡');
+                ui.toast(`${victim.name} was smote!`, 'war');
             }
-            draw();
-            requestAnimationFrame(loop);
         }
+        if(ui.tool === 'god_bless') {
+            const target = this.entities.find(u => Math.abs(u.x - x) < 1 && Math.abs(u.y - y) < 1);
+            if(target) {
+                target.stats.str += 5;
+                target.mood = 100;
+                this.addParticle(x, y, '✨');
+            }
+        }
+        if(ui.tool === 'spawn_rabbit') this.spawnAnimal(ANIMALS.RABBIT, x, y);
+        if(ui.tool === 'spawn_wolf') this.spawnAnimal(ANIMALS.WOLF, x, y);
+        
+        if(ui.tool === 'spawn_demigod') {
+            const race = pick(Object.values(RACES));
+            const u = this.spawnUnit(x, y, race, null);
+            u.name = "Heracles";
+            u.health = 1000;
+            u.stats = { str: 100, int: 100, cha: 100 };
+            u.inventory.push('Godly Aura');
+            u.journal.push('Descended from the heavens.');
+            ui.toast(`A Demi-God walks among us!`, 'magic');
+            this.addParticle(x, y, '🌟', 'gold');
+        }
+    }
 
-        function update() {
-            state.time.hour += 0.05;
-            if(state.time.hour >= 24) { state.time.hour = 0; state.time.day++; }
-            if(state.time.hour%1 < 0.05) updateUI(); 
+    addParticle(x, y, txt, color='#fff') {
+        this.particles.push({ x, y, txt, color, life: 60, vy: -0.05 });
+    }
 
-            state.units.forEach(u => {
-                if(u.hp <= 0) return;
+    loop() {
+        if(!this.paused) {
+            for(let s=0; s<this.speed; s++) {
+                this.ticks++;
+                this.world.update();
+                this.cities.forEach(c => c.update());
+                this.entities.forEach(e => e.update());
+                // Cleanup
+                this.entities = this.entities.filter(e => !e.dead);
+                if(this.ticks % 60 === 0) ui.update();
                 
-                // 1. Life Cycle
-                if(Math.random() < 0.001) {
-                    u.age += 0.05;
-                    if(u.race.name !== 'Undead' && u.age > u.race.maxAge) {
-                        u.hp = 0; // Old age death
-                        notify(`${u.race.name} died of old age.`, 'normal');
-                    }
-                    // Grow up
-                    if(u.age >= 18 && u.job === 'Idle') {
-                        u.job = JOBS[Math.floor(Math.random() * JOBS.length)];
+                // Forest Regrowth Logic (rarely)
+                if(this.ticks % 500 === 0) {
+                    let rx = rand(CFG.w), ry = rand(CFG.h);
+                    if(this.map.isValid(rx, ry) && this.map.tiles[ry][rx].type === TILES.GRASS) {
+                        // Check for neighbor forest
+                        let hasForest = false;
+                        for(let dy=-1; dy<=1; dy++) {
+                            for(let dx=-1; dx<=1; dx++) {
+                                if(this.map.isValid(rx+dx, ry+dy) && this.map.tiles[ry+dy][rx+dx].type === TILES.FOREST) hasForest=true;
+                            }
+                        }
+                        if(hasForest) this.map.tiles[ry][rx].type = TILES.FOREST;
                     }
                 }
+            }
+            // Particles always animate
+            this.particles.forEach(p => { p.x += (Math.random()-0.5)*0.02; p.y += p.vy; p.life--; });
+            this.particles = this.particles.filter(p => p.life > 0);
+        }
+        this.render();
+        requestAnimationFrame(() => this.loop());
+    }
 
-                // 2. Social / Romantic Logic
-                let isNight = state.time.hour < 6 || state.time.hour > 20;
-                
-                if(u.age >= 18) {
-                    // Find Partner
-                    if(!u.partnerId && Math.random() < 0.001) {
-                         let potential = findPartner(u);
-                         if(potential) {
-                             u.partnerId = potential.id;
-                             potential.partnerId = u.id;
-                             // Move in together
-                             if(u.homeId && !potential.homeId) potential.homeId = u.homeId;
-                             else if(!u.homeId && potential.homeId) u.homeId = potential.homeId;
-                             else if(!u.homeId && !potential.homeId) { /* Need house */ }
-                             addParticle(u.x, u.y, '❤️', '#f0f');
-                         }
-                    }
+    render() {
+        const c = this.ctx;
+        const cam = this.camera;
+        const ts = CFG.tileSize;
+        
+        // Clear
+        c.fillStyle = '#121214';
+        c.fillRect(0, 0, this.width, this.height);
+
+        c.save();
+        c.scale(cam.z, cam.z);
+        c.translate(-cam.x, -cam.y);
+
+        // Viewport Culling
+        const viewX = Math.floor(cam.x / ts);
+        const viewY = Math.floor(cam.y / ts);
+        const viewW = Math.floor(this.width / cam.z / ts) + 2;
+        const viewH = Math.floor(this.height / cam.z / ts) + 2;
+
+        // 1. Terrain
+        for(let y = viewY; y < viewY + viewH; y++) {
+            for(let x = viewX; x < viewX + viewW; x++) {
+                if(this.map.isValid(x, y)) {
+                    const tile = this.map.tiles[y][x];
+                    c.fillStyle = PALETTE[tile.type];
+                    c.fillRect(x*ts, y*ts, ts, ts);
                     
-                    // Cheating Logic (ADJUSTED: Made much less common)
-                    // Lustful characters now have a small chance per tick instead of 100%, and base chance reduced
-                    if(u.partnerId && ((u.traits.includes('Lustful') && Math.random() < 0.0005) || Math.random() < 0.00002)) {
-                        let affair = findAffair(u);
-                        if(affair) {
-                            moveTowards(u, affair.x, affair.y, u.race.spd);
-                            if(dist(u, affair) < 1) {
-                                addParticle(u.x, u.y, '💋', '#f0a');
-                                // Check if spouse sees
-                                let spouse = state.units.find(s => s.id === u.partnerId);
-                                if(spouse && dist(u, spouse) < 10) {
-                                    spouse.mood = 'Furious';
-                                    spouse.partnerId = null; // Divorce
-                                    u.partnerId = null;
-                                    notify('Drama!', `${u.race.name} caught cheating!`, 'drama');
-                                    addParticle(spouse.x, spouse.y, '💔', '#f00');
-                                }
-                            }
-                            return; // Busy cheating
-                        }
+                    // Border visual
+                    if(tile.owner) {
+                        c.lineWidth = 2;
+                        c.strokeStyle = tile.owner.color + '44'; // semi-transparent
+                        c.strokeRect(x*ts+1, y*ts+1, ts-2, ts-2);
                     }
                 }
+            }
+        }
 
-                // 3. Night/Day Cycle
-                if(isNight) {
-                    if(u.homeId) {
-                        let home = state.buildings.find(b=>b.id===u.homeId);
-                        if(home) {
-                            moveTowards(u, home.x, home.y, u.race.spd);
-                            // Breeding
-                            if(dist(u, home)<1 && u.partnerId && u.gender==='F' && u.age > 18 && Math.random()<0.002) {
-                                let partner = state.units.find(p=>p.id===u.partnerId);
-                                if(partner && dist(u, partner) < 2) {
-                                    spawnUnit(u.x, u.y, u.race, u.cityId, u, partner);
-                                    addParticle(u.x, u.y, '👶', '#fff');
-                                }
-                            }
-                        }
-                    } else {
-                        // Go to Tavern if homeless
-                        let tavern = state.buildings.find(b=>b.cityId===u.cityId && b.type==='Tavern');
-                        if(tavern) moveTowards(u, tavern.x, tavern.y, u.race.spd);
-                    }
-                } else {
-                    // Day Work
-                    doJob(u);
-                }
-
-                // Physics
-                u.x = Math.max(0, Math.min(WORLD_W-1, u.x));
-                u.y = Math.max(0, Math.min(WORLD_H-1, u.y));
-            });
+        // 2. Cities & Buildings
+        for(let city of this.cities) {
+            // Draw territory lines (simplified)
+            c.font = `${ts}px Serif`;
+            c.textAlign = 'center';
+            c.textBaseline = 'middle';
             
-            state.units = state.units.filter(u => u.hp > 0);
-
-            if(Math.random() < 0.05) updateCities();
+            for(let b of city.buildings) {
+                if(b.x >= viewX && b.x <= viewX+viewW && b.y >= viewY && b.y <= viewY+viewH) {
+                    c.fillText(b.emoji, b.x*ts + ts/2, b.y*ts + ts/2);
+                }
+            }
         }
-
-        function findPartner(u) {
-            return state.units.find(t => 
-                t.id !== u.id && 
-                t.cityId === u.cityId && 
-                !t.partnerId && 
-                t.age >= 18 && 
-                t.gender !== u.gender &&
-                dist(u, t) < 5
-            );
+        
+        // 3. Trade Routes
+        c.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+        c.setLineDash([5, 5]);
+        c.lineWidth = 2;
+        c.beginPath();
+        for(let city of this.cities) {
+            for(let t of city.tradeRoutes) {
+                c.moveTo(city.cx * ts, city.cy * ts);
+                c.lineTo(t.cx * ts, t.cy * ts);
+            }
         }
+        c.stroke();
+        c.setLineDash([]);
 
-        function findAffair(u) {
-             return state.units.find(t => 
-                t.id !== u.id && 
-                t.id !== u.partnerId &&
-                t.age >= 18 && 
-                t.gender !== u.gender &&
-                dist(u, t) < 8
-            );
-        }
-
-        function doJob(u) {
-            if(u.age < 18) { wander(u); return; } // Kids play
+        // 4. Units & Animals
+        c.font = `${ts*0.8}px Serif`;
+        const shadowOffset = ts*0.1;
+        for(let u of this.entities) {
+            if(u.x < viewX || u.x > viewX+viewW || u.y < viewY || u.y > viewY+viewH) continue;
             
-            let city = state.cities.find(c=>c.id===u.cityId);
-            if(!city) return wander(u);
-
-            // Job Specific Logic (Simplified categories)
-            if(['Builder', 'Mason'].includes(u.job)) {
-                // Build Logic
-                if(city.res.wood > 100 && Math.random()<0.01) {
-                    let angle = Math.random() * Math.PI * 2;
-                    let r = Math.random() * city.radius;
-                    let bx = Math.floor(city.x + Math.cos(angle)*r);
-                    let by = Math.floor(city.y + Math.sin(angle)*r);
-                    // Collision check
-                    if(!state.buildings.find(b=>dist({x:bx,y:by}, b)<2)) {
-                        placeBuilding(bx, by, 'House', u.cityId);
-                        city.res.wood -= 50;
-                        addParticle(bx, by, '🏠', '#fff');
+            const px = u.x * ts;
+            const py = u.y * ts;
+            
+            // Visual Logic
+            let displayEmoji = u.emoji;
+            
+            if(u instanceof Unit) {
+                if (u.age < 18) displayEmoji = '👶';
+                if (game.map.isValid(Math.floor(u.x), Math.floor(u.y))) {
+                    const tile = game.map.tiles[Math.floor(u.y)][Math.floor(u.x)];
+                    if ((tile.type === TILES.WATER || tile.type === TILES.DEEP_WATER) && u.city && u.city.techs.includes('Sailing') && u.age >= 18) {
+                        displayEmoji = '⛵';
                     }
                 }
-                wander(u);
             }
-            else if(['Farmer', 'Brewer', 'Baker'].includes(u.job)) {
-                let farm = state.buildings.find(b=>b.cityId===u.cityId && b.type==='Farm');
-                if(farm) { moveTowards(u, farm.x, farm.y, u.race.spd); if(dist(u,farm)<1) city.res.food++; }
-                else wander(u);
+
+            // Shadow
+            c.fillStyle = 'rgba(0,0,0,0.3)';
+            c.beginPath();
+            c.ellipse(px + ts/2, py + ts - 2, ts/3, ts/5, 0, 0, Math.PI*2);
+            c.fill();
+            
+            // Body
+            c.fillStyle = '#fff'; // Reset text color
+            c.fillText(displayEmoji, px + ts/2, py + ts/2);
+            
+            // Health Bar (if damaged or in combat)
+            if(u.health < (u.maxAge || 100) || u.state === 'ATTACKING') {
+                 c.fillStyle = 'red';
+                 c.fillRect(px, py - 5, ts, 3);
+                 c.fillStyle = 'lime';
+                 c.fillRect(px, py - 5, ts * (u.health / (u instanceof Unit ? 100 : u.type.life)), 3);
             }
-            else if(['Miner', 'Blacksmith'].includes(u.job)) {
-                 let m = findNearest(u, 'mountain');
-                 if(m) { moveTowards(u, m.x, m.y, u.race.spd); if(dist(u,m)<1) city.res.stone++; }
+
+            // Selection Ring
+            if(ui.selected === u) {
+                c.strokeStyle = '#fff';
+                c.lineWidth = 1;
+                c.beginPath();
+                c.arc(px+ts/2, py+ts/2, ts/1.8, 0, Math.PI*2);
+                c.stroke();
             }
-            else if(['Woodcutter', 'Hunter'].includes(u.job)) {
-                 let f = findNearest(u, 'forest');
-                 if(f) { moveTowards(u, f.x, f.y, u.race.spd); if(dist(u,f)<1) city.res.wood++; }
-            }
-            else if(['Priest', 'Healer'].includes(u.job)) {
-                // Visit Temple or Sick
-                let sick = state.units.find(t=>t.hp < t.maxHp && dist(u,t)<10);
-                if(sick) { moveTowards(u, sick.x, sick.y, u.race.spd); if(dist(u,sick)<1) sick.hp+=1; }
-                else {
-                    let temple = state.buildings.find(b=>b.cityId===u.cityId && b.type==='Temple');
-                    if(temple) moveTowards(u, temple.x, temple.y, u.race.spd);
-                    else wander(u);
-                }
-            }
-            else if(['Guard'].includes(u.job)) {
-                let angle = Date.now()/2000;
-                moveTowards(u, city.x + Math.cos(angle)*city.radius, city.y + Math.sin(angle)*city.radius, u.race.spd);
-            }
-            else if(['Bard', 'Jester', 'Innkeeper'].includes(u.job)) {
-                let tavern = state.buildings.find(b=>b.cityId===u.cityId && b.type==='Tavern');
-                if(tavern) moveTowards(u, tavern.x, tavern.y, u.race.spd);
-                else wander(u);
-            }
-            else wander(u);
+            
+            // Status Icon (Effect)
+            if(u.mood < 20) c.fillText('💔', px+ts, py);
+            if(u.job === JOBS.LEADER) c.fillText('👑', px, py);
+            if(u.state === 'ATTACKING') c.fillText('⚔️', px, py);
         }
 
-        function updateCities() {
-            // Simple growth
-            state.cities.forEach(c => {
-                c.pop = state.units.filter(u=>u.cityId===c.id).length;
-                if(c.pop > 10 && Math.random()<0.01) c.radius = Math.min(30, c.radius+1);
-            });
+        // 5. Weather Overlay
+        if(this.world.weather === 'rain') {
+            c.fillStyle = 'rgba(50, 50, 100, 0.2)';
+            c.fillRect(cam.x, cam.y, this.width/cam.z, this.height/cam.z);
+        } else if(this.world.season === 'Winter') {
+            c.fillStyle = 'rgba(255, 255, 255, 0.1)';
+            c.fillRect(cam.x, cam.y, this.width/cam.z, this.height/cam.z);
         }
 
-        /* --- HELPERS --- */
-        function moveTowards(u, tx, ty, s) {
-            let dx = tx - u.x, dy = ty - u.y;
-            let d = Math.sqrt(dx*dx + dy*dy);
-            if(d > 0.1) { u.x += (dx/d)*0.1*s; u.y += (dy/d)*0.1*s; }
+        // 6. Particles
+        c.font = `${ts*0.7}px Arial`;
+        for(let p of this.particles) {
+            c.globalAlpha = p.life / 60;
+            c.fillStyle = p.color;
+            c.fillText(p.txt, p.x*ts, p.y*ts);
         }
-        function wander(u) { if(Math.random()<0.05) { u.tx=u.x+Math.random()*4-2; u.ty=u.y+Math.random()*4-2; } moveTowards(u, u.tx, u.ty, u.race.spd*0.5); }
-        function dist(a, b) { return Math.sqrt((a.x-b.x)**2 + (a.y-b.y)**2); }
-        function findNearest(u, type) {
-             for(let i=0; i<20; i++) {
-                 let tx = Math.floor(u.x + Math.random()*30-15);
-                 let ty = Math.floor(u.y + Math.random()*30-15);
-                 if(tx>=0 && tx<WORLD_W && ty>=0 && ty<WORLD_H && state.tiles[ty][tx].type === type) return {x:tx, y:ty};
+        c.globalAlpha = 1.0;
+
+        c.restore();
+    }
+}
+
+class Map {
+    constructor(w, h) {
+        this.w = w; this.h = h;
+        this.tiles = [];
+    }
+    generate() {
+        const seedX = Math.random() * 100;
+        const seedY = Math.random() * 100;
+        for(let y=0; y<this.h; y++) {
+            let row = [];
+            for(let x=0; x<this.w; x++) {
+                let nx = (x * 0.08) + seedX;
+                let ny = (y * 0.08) + seedY;
+                
+                // Multi-layered noise for better shapes
+                let n = Math.sin(nx) + Math.cos(ny) + 
+                        0.5 * Math.sin(nx * 2 + ny * 2) + 
+                        (Math.random() * 0.2);
+
+                let type = TILES.GRASS;
+                
+                // Adjusted Thresholds for more Land/Trees
+                if(n < -1.2) type = TILES.DEEP_WATER;
+                else if(n < -0.8) type = TILES.WATER;
+                else if(n < -0.6) type = TILES.SAND;
+                else if(n < 0.5) type = TILES.GRASS;
+                else if(n < 1.3) type = TILES.FOREST; // Widen forest band
+                else type = TILES.MOUNTAIN;
+
+                // Caves in mountains
+                if(type === TILES.MOUNTAIN && Math.random() < 0.15) type = TILES.CAVE;
+
+                row.push({ x, y, type, owner: null });
+            }
+            this.tiles.push(row);
+        }
+    }
+    isValid(x, y) { return x>=0 && x<this.w && y>=0 && y<this.h; }
+    getRandomLandTile() {
+        for(let i=0; i<1000; i++) {
+            let x = rand(this.w), y = rand(this.h);
+            if(this.tiles[y][x].type >= TILES.GRASS) return this.tiles[y][x];
+        }
+        return null;
+    }
+}
+
+class World {
+    constructor() {
+        this.year = 1;
+        this.day = 0;
+        this.season = 'Spring';
+        this.weather = 'clear';
+        this.globalEvents = [];
+    }
+    update() {
+        if(game.ticks % CFG.dayTicks === 0) {
+            this.day++;
+            if(this.day > CFG.yearDays) {
+                this.day = 0;
+                this.year++;
+                this.handleYearlyEvents();
+            }
+            this.updateSeason();
+        }
+        // Random weather change
+        if(Math.random() < 0.001) this.weather = pick(['clear', 'rain', 'cloudy', 'windy']);
+    }
+    updateSeason() {
+        if(this.day < 15) this.season = 'Spring';
+        else if(this.day < 30) this.season = 'Summer';
+        else if(this.day < 45) this.season = 'Autumn';
+        else this.season = 'Winter';
+    }
+    handleYearlyEvents() {
+        ui.toast(`Year ${this.year} has begun.`);
+        // Autosave or History log could go here
+        game.cities.forEach(c => c.historicalNotes.push(`Year ${this.year}: Pop ${c.pop.length}`));
+    }
+    triggerEvent() {
+        const events = [
+            { msg: 'A volcano erupts!', type: 'war', fn: () => {
+                let x = rand(CFG.w), y = rand(CFG.h);
+                for(let i=0; i<5; i++) game.map.tiles[clamp(y+rand(3),0,99)][clamp(x+rand(3),0,119)].type = TILES.MOUNTAIN;
+                game.addParticle(x, y, '🌋');
+            }},
+            { msg: 'A festival is held!', type: 'good', fn: () => {
+                game.entities.forEach(u => u.mood = 100);
+            }},
+            { msg: 'Plague spreads...', type: 'war', fn: () => {
+                let p0 = pick(game.entities);
+                if(p0) p0.health -= 50;
+            }}
+        ];
+        const e = pick(events);
+        e.fn();
+        ui.toast(e.msg, e.type);
+    }
+}
+
+class City {
+    constructor(x, y, race) {
+        this.id = uuid();
+        this.name = this.genName(race);
+        this.race = race;
+        this.color = race.color;
+        this.cx = x; this.cy = y;
+        this.pop = [];
+        this.buildings = [];
+        this.resources = { wood: 100, stone: 50, food: 100, gold: 0 };
+        this.tiles = []; // Territory
+        this.tradeRoutes = [];
+        this.historicalNotes = [];
+        
+        // Feature 5: Advancements
+        this.techs = [];
+        this.researchProgress = 0;
+
+        this.claimTile(x, y);
+    }
+
+    genName(race) {
+        const human = ['Bork', 'York', 'London', 'Paris', 'Dirt'];
+        const elf = ['Ael', 'Thal', 'Iyl', 'Syl', 'Olo'];
+        const dwarf = ['Kraz', 'Mor', 'Dur', 'Thrum', 'Gor'];
+        const orc = ['Zug', 'Mok', 'Dab', 'Grom', 'Ruk'];
+        let p = human;
+        if(race.name === 'Elf') p = elf;
+        if(race.name === 'Dwarf') p = dwarf;
+        if(race.name === 'Orc') p = orc;
+        return pick(p) + pick(['grad', 'heim', 'ia', 'ton', 'rock']);
+    }
+
+    update() {
+        // Resources
+        this.resources.food += this.getBuildingCount('FARM') * 0.5;
+        this.resources.wood += 0.2;
+        // Tax (New: Allows Expansion)
+        if(game.ticks % 100 === 0) {
+            this.resources.gold += this.pop.length * 0.1;
+        }
+
+        // Feature 5: Research Generation
+        if(game.ticks % 50 === 0) {
+            let rpGain = 0.5 + (this.getBuildingCount('HALL') * 0.2) + (this.getBuildingCount('SHRINE') * 0.5);
+            if(this.race.traits.includes('Diplomatic')) rpGain += 0.2; // Humans learn faster
+            this.researchProgress += rpGain;
+            
+            const cost = 100 * (this.techs.length + 1);
+            if(this.researchProgress >= cost) {
+                this.researchProgress = 0;
+                this.discoverTech();
+            }
+        }
+
+        // Expansion
+        if(game.ticks % 500 === 0 && this.resources.gold > 50) {
+            this.expand();
+        }
+
+        // Construction
+        if(game.ticks % 200 === 0) this.tryBuild();
+        
+        // Starvation / Growth logic
+        if(this.resources.food < this.pop.length) {
+             // Famine
+             if(Math.random() < 0.1) {
+                 const victim = pick(this.pop);
+                 if(victim) victim.takeDamage(10);
              }
-             return null;
         }
-        function addParticle(x, y, txt, col) { state.particles.push({x,y,txt,col,life:40}); }
-        function notify(title, msg, type) {
-            let d = document.createElement('div'); d.className = `toast ${type||''}`;
-            d.innerHTML = `<strong>${title}</strong> <span>${msg}</span>`;
-            document.getElementById('notif-area').appendChild(d);
-            setTimeout(()=>d.remove(), 5000);
+    }
+
+    claimTile(x, y) {
+        if(game.map.isValid(x,y)) {
+            game.map.tiles[y][x].owner = this;
+            this.tiles.push({x,y});
         }
+    }
 
-        /* --- DRAW --- */
-        function draw() {
-            ctx.fillStyle = '#000'; ctx.fillRect(0,0,canvas.width, canvas.height);
-            ctx.save();
-            ctx.translate(canvas.width/2, canvas.height/2);
-            ctx.scale(state.cam.z, state.cam.z);
-            ctx.translate(-state.cam.x*TILE_SIZE, -state.cam.y*TILE_SIZE);
-
-            // Tiles
-            let vw = (canvas.width/state.cam.z)/TILE_SIZE;
-            let vh = (canvas.height/state.cam.z)/TILE_SIZE;
-            let sx = Math.floor(state.cam.x - vw/2 - 2);
-            let sy = Math.floor(state.cam.y - vh/2 - 2);
-            
-            for(let y=Math.max(0,sy); y<Math.min(WORLD_H, sy+vh+4); y++) {
-                for(let x=Math.max(0,sx); x<Math.min(WORLD_W, sx+vw+4); x++) {
-                    let t = state.tiles[y][x];
-                    ctx.fillStyle = COLORS[t.type];
-                    ctx.fillRect(x*TILE_SIZE, y*TILE_SIZE, TILE_SIZE+1, TILE_SIZE+1);
-                    if(t.type==='forest') { ctx.fillStyle='rgba(0,0,0,0.3)'; ctx.font='20px Serif'; ctx.fillText('🌲', x*TILE_SIZE+2, y*TILE_SIZE+24); }
-                    if(t.type==='mountain') { ctx.font='20px Serif'; ctx.fillText('🏔️', x*TILE_SIZE+2, y*TILE_SIZE+24); }
-                }
-            }
-
-            // Buildings
-            state.buildings.forEach(b => {
-                ctx.font = '24px Serif';
-                ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillText(b.emoji, b.x*TILE_SIZE+2, b.y*TILE_SIZE+2);
-                ctx.fillText(b.emoji, b.x*TILE_SIZE, b.y*TILE_SIZE);
-                if(state.selection && state.selection.id === b.id) {
-                    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.strokeRect(b.x*TILE_SIZE-2, b.y*TILE_SIZE-24, 36, 36);
+    expand() {
+        // Find adjacent unclaimed
+        let candidates = [];
+        for(let t of this.tiles) {
+            [[0,1],[0,-1],[1,0],[-1,0]].forEach(([dx,dy]) => {
+                let nx=t.x+dx, ny=t.y+dy;
+                if(game.map.isValid(nx,ny) && !game.map.tiles[ny][nx].owner) {
+                    candidates.push({x:nx,y:ny});
                 }
             });
+        }
+        if(candidates.length > 0) {
+            let c = pick(candidates);
+            this.claimTile(c.x, c.y);
+            this.resources.gold -= 10;
+        }
+    }
 
-            // Units
-            state.units.forEach(u => {
-                let px = u.x*TILE_SIZE+16, py = u.y*TILE_SIZE+16;
-                ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.beginPath(); ctx.ellipse(px, py+8, 6, 3, 0, 0, Math.PI*2); ctx.fill();
+    discoverTech() {
+        const available = ADVANCEMENTS.filter(t => !this.techs.includes(t));
+        if(available.length > 0) {
+            const t = pick(available);
+            this.techs.push(t);
+            ui.toast(`${this.name} discovered ${t}!`, 'tech');
+            this.historicalNotes.push(`Discovered ${t}`);
+        }
+    }
+
+    tryBuild() {
+        // Simple build priority
+        let target = 'HOUSE';
+        if(this.pop.length > this.getBuildingCount('HOUSE') * 3) target = 'HOUSE';
+        else if(this.resources.food < this.pop.length * 2) target = 'FARM';
+        else if(Math.random() < 0.3) target = pick(Object.keys(BUILDINGS));
+
+        const bInfo = BUILDINGS[target];
+        
+        // Feature 5: Tech requirements for buildings
+        if (bInfo.req && !this.techs.includes(bInfo.req)) return;
+
+        if(this.resources.wood >= bInfo.cost) {
+            // Place near center
+            let placed = false;
+            for(let t of this.tiles) {
+                // Feature 3: Buildings should not be allowed to be placed on water
+                const tile = game.map.tiles[t.y][t.x];
+                if(tile.type === TILES.WATER || tile.type === TILES.DEEP_WATER) continue;
                 
-                if(state.selection && state.selection.id === u.id) { ctx.strokeStyle = '#fff'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(px, py, 14, 0, Math.PI*2); ctx.stroke(); }
+                if(this.buildings.find(b => b.x === t.x && b.y === t.y)) continue;
                 
-                ctx.fillStyle = u.race.emoji ? '#fff' : '#f00';
-                // Show kid emoji if age < 18
-                let displayEmoji = u.age < 18 ? '👶' : u.race.emoji;
-                ctx.font='20px Serif'; ctx.textAlign='center';
-                ctx.fillText(displayEmoji, px, py+6);
+                // Cluster check: prefer next to existing
+                const hasNeighbor = this.buildings.length === 0 || this.buildings.some(b => dist(b, t) < 2);
                 
-                // Job Icon if zoomed
-                if(state.cam.z > 1.5 && u.age >= 18) {
-                    let jobIcon = '';
-                    if(u.job === 'Guard') jobIcon='🛡️';
-                    else if(u.job === 'Blacksmith') jobIcon='⚒️';
-                    else if(u.job === 'Farmer') jobIcon='🌾';
-                    else if(u.job === 'Priest') jobIcon='⛪';
-                    if(jobIcon) { ctx.font='10px Serif'; ctx.fillText(jobIcon, px+8, py-8); }
+                if(hasNeighbor) {
+                    this.addBuilding(t.x, t.y, target);
+                    this.resources.wood -= bInfo.cost;
+                    placed = true;
+                    break;
                 }
-            });
-
-            // Particles
-            state.particles.forEach((p, i) => {
-                ctx.fillStyle = p.col || '#fff'; ctx.font='12px Sans'; ctx.fillText(p.txt, p.x*TILE_SIZE, p.y*TILE_SIZE - (30-p.life));
-                p.life--; if(p.life<=0) state.particles.splice(i,1);
-            });
-            
-            // Night Overlay
-            let hour = state.time.hour;
-            if(hour < 6 || hour > 20) {
-                ctx.fillStyle = 'rgba(0, 5, 15, 0.4)';
-                ctx.fillRect(state.cam.x*TILE_SIZE - vw*TILE_SIZE, state.cam.y*TILE_SIZE - vh*TILE_SIZE, vw*TILE_SIZE*2, vh*TILE_SIZE*2);
-            }
-
-            ctx.restore();
-        }
-
-        /* --- INPUT --- */
-        function onDown(e) { state.input.drag = false; state.input.lx = e.clientX; state.input.ly = e.clientY; if(state.tool==='drag') state.input.drag=true; else handleClick(e); }
-        function onMove(e) {
-            if(state.input.drag) {
-                state.cam.x -= (e.clientX-state.input.lx)/state.cam.z/TILE_SIZE;
-                state.cam.y -= (e.clientY-state.input.ly)/state.cam.z/TILE_SIZE;
-                state.input.lx = e.clientX; state.input.ly = e.clientY;
             }
         }
-        function onUp() { state.input.drag = false; }
-        function onWheel(e) { let s = e.deltaY>0 ? 0.9 : 1.1; state.cam.z = Math.max(0.4, Math.min(4, state.cam.z*s)); }
+    }
 
-        function handleClick(e) {
-            let cx = canvas.width/2, cy = canvas.height/2;
-            let wx = (e.clientX-cx)/state.cam.z + state.cam.x*TILE_SIZE;
-            let wy = (e.clientY-cy)/state.cam.z + state.cam.y*TILE_SIZE;
-            let tx = Math.floor(wx/TILE_SIZE), ty = Math.floor(wy/TILE_SIZE);
+    addBuilding(x, y, type) {
+        this.buildings.push({ x, y, type, emoji: BUILDINGS[type].emoji });
+        game.addParticle(x, y, '🔨');
+    }
 
-            if(state.tool === 'select') {
-                let u = state.units.find(unit => dist({x:tx, y:ty}, unit) < 1.5);
-                if(u) { state.selection = { type: 'unit', ...u, ref: u }; updateInspector(); return; }
-                let b = state.buildings.find(build => dist({x:tx, y:ty}, build) < 1.5);
-                if(b) { state.selection = { type: 'building', ...b, ref: b }; updateInspector(); return; }
-                document.getElementById('inspector').classList.remove('visible');
-                state.selection = null;
+    getBuildingCount(type) {
+        return this.buildings.filter(b => b.type === type).length;
+    }
+}
+
+class Animal {
+    constructor(x, y, type) {
+        this.x = x; this.y = y;
+        this.type = type;
+        this.emoji = type.emoji;
+        this.health = type.life;
+        this.state = 'IDLE';
+        this.target = null;
+        this.dead = false;
+        this.cooldown = 0;
+    }
+    update() {
+        if(this.cooldown > 0) this.cooldown--;
+        
+        if(this.state === 'IDLE') {
+            // Wander or Find Prey
+            if(this.type.hostile) {
+                // Look for prey
+                const prey = game.entities.find(e => e !== this && !e.dead && dist(e, this) < 5 && (e instanceof Unit || (e instanceof Animal && !e.type.hostile)));
+                if(prey) {
+                    this.target = prey;
+                    this.state = 'ATTACKING';
+                } else {
+                    this.wander();
+                }
             } else {
-                let rKey = state.tool;
-                if(RACES[rKey]) spawnUnit(tx, ty, RACES[rKey], null);
-                if(state.tool === 'loot') { state.loot.push({x:tx, y:ty}); addParticle(tx,ty,'💎','#fff'); }
-                if(state.tool === 'forest') { state.tiles[ty][tx].type = 'forest'; }
-                if(state.tool === 'mountain') { state.tiles[ty][tx].type = 'mountain'; }
-                if(state.tool === 'smite') { addParticle(tx, ty, '⚡', '#ff0'); state.units.forEach(u=>{ if(dist(u,{x:tx,y:ty})<2) u.hp=0; }); }
-                if(state.tool === 'lust') { 
-                    let u = state.units.find(unit => dist({x:tx, y:ty}, unit) < 1.5);
-                    if(u) { u.traits.push('Lustful'); notify('Curse', `${u.race.name} is now Lustful`, 'drama'); }
+                // Rabbit reproduction
+                if(Math.random() < 0.002 && game.entities.length < 300) {
+                    game.spawnAnimal(this.type, this.x, this.y);
                 }
+                this.wander();
             }
-        }
-
-        function updateInspector() {
-            let panel = document.getElementById('inspector');
-            let s = state.selection;
-            if(!s) { panel.classList.remove('visible'); return; }
+        } else if(this.state === 'ATTACKING') {
+            if(!this.target || this.target.dead) { this.state = 'IDLE'; this.target=null; return; }
             
-            panel.classList.add('visible');
-            let html = '';
-
-            if(s.type === 'unit') {
-                let u = state.units.find(x=>x.id===s.id);
-                if(!u || u.hp<=0) { panel.classList.remove('visible'); return; }
-                
-                let traits = u.traits.map(t=>`<span class="chip">${t}</span>`).join('');
-                let partnerName = 'None';
-                if(u.partnerId) {
-                    let p = state.units.find(x=>x.id===u.partnerId);
-                    partnerName = p ? p.race.name : 'Deceased';
+            const d = dist(this, this.target);
+            if(d < 0.8) {
+                if(this.cooldown <= 0) {
+                    this.target.takeDamage(this.type.dmg);
+                    this.cooldown = 30;
+                    game.addParticle(this.target.x, this.target.y, '💥', 'red');
                 }
-                
-                html = `
-                    <div class="inspector-header">
-                        <div class="entity-avatar" style="border-color:${u.race.color}">${u.race.emoji}
-                            <div class="gender-icon" style="color:${u.gender==='M'?'#0af':'#f0a'}">${u.gender==='M'?'♂':'♀'}</div>
-                        </div>
-                        <div>
-                            <h3 style="margin:0">${u.race.name} ${u.job}</h3>
-                            <p style="margin:0;font-size:12px;opacity:0.7">Age ${Math.floor(u.age)}</p>
-                            <div style="margin-top:4px">${traits}</div>
-                        </div>
-                    </div>
-                    <div class="inspector-body">
-                        <div class="stats-grid">
-                            <div class="stat-card"><span>HP</span><span>${Math.floor(u.hp)}</span></div>
-                            <div class="stat-card"><span>Gold</span><span>${Math.floor(u.inv.gold)}</span></div>
-                        </div>
-                        <div class="section-label">Relations</div>
-                        <div style="background:rgba(255,255,255,0.05); padding:8px; border-radius:6px;">
-                            <div style="font-size:12px; margin-bottom:4px">Spouse: <strong style="color:#f0a">${partnerName}</strong></div>
-                            <div style="font-size:12px">Children: ${u.children.length}</div>
-                        </div>
-                    </div>
-                `;
-            } else if (s.type === 'building') {
-                let b = state.buildings.find(x=>x.id===s.id);
-                if(!b) { panel.classList.remove('visible'); return; }
-                html = `
-                    <div class="inspector-header">
-                        <div class="entity-avatar" style="border-color:#aaa">${b.emoji}</div>
-                        <div>
-                            <h3 style="margin:0">${b.type}</h3>
-                            <p style="margin:0;font-size:12px;opacity:0.7">Level ${b.level}</p>
-                        </div>
-                    </div>
-                    <div class="inspector-body">
-                         <div class="stats-grid">
-                            <div class="stat-card"><span>Residents</span><span>${b.residents.length}</span></div>
-                        </div>
-                    </div>
-                `;
+            } else {
+                this.moveTowards(this.target);
             }
-            panel.innerHTML = html;
+        } else if (this.state === 'MOVING') {
+            const dx = this.target.x - this.x;
+            const dy = this.target.y - this.y;
+            const d = Math.sqrt(dx*dx + dy*dy);
+            if(d < 0.5) this.state = 'IDLE';
+            else {
+                this.x += (dx/d) * this.type.speed;
+                this.y += (dy/d) * this.type.speed;
+            }
+        }
+    }
+    wander() {
+        this.target = { x: clamp(this.x + rand(7)-3, 1, CFG.w-2), y: clamp(this.y + rand(7)-3, 1, CFG.h-2) };
+        this.state = 'MOVING';
+    }
+    moveTowards(t) {
+        const dx = t.x - this.x;
+        const dy = t.y - this.y;
+        const d = Math.sqrt(dx*dx + dy*dy);
+        this.x += (dx/d) * this.type.speed;
+        this.y += (dy/d) * this.type.speed;
+    }
+    takeDamage(amt) {
+        this.health -= amt;
+        if(this.health <= 0) {
+            this.dead = true;
+            game.addParticle(this.x, this.y, '🍖', 'brown');
+        }
+    }
+}
+
+class Unit {
+    constructor(x, y, race) {
+        this.id = uuid();
+        this.name = pick(['Alec', 'Bila', 'Cora', 'Daan', 'Elra', 'Fin', 'Gia', 'Hul', 'Ivy', 'Jeb']);
+        this.x = x; this.y = y;
+        this.race = race;
+        this.emoji = race.emoji;
+        this.age = 18 + rand(10); // Starts at 18 minimum
+        this.maxAge = race.life + rand(20);
+        this.health = 100;
+        this.mood = 100;
+        this.stats = { str: rand(10), int: rand(10), cha: rand(10) };
+        this.job = JOBS.IDLE;
+        this.city = null;
+        this.inventory = [];
+        this.journal = [`Born in Year ${game.world.year}`];
+        this.partner = null;
+        this.children = []; // Stores names for simple display
+        this.lineage = { parents: [], grandparents: [] }; // New Lineage Tracking
+        this.maxChildren = 3 + rand(3); // Feature 1: Max 3-5 children
+        this.combatCooldown = 0;
+        
+        // AI State
+        this.state = 'IDLE';
+        this.target = null;
+        this.dead = false;
+    }
+
+    update() {
+        if(this.combatCooldown > 0) this.combatCooldown--;
+
+        // Aging
+        if(game.ticks % 200 === 0) {
+            this.age += 0.1; // Fast aging for sim
+            if(this.age > this.maxAge) this.die('Old Age');
         }
 
-        function updateUI() {
-             document.getElementById('ui-year').innerText = Math.floor(state.time.day/365)+1;
-             document.getElementById('ui-time').innerText = (state.time.hour>6 && state.time.hour<20)?'Day':'Night';
-             document.getElementById('ui-pop').innerText = state.units.length;
-             if(state.selection) updateInspector();
+        // Combat Self-Defense
+        if(this.state !== 'ATTACKING' && Math.random() < 0.1) {
+            const enemy = game.entities.find(e => e instanceof Animal && e.type.hostile && !e.dead && dist(e, this) < 4);
+            if(enemy) {
+                this.state = 'ATTACKING';
+                this.target = enemy;
+            }
         }
 
-        function setSpeed(s) { state.gameSpeed = s; document.querySelectorAll('.time-btn').forEach(b=>b.classList.remove('active')); event.target.classList.add('active'); }
-        function setTool(t) { state.tool = t; document.querySelectorAll('.tool-icon').forEach(b=>b.classList.remove('active')); event.currentTarget.classList.add('active'); }
+        // Movement & Logic
+        if(this.state === 'IDLE') {
+            this.decide();
+        } else if (this.state === 'MOVING') {
+            this.move();
+        } else if (this.state === 'WORKING') {
+            if(Math.random() < 0.05) this.state = 'IDLE';
+        } else if (this.state === 'ATTACKING') {
+            this.fight();
+        }
+        
+        // Reproduction
+        // Logic: Age > 18, Has Partner, Random Chance, Housing check (simplified as check for city)
+        if(this.age > 18 && this.partner && this.city && Math.random() < 0.0005) {
+             this.haveChild();
+        }
+    }
+    
+    fight() {
+        if(!this.target || this.target.dead || dist(this, this.target) > 6) {
+            this.state = 'IDLE'; this.target = null; return;
+        }
+        
+        const d = dist(this, this.target);
+        if(d < 1.0) {
+            if(this.combatCooldown <= 0) {
+                const dmg = 5 + (this.stats.str * 0.5);
+                this.target.takeDamage(dmg);
+                this.combatCooldown = 20;
+                game.addParticle(this.target.x, this.target.y, '💥', 'white');
+            }
+        } else {
+            // Chase
+            const dx = this.target.x - this.x;
+            const dy = this.target.y - this.y;
+            this.x += (dx/d) * 0.12;
+            this.y += (dy/d) * 0.12;
+        }
+    }
 
-        init();
-    </script>
+    decide() {
+        // Child Logic
+        if (this.age < 18) {
+            this.job = JOBS.CHILD;
+            // Children just wander
+            let tx = this.x + rand(5)-2;
+            let ty = this.y + rand(5)-2;
+            tx = clamp(tx, 1, CFG.w - 2);
+            ty = clamp(ty, 1, CFG.h - 2);
+            this.target = { x: tx, y: ty };
+            this.state = 'MOVING';
+            return;
+        }
+
+        // Job Assignment
+        if((this.job === JOBS.IDLE || this.job === JOBS.CHILD) && this.city) {
+            // Feature 5: Jobs require tech
+            if(this.city.getBuildingCount('FARM') > 0 && Math.random() < 0.5) this.job = JOBS.FARMER;
+            else if(this.city.getBuildingCount('MINE') > 0) this.job = JOBS.MINER;
+            else if(this.city.techs.includes('Philosophy') && Math.random() < 0.3) this.job = JOBS.SCHOLAR;
+            else if(this.city.techs.includes('Metallurgy') && Math.random() < 0.3) this.job = JOBS.SMITH;
+            else this.job = JOBS.BUILDER;
+            
+            this.journal.push(`Became a ${this.job}`);
+        }
+
+        // Feature 1: Natural Crafting (Inventory works)
+        if ((this.job === JOBS.SMITH || this.job === JOBS.SCHOLAR) && Math.random() < 0.002) {
+            const item = (this.job===JOBS.SMITH ? pick(['Iron', 'Steel']) : pick(['Scroll', 'Tome'])) + ' ' + pick(['Work', 'Creation']);
+            this.inventory.push(item);
+            ui.toast(`${this.name} crafted ${item}`);
+        }
+
+        // Romance
+        if(this.age > 18 && !this.partner && Math.random() < 0.01) {
+            const potentials = this.city ? this.city.pop.filter(u => u !== this && !u.partner && u.age >= 18) : [];
+            if(potentials.length > 0) {
+                this.partner = pick(potentials);
+                this.partner.partner = this;
+                this.journal.push(`Married ${this.partner.name}`);
+                this.mood += 20;
+                game.addParticle(this.x, this.y, '❤️');
+            }
+        }
+
+        // Cheating / Drama
+        if(this.partner && Math.random() < 0.0005) {
+             this.journal.push(`Cheated on ${this.partner.name}`);
+             this.mood -= 10;
+             ui.toast(`${this.name} had an affair!`, 'war');
+        }
+
+        // Target selection
+        if(this.job === JOBS.FARMER) {
+            // Go to green tile
+            const t = this.findTile(TILES.GRASS);
+            if(t) { this.target = t; this.state = 'MOVING'; }
+        } else {
+            // Wander with padding to prevent stuck borders
+            let tx = this.x + rand(7)-3;
+            let ty = this.y + rand(7)-3;
+            // Clamp target within safe bounds
+            tx = clamp(tx, 1, CFG.w - 2);
+            ty = clamp(ty, 1, CFG.h - 2);
+            this.target = { x: tx, y: ty };
+            this.state = 'MOVING';
+        }
+    }
+    
+    haveChild() {
+        // Check Max Children
+        if(this.children.length >= this.maxChildren) return;
+
+        // Create new unit
+        const child = new Unit(this.x, this.y, this.race);
+        child.age = 0;
+        child.city = this.city;
+        
+        // Set Lineage
+        child.lineage.parents = [this.name, this.partner.name];
+        // Grandparents = this unit's parents + partner's parents
+        child.lineage.grandparents = [...this.lineage.parents, ...this.partner.lineage.parents];
+        
+        // Update parents records
+        this.children.push(child.name);
+        this.partner.children.push(child.name);
+        
+        // Add to world
+        this.city.pop.push(child);
+        game.entities.push(child);
+        
+        ui.toast(`Baby ${child.name} born to ${this.name} & ${this.partner.name}`);
+        game.addParticle(this.x, this.y, '👶');
+    }
+
+    move() {
+        if(!this.target) { this.state = 'IDLE'; return; }
+        const dx = this.target.x - this.x;
+        const dy = this.target.y - this.y;
+        const d = Math.sqrt(dx*dx + dy*dy);
+
+        // Bounds check helpers
+        const tx = Math.floor(this.x);
+        const ty = Math.floor(this.y);
+
+        // Feature 4: Movement slower in water an actions limited untill boats unlocked
+        let speed = 0.1;
+        if (game.map.isValid(tx, ty)) {
+            const tile = game.map.tiles[ty][tx];
+            if (tile.type === TILES.WATER || tile.type === TILES.DEEP_WATER) {
+                if (this.city && this.city.techs.includes('Sailing') && this.age >= 18) {
+                    speed = 0.08; // Boat speed
+                } else {
+                    speed = 0.02; // Swimming is very slow
+                }
+            }
+        }
+
+        if(d < 0.5) {
+            // Feature 4: Actions limited in water (cannot work while swimming)
+            // Added bounds check here
+            if (game.map.isValid(tx, ty)) {
+                const tile = game.map.tiles[ty][tx];
+                const isWater = (tile.type === TILES.WATER || tile.type === TILES.DEEP_WATER);
+                const hasBoat = this.city && this.city.techs.includes('Sailing');
+
+                if (isWater && !hasBoat) {
+                    this.state = 'IDLE'; // Can't work in water without a boat
+                } else {
+                    this.state = 'WORKING';
+                    // Work effect
+                    if (this.age >= 18) {
+                         if(this.job === JOBS.FARMER && this.city) this.city.resources.food += 1;
+                         if(this.job === JOBS.MINER && this.city) this.city.resources.stone += 1;
+                         // Feature 5: Scholars boost research
+                         if(this.job === JOBS.SCHOLAR && this.city) this.city.researchProgress += 0.5;
+                    }
+                }
+            } else {
+                 this.state = 'IDLE';
+            }
+        } else {
+            this.x += (dx/d) * speed;
+            this.y += (dy/d) * speed;
+            
+            // Clamp to map bounds to prevent errors
+            this.x = clamp(this.x, 0.1, CFG.w - 0.1);
+            this.y = clamp(this.y, 0.1, CFG.h - 0.1);
+        }
+    }
+
+    findTile(type) {
+        // Simple local search
+        for(let i=0; i<10; i++) {
+            let tx = Math.floor(this.x + rand(10)-5);
+            let ty = Math.floor(this.y + rand(10)-5);
+            if(game.map.isValid(tx, ty) && game.map.tiles[ty][tx].type === type) return {x:tx, y:ty};
+        }
+        return null;
+    }
+
+    takeDamage(amt) {
+        this.health -= amt;
+        if(this.health <= 0) this.die('Violence');
+    }
+
+    die(reason) {
+        this.dead = true;
+        game.addParticle(this.x, this.y, '💀');
+        if(this.city) {
+            this.city.pop = this.city.pop.filter(u => u !== this);
+            this.city.historicalNotes.push(`${this.name} died of ${reason}.`);
+        }
+        if(ui.selected === this) ui.select(null);
+    }
+}
+
+/**
+ * UI MANAGER
+ */
+const ui = {
+    selected: null,
+    tool: 'select',
+    
+    update: function() {
+        document.getElementById('ui-year').innerText = game.world.year;
+        document.getElementById('ui-season').innerText = game.world.season;
+        document.getElementById('ui-pop').innerText = game.entities.length;
+        document.getElementById('ui-cities').innerText = game.cities.length;
+        
+        if(this.selected) this.renderInspector();
+    },
+
+    setTool: function(t) {
+        this.tool = t;
+        document.querySelectorAll('.bottom-bar button').forEach(b => b.classList.remove('active'));
+        const btn = document.getElementById(t === 'select' ? 'btn-select' : (t === 'drag' ? 'btn-drag' : ''));
+        if(btn) btn.classList.add('active');
+        // Highlight god buttons logic can be added here
+    },
+
+    select: function(obj) {
+        this.selected = obj;
+        const pan = document.getElementById('inspector');
+        if(!obj) {
+            pan.style.display = 'none';
+        } else {
+            pan.style.display = 'block';
+            this.renderInspector();
+        }
+    },
+
+    renderInspector: function() {
+        const div = document.getElementById('inspector');
+        const s = this.selected;
+        
+        // Feature 2: Building Inspector View
+        if(s.type === 'building') {
+            const b = s.data;
+            const c = s.city;
+            div.innerHTML = `
+                <div class="header-row">
+                    <div class="avatar" style="border-color:#aaa">${b.emoji}</div>
+                    <div>
+                        <h2>${pick(Object.keys(BUILDINGS).filter(k => BUILDINGS[k].emoji === b.emoji))}</h2>
+                        <h3>${c.name} District</h3>
+                    </div>
+                </div>
+                <div class="inspector-row"><span>Type</span> <span>${b.type}</span></div>
+                <div class="inspector-row"><span>Coords</span> <span>${b.x}, ${b.y}</span></div>
+                <div class="inspector-row"><span>Owner</span> <span>${c.race.name}</span></div>
+                <div style="margin-top:10px; font-size:12px; color:#aaa; font-style:italic;">
+                    Part of the glorious city of ${c.name}.
+                </div>
+            `;
+        } else if(s instanceof Unit) {
+            div.innerHTML = `
+                <div class="header-row">
+                    <div class="avatar">${s.emoji}</div>
+                    <div>
+                        <h2>${s.name}</h2>
+                        <h3>${s.race.name} ${s.job}</h3>
+                    </div>
+                </div>
+                <div class="inspector-row"><span>Age</span> <span>${Math.floor(s.age)}</span></div>
+                <div class="inspector-row"><span>Health</span> <span style="color:${s.health<30?'red':'lime'}">${s.health}%</span></div>
+                <div class="inspector-row"><span>Mood</span> <span>${s.mood}%</span></div>
+                <div class="inspector-row"><span>Partner</span> <span>${s.partner ? s.partner.name : 'Single'}</span></div>
+                <div class="inspector-row"><span>Str/Int/Cha</span> <span>${s.stats.str}/${s.stats.int}/${s.stats.cha}</span></div>
+                
+                <h3>Lineage</h3>
+                <div style="font-size:12px; margin-bottom:8px;">
+                    <div><strong>Parents:</strong> ${s.lineage.parents.length ? s.lineage.parents.join(', ') : 'Unknown'}</div>
+                    <div><strong>Grandparents:</strong> ${s.lineage.grandparents.length ? s.lineage.grandparents.join(', ') : 'Unknown'}</div>
+                    <div><strong>Children:</strong> ${s.children.length}</div>
+                </div>
+
+                <h3>Inventory</h3>
+                <div style="font-size:12px; color:#aaa;">${s.inventory.length ? s.inventory.join(', ') : 'Empty'}</div>
+                <h3>Journal</h3>
+                <div style="max-height:100px; overflow-y:auto;">
+                    ${s.journal.map(j => `<div class="journal-entry">${j}</div>`).join('')}
+                </div>
+            `;
+        } else if(s instanceof Animal) {
+            div.innerHTML = `
+                <div class="header-row">
+                    <div class="avatar">${s.emoji}</div>
+                    <div>
+                        <h2>${s.type.name}</h2>
+                        <h3>Wild Animal</h3>
+                    </div>
+                </div>
+                <div class="inspector-row"><span>Health</span> <span style="color:${s.health<10?'red':'lime'}">${s.health}</span></div>
+                <div class="inspector-row"><span>Status</span> <span>${s.state}</span></div>
+                <div class="inspector-row"><span>Hostile</span> <span>${s.type.hostile ? 'YES' : 'NO'}</span></div>
+            `;
+        } else if (s instanceof City) {
+            div.innerHTML = `
+                <div class="header-row">
+                    <div class="avatar" style="border-color:${s.color}">🏰</div>
+                    <div>
+                        <h2>${s.name}</h2>
+                        <h3>${s.race.name} Settlement</h3>
+                    </div>
+                </div>
+                <div class="inspector-row"><span>Population</span> <span>${s.pop.length}</span></div>
+                <div class="inspector-row"><span>Food</span> <span>${Math.floor(s.resources.food)}</span></div>
+                <div class="inspector-row"><span>Wood</span> <span>${Math.floor(s.resources.wood)}</span></div>
+                <div class="inspector-row"><span>Gold</span> <span style="color:gold">${Math.floor(s.resources.gold)}</span></div>
+                <h3>Advancements</h3>
+                <div style="font-size:11px; color:var(--accent); margin-bottom:8px;">
+                    ${s.techs.length > 0 ? s.techs.join(' • ') : 'None'}
+                    <div style="width:100%; background:#333; height:4px; margin-top:4px; border-radius:2px;">
+                        <div style="width:${Math.min(100, (s.researchProgress / (100*(s.techs.length+1)))*100)}%; background:cyan; height:100%;"></div>
+                    </div>
+                </div>
+                <h3>Buildings</h3>
+                <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:4px; font-size:20px;">
+                    ${s.buildings.map(b => `<div title="${b.type}">${b.emoji}</div>`).join('')}
+                </div>
+            `;
+        }
+    },
+
+    toast: function(msg, type='neutral') {
+        const d = document.createElement('div');
+        d.className = `toast ${type}`;
+        d.innerText = msg;
+        document.getElementById('toast-container').appendChild(d);
+        setTimeout(() => d.remove(), 6000);
+    }
+};
+
+// INIT
+const game = new Game();
+game.world = new World();
+game.init();
+
+</script>
 </body>
 </html>
