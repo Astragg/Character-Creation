@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Aethelgard II: Expanded Realms</title>
+<title>Aethelgard III: Rise of Civilizations</title>
 <style>
     :root {
         --bg: #121214;
-        --panel: rgba(20, 20, 25, 0.9);
-        --border: rgba(255, 255, 255, 0.1);
+        --panel: rgba(20, 20, 25, 0.95);
+        --border: rgba(255, 255, 255, 0.15);
         --accent: #5e9cd1;
         --text: #e0e0e0;
         --gold: #ffd700;
@@ -109,15 +109,24 @@ const CFG = {
 const TILES = { WATER: 0, GRASS: 1, FOREST: 2, MOUNTAIN: 3, CITY: 4 };
 const PALETTE = { 0: '#4173a3', 1: '#5c9e63', 2: '#3a7042', 3: '#7a7a7a', 4: '#333' };
 
-// EXPANDED RACE LIST (Original 4 + 30 New)
+// Building Types
+const BUILDINGS = {
+    HALL: { type: 'HALL', icon: '🏰', name: 'Town Hall' },
+    HOME: { type: 'HOME', icon: '🏠', name: 'Residence' },
+    FARM: { type: 'FARM', icon: '🌾', name: 'Farm' },
+    SHOP: { type: 'SHOP', icon: '🏪', name: 'General Store' },
+    TAVERN: { type: 'TAVERN', icon: '🍺', name: 'Tavern' },
+    GUILD: { type: 'GUILD', icon: '⚔️', name: 'Adventurer Guild' },
+    HOTEL: { type: 'HOTEL', icon: '🏨', name: 'Inn' }
+};
+
 const RACES = {
-    // --- ORIGINAL ---
     HUMAN: { name: 'Human', emoji: '🧑', life: 65, traits: ['Ambitious'], baseStats: {agg: 40, grd: 50, loy: 50} },
     ELF: { name: 'Elf', emoji: '🧝', life: 180, traits: ['Arcane'], baseStats: {agg: 10, grd: 20, loy: 80} },
     ORC: { name: 'Orc', emoji: '👹', life: 50, traits: ['Strong'], baseStats: {agg: 80, grd: 60, loy: 30} },
     DWARF: { name: 'Dwarf', emoji: '🧔', life: 90, traits: ['Sturdy'], baseStats: {agg: 40, grd: 80, loy: 70} },
 
-    // --- 15 FRIENDLY (Low Aggression, Social) ---
+    // FRIENDLY
     HALFLING: { name: 'Halfling', emoji: '🦶', life: 80, traits: ['Charming'], baseStats: {agg: 5, grd: 30, loy: 90} },
     GNOME: { name: 'Gnome', emoji: '🍄', life: 120, traits: ['Genius'], baseStats: {agg: 10, grd: 40, loy: 70} },
     FAIRY: { name: 'Fairy', emoji: '🧚', life: 200, traits: ['Arcane'], baseStats: {agg: 0, grd: 10, loy: 60} },
@@ -134,7 +143,7 @@ const RACES = {
     SLIME: { name: 'Slime', emoji: '💧', life: 999, traits: ['Sickly'], baseStats: {agg: 5, grd: 90, loy: 90} },
     GOLEM: { name: 'Golem', emoji: '🗿', life: 200, traits: ['Sturdy'], baseStats: {agg: 0, grd: 0, loy: 100} },
 
-    // --- 15 HOSTILE (High Aggression, Low Loyalty/High Greed) ---
+    // HOSTILE
     GOBLIN: { name: 'Goblin', emoji: '👺', life: 40, traits: ['Ambitious'], baseStats: {agg: 70, grd: 90, loy: 10} },
     TROLL: { name: 'Troll', emoji: '🦍', life: 80, traits: ['Strong'], baseStats: {agg: 90, grd: 50, loy: 20} },
     ZOMBIE: { name: 'Zombie', emoji: '🧟', life: 999, traits: ['Sickly'], baseStats: {agg: 100, grd: 0, loy: 100} },
@@ -145,7 +154,7 @@ const RACES = {
     GHOST: { name: 'Ghost', emoji: '👻', life: 999, traits: ['Arcane'], baseStats: {agg: 50, grd: 10, loy: 30} },
     DRAGON_KIN: { name: 'Kobold', emoji: '🦎', life: 50, traits: ['Ambitious'], baseStats: {agg: 60, grd: 80, loy: 40} },
     OGRE: { name: 'Ogre', emoji: '🧌', life: 70, traits: ['Strong'], baseStats: {agg: 85, grd: 60, loy: 30} },
-    CLOWN: { name: 'Jester', emoji: '🤡', life: 60, traits: ['Violent'], baseStats: {agg: 90, grd: 10, loy: 10} }, // Chaotic Evil
+    CLOWN: { name: 'Jester', emoji: '🤡', life: 60, traits: ['Violent'], baseStats: {agg: 90, grd: 10, loy: 10} },
     ROBOT: { name: 'Automaton', emoji: '🤖', life: 200, traits: ['Sturdy'], baseStats: {agg: 60, grd: 0, loy: 90} },
     INSECTOID: { name: 'Thri-Kreen', emoji: '🦗', life: 40, traits: ['Strong'], baseStats: {agg: 70, grd: 40, loy: 50} },
     MIND_FLAYER: { name: 'Illithid', emoji: '🦑', life: 150, traits: ['Arcane'], baseStats: {agg: 60, grd: 90, loy: 10} },
@@ -154,7 +163,9 @@ const RACES = {
 
 const JOBS = {
     IDLE: 'Vagrant', CHILD: 'Child', FARMER: 'Farmer', GUARD: 'Guard', 
-    MAGE: 'Mage', THIEF: 'Thief', KING: 'Ruler', PRISONER: 'Prisoner'
+    MAGE: 'Mage', THIEF: 'Thief', KING: 'Ruler', PRISONER: 'Prisoner',
+    ADVENTURER: 'Adventurer', SHOPKEEPER: 'Shopkeeper', BARTERER: 'Barterer',
+    TAVERNKEEP: 'Tavernkeep'
 };
 
 const GENETIC_TRAITS = {
@@ -164,12 +175,6 @@ const GENETIC_TRAITS = {
     VIOLENT: { name: 'Violent', stat: 'agg', mod: 30 },
     CHARMING: { name: 'Charming', stat: 'cha', mod: 20 },
     SICKLY: { name: 'Sickly', stat: 'str', mod: -10 }
-};
-
-const SPELLS = {
-    FIREBALL: { cost: 30, combat: true },
-    BLOOM: { cost: 20, combat: false },
-    HEAL: { cost: 40, combat: false }
 };
 
 /** --- UTILS --- */
@@ -200,6 +205,9 @@ class Game {
         this.year = 1;
         this.day = 0;
         
+        // Global Occupancy Map for buildings to prevent overlap
+        this.occupiedTiles = new Set();
+
         // Input
         this.canvas.onmousedown = e => {
             if(ui.tool === 'drag') { this.camera.drag = true; this.camera.lx = e.clientX; this.camera.ly = e.clientY; }
@@ -209,6 +217,13 @@ class Game {
             if(this.camera.drag) {
                 this.camera.x -= (e.clientX - this.camera.lx) / this.camera.z;
                 this.camera.y -= (e.clientY - this.camera.ly) / this.camera.z;
+                
+                // Camera Bounds Check
+                const vx = this.width/this.camera.z/this.tileSize;
+                const vy = this.height/this.camera.z/this.tileSize;
+                this.camera.x = clamp(this.camera.x, -10, CFG.w + 10);
+                this.camera.y = clamp(this.camera.y, -10, CFG.h + 10);
+
                 this.camera.lx = e.clientX; this.camera.ly = e.clientY;
             }
         };
@@ -230,10 +245,17 @@ class Game {
         // Gen Civs
         const races = Object.values(RACES);
         for(let i=0; i<CFG.startCities; i++) {
-            let rx = rand(CFG.w), ry = rand(CFG.h);
-            if(this.map[ry][rx] !== TILES.WATER) {
-                // Pick random race from the expanded list
-                this.createCity(rx, ry, pick(races), i===0);
+            let placed = false;
+            let attempts = 0;
+            while(!placed && attempts < 100) {
+                let rx = rand(CFG.w-10) + 5;
+                let ry = rand(CFG.h-10) + 5;
+                // Check if water or occupied
+                if(this.map[ry][rx] !== TILES.WATER && !this.occupiedTiles.has(`${rx},${ry}`)) {
+                    this.createCity(rx, ry, pick(races), i===0);
+                    placed = true;
+                }
+                attempts++;
             }
         }
         
@@ -243,10 +265,43 @@ class Game {
     createCity(x, y, race, isCapital) {
         const c = new City(x, y, race);
         if(isCapital) c.isCapital = true;
+        
+        // Place Hall (Center)
+        this.addBuilding(c, x, y, 'HALL');
+
+        // Require one of each other building
+        const required = ['HOME', 'HOME', 'FARM', 'FARM', 'SHOP', 'TAVERN', 'GUILD', 'HOTEL'];
+        
+        required.forEach(type => {
+            let placed = false;
+            let attempts = 0;
+            while(!placed && attempts < 50) {
+                let bx = x + rand(10) - 5;
+                let by = y + rand(10) - 5;
+                let key = `${bx},${by}`;
+                
+                if(bx > 0 && bx < CFG.w && by > 0 && by < CFG.h &&
+                   this.map[by][bx] !== TILES.WATER && 
+                   !this.occupiedTiles.has(key)) {
+                    this.addBuilding(c, bx, by, type);
+                    placed = true;
+                }
+                attempts++;
+            }
+        });
+
         this.cities.push(c);
         // Initial Pop
         for(let k=0; k<6; k++) this.spawnUnit(x, y, race, c);
         ui.toast(`${c.name} founded. ${isCapital ? 'CAPITAL' : ''}`);
+    }
+
+    addBuilding(city, x, y, typeKey) {
+        const bType = BUILDINGS[typeKey];
+        city.buildings.push({ x, y, ...bType });
+        this.occupiedTiles.add(`${x},${y}`);
+        // Clear trees for building
+        if(this.map[y][x] === TILES.FOREST) this.map[y][x] = TILES.GRASS;
     }
 
     spawnUnit(x, y, race, city, parents=null) {
@@ -265,18 +320,20 @@ class Game {
         const ty = Math.floor(wy/CFG.tileSize);
         
         if(ui.tool === 'select') {
-            // Find unit
             const u = this.units.find(u => Math.abs(u.x - tx) < 1 && Math.abs(u.y - ty) < 1);
             if(u) { ui.select(u); return; }
-            // Find City
-            const c = this.cities.find(c => Math.abs(c.x - tx) < 2 && Math.abs(c.y - ty) < 2);
-            if(c) { ui.select(c); return; }
+            
+            // Find City via buildings
+            for(let c of this.cities) {
+                const b = c.buildings.find(b => b.x === tx && b.y === ty);
+                if(b) { ui.select(c); return; }
+            }
             ui.select(null);
         } else if (ui.tool === 'god_smite') {
             const u = this.units.find(u => Math.abs(u.x - tx) < 1);
             if(u) u.die('Divine Smite');
         } else if (ui.tool === 'spawn_plague') {
-            const c = this.cities.find(c => Math.abs(c.x - tx) < 5);
+            const c = this.cities.find(c => dist(c, {x:tx,y:ty}) < 10);
             if(c) {
                 c.pop.forEach(p => { if(Math.random()<0.5) p.health = 10; });
                 ui.toast(`Plague strikes ${c.name}!`, 'crime');
@@ -297,9 +354,8 @@ class Game {
 
             this.cities.forEach(c => c.update());
             this.units.forEach(u => u.update());
-            this.units = this.units.filter(u => !u.dead); // Cleanup
+            this.units = this.units.filter(u => !u.dead);
 
-            // Particles
             this.particles.forEach(p => { p.y+=p.vy; p.life--; });
             this.particles = this.particles.filter(p => p.life > 0);
             
@@ -327,15 +383,25 @@ class Game {
             }
         }
 
-        // Cities
+        // Cities & Buildings
+        c.textAlign='center';
         this.cities.forEach(city => {
-            c.fillStyle = 'rgba(0,0,0,0.5)';
-            c.fillRect(city.x*ts-ts, city.y*ts-ts, ts*3, ts*3);
-            c.textAlign='center';
-            c.font = '20px Arial';
-            c.fillText(city.isCapital ? '🏰' : '🏘️', city.x*ts + ts/2, city.y*ts + ts/2);
-            c.fillStyle='#fff'; c.font='10px Arial';
-            c.fillText(city.name, city.x*ts+ts/2, city.y*ts+ts*2);
+            city.buildings.forEach(b => {
+                if(b.x < vx || b.x > vx+vw || b.y < vy || b.y > vy+vh) return;
+                // Base
+                c.fillStyle = 'rgba(0,0,0,0.3)';
+                c.fillRect(b.x*ts, b.y*ts, ts, ts);
+                // Icon
+                c.font = `${ts*0.8}px Arial`;
+                c.fillText(b.icon, b.x*ts + ts/2, b.y*ts + ts/0.85);
+            });
+            
+            // Name label at Hall
+            let hall = city.buildings[0];
+            if(hall) {
+                 c.fillStyle='#fff'; c.font='10px Arial';
+                 c.fillText(city.name, hall.x*ts+ts/2, hall.y*ts+ts*1.2);
+            }
         });
 
         // Units
@@ -357,10 +423,8 @@ class Game {
             
             // Effect Indicators
             if(u.state === 'MAGIC') { c.fillStyle= '#b388eb'; c.fillRect(px, py, ts, 2); }
-            // Work Indicators
             if(u.state === 'JOB_GATHER') { c.fillStyle='lime'; c.fillRect(px, py, ts, 2); }
             if(u.carrying > 0) { c.fillStyle='orange'; c.beginPath(); c.arc(px+ts, py, 3, 0, Math.PI*2); c.fill(); }
-
             if(u.crime > 50) { c.fillStyle='red'; c.fillText('!', px+ts, py); }
         });
 
@@ -385,6 +449,7 @@ class City {
     constructor(x, y, race) {
         this.name = race.name + 'ia ' + rand(99);
         this.x = x; this.y = y;
+        this.buildings = [];
         this.race = race;
         this.pop = [];
         this.resources = { food: 200, gold: 100 };
@@ -394,23 +459,18 @@ class City {
     }
 
     update() {
-        // Resources -- REMOVED INSTANT CALCULATION
-        // Travel Time Update: Resources are now added by units depositing them
-        this.resources.gold += this.pop.filter(u=>u.job!==JOBS.PRISONER).length * 0.05; // Taxes still magical but lower
-        
+        // Resources managed by units now
         // Consumption
         if(game.ticks % 100 === 0) {
             this.resources.food -= this.pop.length * 1.0;
             if(this.resources.food < 0) {
                 this.resources.food = 0;
-                // Starvation
                 if(Math.random() < 0.2) pick(this.pop).die('Starvation');
             }
         }
 
         // Politics
         if(!this.ruler || this.ruler.dead) {
-            // Elect highest Influence (Charisma + Age)
             const candidates = this.pop.filter(u => u.age > 18 && u.job !== JOBS.PRISONER);
             if(candidates.length) {
                 candidates.sort((a,b) => (b.stats.cha + b.age) - (a.stats.cha + a.age));
@@ -438,24 +498,20 @@ class Unit {
         this.partner = null;
         this.children = 0;
         
-        // Job Logic State
         this.carrying = 0;
         this.workTimer = 0;
 
-        // Stats & Genetics
         this.stats = { str: 10, int: 10, cha: 10 };
         this.traits = [];
         this.mixGenetics(parents, race);
         
-        // Personality (0-100)
         this.personality = {
             agg: clamp(race.baseStats.agg + rand(20)-10 + (this.hasTrait('Violent')?30:0), 0, 100),
             grd: clamp(race.baseStats.grd + rand(20)-10, 0, 100),
             loy: clamp(race.baseStats.loy + rand(20)-10, 0, 100)
         };
 
-        // Advanced Stats
-        this.crime = 0; // Crime Score
+        this.crime = 0; 
         this.mana = 0;
         this.maxMana = this.hasTrait('Arcane') ? 100 : 0;
 
@@ -473,17 +529,12 @@ class Unit {
     hasTrait(name) { return this.traits.some(t => t.name === name); }
 
     mixGenetics(parents, race) {
-        // Base stats from Race
         this.stats.str += rand(10);
         this.stats.int += rand(10);
-        
         if(parents) {
             const [p1, p2] = parents;
-            // Inherit Traits (50% chance from each parent)
             const pool = [...p1.traits, ...p2.traits];
             pool.forEach(t => { if(Math.random() < 0.5 && !this.hasTrait(t.name)) this.traits.push(t); });
-            
-            // Mutation (5%)
             if(Math.random() < 0.05) {
                 const mut = pick(Object.values(GENETIC_TRAITS));
                 if(!this.hasTrait(mut.name)) {
@@ -492,11 +543,8 @@ class Unit {
                 }
             }
         } else {
-            // Initial Gen Traits
             if(Math.random() < 0.3) this.traits.push(pick(Object.values(GENETIC_TRAITS)));
         }
-
-        // Apply Trait Mods
         this.traits.forEach(t => {
             if(t.stat === 'manaMax') this.maxMana = 100;
             else if(this.stats[t.stat] !== undefined) this.stats[t.stat] += t.mod;
@@ -506,16 +554,13 @@ class Unit {
     update() {
         if(this.dead) return;
 
-        // 1. Aging & Mana
         if(game.ticks % 100 === 0) {
             this.age += 0.1;
             if(this.age > this.maxAge) this.die('Old Age');
             if(this.maxMana > 0 && this.mana < this.maxMana) this.mana += 5;
         }
 
-        // 2. Prison Logic
         if(this.job === JOBS.PRISONER) {
-            // Chance to escape or die
             if(Math.random() < 0.001) {
                  if(this.stats.str > 50) {
                      this.job = JOBS.IDLE;
@@ -526,17 +571,15 @@ class Unit {
                      this.die('Rotting in cell');
                  }
             }
-            return; // Can't do anything else
+            return;
         }
 
-        // 3. Decision Making
         if(this.state === 'IDLE') this.decide();
         else this.act();
     }
 
     decide() {
-        // A. CRIME CHECK
-        // High Greed + Low Loyalty or High Aggression
+        // CRIME
         if (this.crime < 100 && Math.random() < 0.01) {
             if (this.personality.grd > 75 && this.personality.loy < 40) {
                 this.state = 'CRIME_THEFT';
@@ -548,46 +591,83 @@ class Unit {
             }
         }
 
-        // B. JOB ASSIGNMENT (Simplified)
+        // JOB ASSIGNMENT
         if(this.job === JOBS.CHILD && this.age >= 18) this.job = JOBS.IDLE;
+        
         if(this.job === JOBS.IDLE && this.city) {
+            // Check buildings to assign jobs
+            const hasGuild = this.city.buildings.some(b => b.type === 'GUILD');
+            const hasShop = this.city.buildings.some(b => b.type === 'SHOP');
+            const hasTavern = this.city.buildings.some(b => b.type === 'TAVERN');
+            
             if(this.hasTrait('Arcane')) this.job = JOBS.MAGE;
+            else if(hasGuild && (this.hasTrait('Strong') || this.personality.agg > 60)) this.job = JOBS.ADVENTURER;
+            else if(hasShop && (this.hasTrait('Charming') || this.personality.grd > 60) && Math.random() < 0.3) this.job = Math.random()<0.5 ? JOBS.SHOPKEEPER : JOBS.BARTERER;
+            else if(hasTavern && Math.random() < 0.1) this.job = JOBS.TAVERNKEEP;
             else if(this.stats.str > 30) this.job = JOBS.GUARD;
             else this.job = JOBS.FARMER;
         }
 
-        // --- NEW LOGISTICS LOGIC ---
+        // --- JOB LOGIC ---
+        // FARMER -> Go to Farm
         if(this.job === JOBS.FARMER && this.city) {
             if(this.carrying > 0) {
-                // Have food? Go home.
-                this.target = { x: this.city.x, y: this.city.y };
+                this.target = this.city.buildings.find(b=>b.type==='HALL') || this.city;
                 this.state = 'JOB_RETURN';
             } else {
-                // Need food? Go to fields (3-6 tiles away)
-                let angle = Math.random() * Math.PI * 2;
-                let dist = 3 + Math.random() * 3;
-                this.target = { x: this.city.x + Math.cos(angle)*dist, y: this.city.y + Math.sin(angle)*dist };
+                const farm = this.city.buildings.find(b => b.type === 'FARM');
+                this.target = farm ? {x: farm.x, y: farm.y} : this.city;
                 this.state = 'JOB_COMMUTE';
             }
             return;
         }
+        
+        // ADVENTURER -> Go to Guild -> Go Hunt -> Return
+        if(this.job === JOBS.ADVENTURER && this.city) {
+            if(this.carrying > 0) {
+                 this.target = this.city.buildings.find(b=>b.type==='GUILD') || this.city;
+                 this.state = 'JOB_RETURN';
+            } else {
+                 // Go hunt far away
+                 let angle = Math.random() * Math.PI * 2;
+                 let d = 20 + Math.random() * 20;
+                 this.target = { x: clamp(this.city.x + Math.cos(angle)*d, 0, CFG.w), y: clamp(this.city.y + Math.sin(angle)*d, 0, CFG.h) };
+                 this.state = 'JOB_COMMUTE'; // Reusing commute for hunting travel
+            }
+            return;
+        }
 
-        // C. MAGIC
+        // SHOPKEEPER/BARTERER -> Stay at Shop
+        if((this.job === JOBS.SHOPKEEPER || this.job === JOBS.BARTERER) && this.city) {
+             const shop = this.city.buildings.find(b => b.type === 'SHOP');
+             this.target = shop ? {x: shop.x, y: shop.y} : this.city;
+             this.state = 'JOB_COMMUTE';
+             return;
+        }
+
+        // TAVERNKEEP -> Stay at Tavern
+        if(this.job === JOBS.TAVERNKEEP && this.city) {
+             const tav = this.city.buildings.find(b => b.type === 'TAVERN');
+             this.target = tav ? {x: tav.x, y: tav.y} : this.city;
+             this.state = 'JOB_COMMUTE';
+             return;
+        }
+
+        // MAGIC
         if(this.job === JOBS.MAGE && this.mana >= 30 && Math.random() < 0.05) {
             this.state = 'MAGIC';
             return;
         }
         
-        // D. REPRODUCTION (Strict Controls)
-        // Needs: Age 18-50, Partner, Resources, Low random chance
-        if(this.age > 18 && this.age < 50 && this.partner && Math.random() < 0.001) { // significantly lowered
+        // REPRODUCTION
+        if(this.age > 18 && this.age < 50 && this.partner && Math.random() < 0.001) {
              if(this.city.resources.food > 50 && this.children < 3) {
                  this.haveChild();
                  return;
              }
         }
 
-        // E. ROMANCE (Lowered)
+        // ROMANCE
         if(this.age > 18 && !this.partner && Math.random() < 0.005) {
             const p = this.city.pop.find(u => u!==this && !u.partner && u.age > 18);
             if(p) {
@@ -597,23 +677,11 @@ class Unit {
             }
         }
 
-        // F. AFFAIR (Rare, High Greed/Lust logic)
-        if(this.partner && this.personality.loy < 20 && Math.random() < 0.00005) {
-             this.journal.push('Had an affair');
-             this.partner.journal.push(`Partner ${this.name} cheated`);
-             if(this.partner.personality.agg > 60) {
-                 this.partner.state = 'CRIME_VIOLENCE'; // Crime of passion
-                 this.partner.target = this;
-             }
-             this.partner.partner = null; 
-             this.partner = null;
-             ui.toast(`${this.name} had a scandalous affair!`, 'crime');
-        }
-
-        // Wander
+        // WANDER
         let tx = this.x + (Math.random()-0.5)*4;
         let ty = this.y + (Math.random()-0.5)*4;
-        this.target = {x:tx, y:ty};
+        // Boundary Clamp for wandering
+        this.target = {x: clamp(tx, 0, CFG.w), y: clamp(ty, 0, CFG.h)};
         this.state = 'MOVE';
     }
 
@@ -623,33 +691,53 @@ class Unit {
             const d = dist(this, this.target);
             if(d < 0.5) {
                 this.state = 'JOB_GATHER';
-                this.workTimer = 50; // Work for 50 ticks
+                this.workTimer = 50;
             } else {
-                this.x += (this.target.x - this.x)/d * 0.1;
-                this.y += (this.target.y - this.y)/d * 0.1;
+                this.moveTowards(this.target);
             }
         }
         else if(this.state === 'JOB_GATHER') {
             this.workTimer--;
-            if(Math.random() < 0.1) game.addParticle(this.x, this.y, '.', 'lime');
+            
+            // Specific job effects
+            if(this.job === JOBS.FARMER && Math.random() < 0.1) game.addParticle(this.x, this.y, '.', 'lime');
+            if(this.job === JOBS.ADVENTURER && Math.random() < 0.1) game.addParticle(this.x, this.y, '⚔️', 'red');
+            if((this.job === JOBS.SHOPKEEPER || this.job === JOBS.BARTERER) && Math.random() < 0.05) {
+                this.city.resources.gold += 1;
+                game.addParticle(this.x, this.y, '$', 'gold');
+            }
+
             if(this.workTimer <= 0) {
-                this.carrying = 20; // Picked up food
-                this.state = 'IDLE'; // Will trigger Return decision next frame
+                // Job Done
+                if(this.job === JOBS.FARMER) {
+                    this.carrying = 20; 
+                    this.state = 'IDLE';
+                } else if (this.job === JOBS.ADVENTURER) {
+                    this.carrying = 50; // Gold loot
+                    this.state = 'IDLE';
+                } else {
+                    // Shopkeepers just stay there, reset timer
+                    if(Math.random() < 0.1) this.state = 'IDLE'; // Take a break
+                    else this.workTimer = 50;
+                }
             }
         }
         else if(this.state === 'JOB_RETURN' && this.target) {
             const d = dist(this, this.target);
             if(d < 1.0) {
-                // Deposit
                 if(this.city) {
-                    this.city.resources.food += this.carrying;
-                    game.addParticle(this.x, this.y, '+' + this.carrying, 'lime');
+                    if(this.job === JOBS.FARMER) {
+                        this.city.resources.food += this.carrying;
+                        game.addParticle(this.x, this.y, '+' + this.carrying, 'lime');
+                    } else if (this.job === JOBS.ADVENTURER) {
+                        this.city.resources.gold += this.carrying;
+                        game.addParticle(this.x, this.y, '+$' + this.carrying, 'gold');
+                    }
                 }
                 this.carrying = 0;
                 this.state = 'IDLE';
             } else {
-                this.x += (this.target.x - this.x)/d * 0.1;
-                this.y += (this.target.y - this.y)/d * 0.1;
+                this.moveTowards(this.target);
             }
         }
 
@@ -657,14 +745,10 @@ class Unit {
         else if(this.state === 'MOVE' && this.target) {
             const d = dist(this, this.target);
             if(d < 0.5) this.state = 'IDLE';
-            else {
-                this.x += (this.target.x - this.x)/d * 0.1;
-                this.y += (this.target.y - this.y)/d * 0.1;
-            }
+            else this.moveTowards(this.target);
         }
         
         else if(this.state === 'CRIME_THEFT') {
-            // Steal from city
             if(this.city) {
                 this.city.resources.gold = Math.max(0, this.city.resources.gold - 10);
                 this.crime += 15;
@@ -691,7 +775,6 @@ class Unit {
         else if (this.state === 'MAGIC') {
             this.mana -= 30;
             game.addParticle(this.x, this.y, '✨', '#b388eb');
-            // Effect: Grow food
             if(this.city) {
                 this.city.resources.food += 20;
                 ui.toast(`${this.name} cast Bloom!`, 'magic');
@@ -700,28 +783,37 @@ class Unit {
         }
     }
 
+    moveTowards(target) {
+        const d = dist(this, target);
+        if(d > 0) {
+            // Update pos
+            let nx = this.x + (target.x - this.x)/d * 0.1;
+            let ny = this.y + (target.y - this.y)/d * 0.1;
+            // Strict Clamp
+            this.x = clamp(nx, 0, CFG.w);
+            this.y = clamp(ny, 0, CFG.h);
+        }
+    }
+
     checkForGuards() {
-        // If caught (random + crime score)
         if(Math.random() * 100 < this.crime && this.city) {
             const guards = this.city.pop.filter(u => u.job === JOBS.GUARD);
             if(guards.length > 0) {
                 if(this.crime > 80) {
-                    // Capital Punishment
                     this.die('Executed by Guards');
                     ui.toast(`${this.name} executed for crimes.`, 'crime');
                 } else {
-                    // Jail
                     this.job = JOBS.PRISONER;
                     this.journal.push('Arrested');
                     game.addParticle(this.x, this.y, '⛓️', '#ccc');
-                    this.crime = 0; // Reset after punishment
+                    this.crime = 0; 
                 }
             }
         }
     }
 
     haveChild() {
-        this.city.resources.food -= 50; // Cost
+        this.city.resources.food -= 50;
         const baby = game.spawnUnit(this.x, this.y, this.race, this.city, [this, this.partner]);
         this.children++;
         this.partner.children++;
@@ -750,7 +842,6 @@ const ui = {
         document.getElementById('ui-year').innerText = game.year;
         document.getElementById('ui-pop').innerText = game.units.length;
         
-        // Calc Avg Crime
         let totalCrime = 0;
         game.units.forEach(u => totalCrime += u.crime);
         let avg = game.units.length ? Math.floor(totalCrime/game.units.length) : 0;
@@ -823,6 +914,7 @@ const ui = {
                 </div>
             `;
         } else if (s instanceof City) {
+            let bList = s.buildings.map(b => b.icon).join(' ');
             div.innerHTML = `
                 <div class="header-row">
                     <div class="avatar">🏰</div>
@@ -835,9 +927,8 @@ const ui = {
                 <div class="inspector-row"><span>Food</span> <span>${Math.floor(s.resources.food)}</span></div>
                 <div class="inspector-row"><span>Gold</span> <span style="color:gold">${Math.floor(s.resources.gold)}</span></div>
                 <br>
-                <div style="text-align:center; color:#666; font-style:italic">
-                    ${s.isCapital ? 'The seat of power.' : 'A growing settlement.'}
-                </div>
+                <h3>Buildings</h3>
+                <div style="font-size:16px; letter-spacing:2px; margin-bottom:10px;">${bList}</div>
             `;
         }
     }
