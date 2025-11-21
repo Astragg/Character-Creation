@@ -120,6 +120,7 @@ const BUILDINGS = {
 };
 
 const RACES = {
+    // CORE
     HUMAN: { name: 'Human', emoji: '🧑', life: 65, traits: ['Ambitious'], baseStats: {agg: 40, grd: 50, loy: 50} },
     ELF: { name: 'Elf', emoji: '🧝', life: 180, traits: ['Arcane'], baseStats: {agg: 10, grd: 20, loy: 80} },
     ORC: { name: 'Orc', emoji: '👹', life: 50, traits: ['Strong'], baseStats: {agg: 80, grd: 60, loy: 30} },
@@ -208,10 +209,9 @@ class Game {
         this.occupiedTiles = new Set();
 
         // --- CONTROLS ---
-        
         this.canvas.oncontextmenu = e => e.preventDefault();
 
-        // Key Listeners for WASD
+        // Key Listeners (WASD)
         window.onkeydown = e => {
             const k = e.key.toLowerCase();
             if(this.keys[k] !== undefined) this.keys[k] = true;
@@ -222,7 +222,7 @@ class Game {
         };
 
         this.canvas.onmousedown = e => {
-            // Middle (1) or Right (2) -> Always Pan
+            // Middle (1) or Right (2) -> Pan
             if(e.button === 1 || e.button === 2) {
                 this.camera.drag = true;
                 this.camera.lx = e.clientX;
@@ -275,6 +275,11 @@ class Game {
                 if(this.map[ry][rx] !== TILES.WATER && !this.occupiedTiles.has(`${rx},${ry}`)) {
                     this.createCity(rx, ry, pick(races), i===0);
                     placed = true;
+                    // Center camera on first city
+                    if(i===0) {
+                         this.camera.x = (rx * CFG.tileSize) - (this.width / 2 / this.camera.z);
+                         this.camera.y = (ry * CFG.tileSize) - (this.height / 2 / this.camera.z);
+                    }
                 }
                 attempts++;
             }
@@ -358,14 +363,13 @@ class Game {
     }
 
     updateCamera() {
-        // Move camera with WASD, speed adjusted by zoom
         const speed = 15 / this.camera.z; 
         if(this.keys.w) this.camera.y -= speed;
         if(this.keys.s) this.camera.y += speed;
         if(this.keys.a) this.camera.x -= speed;
         if(this.keys.d) this.camera.x += speed;
         
-        // Clamp Bounds
+        // Loose Clamp
         const maxW = CFG.w * CFG.tileSize;
         const maxH = CFG.h * CFG.tileSize;
         this.camera.x = clamp(this.camera.x, -500, maxW + 500);
@@ -473,6 +477,371 @@ class Game {
     
     addParticle(x, y, txt, color='#fff') {
         this.particles.push({x, y, txt, color, life:30, vy: -0.02});
+    }
+}
+
+/** --- LOGIC CLASSES --- */
+class City {
+    constructor(x, y, race) {
+        this.name = race.name + 'ia ' + rand(99);
+        this.x = x; this.y = y;
+        this.buildings = [];
+        this.race = race;
+        this.pop = [];
+        this.resources = { food: 200, gold: 100 };
+        this.ruler = null;
+        this.isCapital = false;
+        this.jail = [];
+    }
+
+    update() {
+        if(game.ticks % 100 === 0) {
+            this.resources.food -= this.pop.length * 1.0;
+            if(this.resources.food < 0) {
+                this.resources.food = 0;
+                if(Math.random() < 0.2) pick(this.pop).die('Starvation');
+            }
+        }
+
+        if(!this.ruler || this.ruler.dead) {
+            const candidates = this.pop.filter(u => u.age > 18 && u.job !== JOBS.PRISONER);
+            if(candidates.length) {
+                candidates.sort((a,b) => (b.stats.cha + b.age) - (a.stats.cha + a.age));
+                this.ruler = candidates[0];
+                this.ruler.job = JOBS.KING;
+                this.ruler.journal.push(`Crowned Ruler of ${this.name}`);
+                ui.toast(`${this.ruler.name} is the new Ruler of ${this.name}`, 'gold');
+            }
+        }
+    }
+}
+
+class Unit {
+    constructor(x, y, race, parents) {
+        this.id = uuid();
+        this.name = this.genName();
+        this.x = x; this.y = y;
+        this.race = race;
+        this.emoji = race.emoji;
+        this.age = parents ? 0 : 18 + rand(20);
+        this.maxAge = race.life + rand(10);
+        this.health = 100;
+        this.city = null;
+        this.job = parents ? JOBS.CHILD : JOBS.IDLE;
+        this.partner = null;
+        this.children = 0;
+        
+        this.carrying = 0;
+        this.workTimer = 0;
+
+        this.stats = { str: 10, int: 10, cha: 10 };
+        this.traits = [];
+        this.mixGenetics(parents, race);
+        
+        this.personality = {
+            agg: clamp(race.baseStats.agg + rand(20)-10 + (this.hasTrait('Violent')?30:0), 0, 100),
+            grd: clamp(race.baseStats.grd + rand(20)-10, 0, 100),
+            loy: clamp(race.baseStats.loy + rand(20)-10, 0, 100)
+        };
+
+        this.crime = 0; 
+        this.mana = 0;
+        this.maxMana = this.hasTrait('Arcane') ? 100 : 0;
+
+        this.state = 'IDLE';
+        this.target = null;
+        this.journal = [];
+    }
+    
+    genName() {
+        const syl = ['Ar', 'Bor', 'Cal', 'Dan', 'El', 'Fin', 'Gor', 'Hul', 'Xal', 'Zor', 'Qub', 'Vex'];
+        const end = ['a', 'on', 'us', 'ix', 'or', 'ia', 'et', 'un', 'ax', 'is', 'ok'];
+        return pick(syl) + pick(end);
+    }
+
+    hasTrait(name) { return this.traits.some(t => t.name === name); }
+
+    mixGenetics(parents, race) {
+        this.stats.str += rand(10);
+        this.stats.int += rand(10);
+        if(parents) {
+            const [p1, p2] = parents;
+            const pool = [...p1.traits, ...p2.traits];
+            pool.forEach(t => { if(Math.random() < 0.5 && !this.hasTrait(t.name)) this.traits.push(t); });
+            if(Math.random() < 0.05) {
+                const mut = pick(Object.values(GENETIC_TRAITS));
+                if(!this.hasTrait(mut.name)) {
+                    this.traits.push(mut);
+                    this.journal.push(`Born with mutation: ${mut.name}`);
+                }
+            }
+        } else {
+            if(Math.random() < 0.3) this.traits.push(pick(Object.values(GENETIC_TRAITS)));
+        }
+        this.traits.forEach(t => {
+            if(t.stat === 'manaMax') this.maxMana = 100;
+            else if(this.stats[t.stat] !== undefined) this.stats[t.stat] += t.mod;
+        });
+    }
+
+    update() {
+        if(this.dead) return;
+
+        if(game.ticks % 100 === 0) {
+            this.age += 0.1;
+            if(this.age > this.maxAge) this.die('Old Age');
+            if(this.maxMana > 0 && this.mana < this.maxMana) this.mana += 5;
+        }
+
+        if(this.job === JOBS.PRISONER) {
+            if(Math.random() < 0.001) {
+                 if(this.stats.str > 50) {
+                     this.job = JOBS.IDLE;
+                     this.crime += 20;
+                     this.journal.push('Escaped Prison');
+                     ui.toast(`${this.name} escaped jail!`, 'crime');
+                 } else {
+                     this.die('Rotting in cell');
+                 }
+            }
+            return;
+        }
+
+        if(this.state === 'IDLE') this.decide();
+        else this.act();
+    }
+
+    decide() {
+        if (this.crime < 100 && Math.random() < 0.01) {
+            if (this.personality.grd > 75 && this.personality.loy < 40) {
+                this.state = 'CRIME_THEFT';
+                return;
+            }
+            if (this.personality.agg > 80 && Math.random() < 0.3) {
+                this.state = 'CRIME_VIOLENCE';
+                return;
+            }
+        }
+
+        if(this.job === JOBS.CHILD && this.age >= 18) this.job = JOBS.IDLE;
+        
+        if(this.job === JOBS.IDLE && this.city) {
+            const hasGuild = this.city.buildings.some(b => b.type === 'GUILD');
+            const hasShop = this.city.buildings.some(b => b.type === 'SHOP');
+            const hasTavern = this.city.buildings.some(b => b.type === 'TAVERN');
+            
+            if(this.hasTrait('Arcane')) this.job = JOBS.MAGE;
+            else if(hasGuild && (this.hasTrait('Strong') || this.personality.agg > 60)) this.job = JOBS.ADVENTURER;
+            else if(hasShop && (this.hasTrait('Charming') || this.personality.grd > 60) && Math.random() < 0.3) this.job = Math.random()<0.5 ? JOBS.SHOPKEEPER : JOBS.BARTERER;
+            else if(hasTavern && Math.random() < 0.1) this.job = JOBS.TAVERNKEEP;
+            else if(this.stats.str > 30) this.job = JOBS.GUARD;
+            else this.job = JOBS.FARMER;
+        }
+
+        if(this.job === JOBS.FARMER && this.city) {
+            if(this.carrying > 0) {
+                this.target = this.city.buildings.find(b=>b.type==='HALL') || this.city;
+                this.state = 'JOB_RETURN';
+            } else {
+                const farm = this.city.buildings.find(b => b.type === 'FARM');
+                this.target = farm ? {x: farm.x, y: farm.y} : this.city;
+                this.state = 'JOB_COMMUTE';
+            }
+            return;
+        }
+        
+        if(this.job === JOBS.ADVENTURER && this.city) {
+            if(this.carrying > 0) {
+                 this.target = this.city.buildings.find(b=>b.type==='GUILD') || this.city;
+                 this.state = 'JOB_RETURN';
+            } else {
+                 let angle = Math.random() * Math.PI * 2;
+                 let d = 20 + Math.random() * 20;
+                 this.target = { x: clamp(this.city.x + Math.cos(angle)*d, 0, CFG.w), y: clamp(this.city.y + Math.sin(angle)*d, 0, CFG.h) };
+                 this.state = 'JOB_COMMUTE';
+            }
+            return;
+        }
+
+        if((this.job === JOBS.SHOPKEEPER || this.job === JOBS.BARTERER) && this.city) {
+             const shop = this.city.buildings.find(b => b.type === 'SHOP');
+             this.target = shop ? {x: shop.x, y: shop.y} : this.city;
+             this.state = 'JOB_COMMUTE';
+             return;
+        }
+
+        if(this.job === JOBS.TAVERNKEEP && this.city) {
+             const tav = this.city.buildings.find(b => b.type === 'TAVERN');
+             this.target = tav ? {x: tav.x, y: tav.y} : this.city;
+             this.state = 'JOB_COMMUTE';
+             return;
+        }
+
+        if(this.job === JOBS.MAGE && this.mana >= 30 && Math.random() < 0.05) {
+            this.state = 'MAGIC';
+            return;
+        }
+        
+        if(this.age > 18 && this.age < 50 && this.partner && Math.random() < 0.001) {
+             if(this.city.resources.food > 50 && this.children < 3) {
+                 this.haveChild();
+                 return;
+             }
+        }
+
+        if(this.age > 18 && !this.partner && Math.random() < 0.005) {
+            const p = this.city.pop.find(u => u!==this && !u.partner && u.age > 18);
+            if(p) {
+                this.partner = p; p.partner = this;
+                this.journal.push(`Married ${p.name}`);
+                game.addParticle(this.x, this.y, '❤️', 'pink');
+            }
+        }
+
+        let tx = this.x + (Math.random()-0.5)*4;
+        let ty = this.y + (Math.random()-0.5)*4;
+        this.target = {x: clamp(tx, 0, CFG.w), y: clamp(ty, 0, CFG.h)};
+        this.state = 'MOVE';
+    }
+
+    act() {
+        if(this.state === 'JOB_COMMUTE' && this.target) {
+            const d = dist(this, this.target);
+            if(d < 0.5) {
+                this.state = 'JOB_GATHER';
+                this.workTimer = 50;
+            } else {
+                this.moveTowards(this.target);
+            }
+        }
+        else if(this.state === 'JOB_GATHER') {
+            this.workTimer--;
+            
+            if(this.job === JOBS.FARMER && Math.random() < 0.1) game.addParticle(this.x, this.y, '.', 'lime');
+            if(this.job === JOBS.ADVENTURER && Math.random() < 0.1) game.addParticle(this.x, this.y, '⚔️', 'red');
+            if((this.job === JOBS.SHOPKEEPER || this.job === JOBS.BARTERER) && Math.random() < 0.05) {
+                this.city.resources.gold += 1;
+                game.addParticle(this.x, this.y, '$', 'gold');
+            }
+
+            if(this.workTimer <= 0) {
+                if(this.job === JOBS.FARMER) {
+                    this.carrying = 20; 
+                    this.state = 'IDLE';
+                } else if (this.job === JOBS.ADVENTURER) {
+                    this.carrying = 50;
+                    this.state = 'IDLE';
+                } else {
+                    if(Math.random() < 0.1) this.state = 'IDLE';
+                    else this.workTimer = 50;
+                }
+            }
+        }
+        else if(this.state === 'JOB_RETURN' && this.target) {
+            const d = dist(this, this.target);
+            if(d < 1.0) {
+                if(this.city) {
+                    if(this.job === JOBS.FARMER) {
+                        this.city.resources.food += this.carrying;
+                        game.addParticle(this.x, this.y, '+' + this.carrying, 'lime');
+                    } else if (this.job === JOBS.ADVENTURER) {
+                        this.city.resources.gold += this.carrying;
+                        game.addParticle(this.x, this.y, '+$' + this.carrying, 'gold');
+                    }
+                }
+                this.carrying = 0;
+                this.state = 'IDLE';
+            } else {
+                this.moveTowards(this.target);
+            }
+        }
+
+        else if(this.state === 'MOVE' && this.target) {
+            const d = dist(this, this.target);
+            if(d < 0.5) this.state = 'IDLE';
+            else this.moveTowards(this.target);
+        }
+        
+        else if(this.state === 'CRIME_THEFT') {
+            if(this.city) {
+                this.city.resources.gold = Math.max(0, this.city.resources.gold - 10);
+                this.crime += 15;
+                this.journal.push('Stole gold from city');
+                game.addParticle(this.x, this.y, '💰', 'gold');
+                this.checkForGuards();
+            }
+            this.state = 'IDLE';
+        }
+
+        else if (this.state === 'CRIME_VIOLENCE') {
+            const victim = this.city ? pick(this.city.pop) : null;
+            if(victim && victim !== this) {
+                victim.health -= 40;
+                this.crime += 50;
+                game.addParticle(victim.x, victim.y, '🩸', 'red');
+                this.journal.push(`Attacked ${victim.name}`);
+                if(victim.health <= 0) victim.die(`Murdered by ${this.name}`);
+                this.checkForGuards();
+            }
+            this.state = 'IDLE';
+        }
+
+        else if (this.state === 'MAGIC') {
+            this.mana -= 30;
+            game.addParticle(this.x, this.y, '✨', '#b388eb');
+            if(this.city) {
+                this.city.resources.food += 20;
+                ui.toast(`${this.name} cast Bloom!`, 'magic');
+            }
+            this.state = 'IDLE';
+        }
+    }
+
+    moveTowards(target) {
+        const d = dist(this, target);
+        if(d > 0) {
+            let nx = this.x + (target.x - this.x)/d * 0.1;
+            let ny = this.y + (target.y - this.y)/d * 0.1;
+            this.x = clamp(nx, 0, CFG.w);
+            this.y = clamp(ny, 0, CFG.h);
+        }
+    }
+
+    checkForGuards() {
+        if(Math.random() * 100 < this.crime && this.city) {
+            const guards = this.city.pop.filter(u => u.job === JOBS.GUARD);
+            if(guards.length > 0) {
+                if(this.crime > 80) {
+                    this.die('Executed by Guards');
+                    ui.toast(`${this.name} executed for crimes.`, 'crime');
+                } else {
+                    this.job = JOBS.PRISONER;
+                    this.journal.push('Arrested');
+                    game.addParticle(this.x, this.y, '⛓️', '#ccc');
+                    this.crime = 0; 
+                }
+            }
+        }
+    }
+
+    haveChild() {
+        this.city.resources.food -= 50;
+        const baby = game.spawnUnit(this.x, this.y, this.race, this.city, [this, this.partner]);
+        this.children++;
+        this.partner.children++;
+        game.addParticle(this.x, this.y, '👶');
+        ui.toast(`Birth: ${baby.name}`);
+    }
+
+    die(reason) {
+        this.dead = true;
+        if(this.city) this.city.pop = this.city.pop.filter(u => u !== this);
+        if(this.partner) { 
+            this.partner.mood -= 50; 
+            this.partner.journal.push(`Partner ${this.name} died`);
+            this.partner.partner = null; 
+        }
+        game.addParticle(this.x, this.y, '💀', 'white');
     }
 }
 
