@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Aethelgard II: Rise of Kingdoms</title>
+<title>Aethelgard II: Expanded</title>
 <style>
     :root {
         --bg: #121214;
@@ -14,6 +14,7 @@
         --gold: #ffd700;
         --magic: #b388eb;
         --crime: #ff4d4d;
+        --item: #cd7f32;
     }
     body { margin: 0; overflow: hidden; background: var(--bg); font-family: 'Segoe UI', monospace; color: var(--text); user-select: none; }
     canvas { display: block; width: 100vw; height: 100vh; cursor: crosshair; }
@@ -40,6 +41,7 @@
     .trait-badge { display: inline-block; padding: 2px 6px; background: #333; border-radius: 4px; margin: 2px; font-size: 10px; border: 1px solid #555; }
     .trait-magic { border-color: var(--magic); color: var(--magic); }
     .trait-crime { border-color: var(--crime); color: var(--crime); }
+    .item-badge { border-color: var(--item); color: var(--item); }
     
     /* Controls */
     .toolbar { display: flex; gap: 8px; background: var(--panel); padding: 8px 16px; border-radius: 50px; border: 1px solid var(--border); }
@@ -52,6 +54,7 @@
     .toast { background: rgba(0,0,0,0.9); border-left: 3px solid var(--accent); padding: 8px 12px; border-radius: 4px; margin-top: 6px; font-size: 11px; animation: fadeOut 6s forwards; pointer-events: auto; }
     .toast.crime { border-color: var(--crime); }
     .toast.magic { border-color: var(--magic); }
+    .toast.item { border-color: var(--item); }
     
     @keyframes fadeOut { 0% { opacity:0; transform: translateX(20px); } 10% { opacity:1; transform: translateX(0); } 80% { opacity:1; } 100% { opacity: 0; display:none; } }
     
@@ -70,6 +73,7 @@
     <div class="stat-group">
         <div class="stat-item">Year: <span id="ui-year">1</span></div>
         <div class="stat-item">Pop: <span id="ui-pop">0</span></div>
+        <div class="stat-item">Mobs: <span id="ui-mobs">0</span></div>
         <div class="stat-item">Avg Crime: <span id="ui-crime">0%</span></div>
     </div>
     <div class="toolbar">
@@ -89,6 +93,7 @@
         <button onclick="ui.setTool('god_bless')" style="color:var(--gold)">✨ Bless</button>
         <button onclick="ui.setTool('god_smite')" style="color:var(--crime)">⚡ Smite</button>
         <button onclick="ui.setTool('spawn_plague')" style="color:lime">☣️ Plague</button>
+        <button onclick="ui.setTool('spawn_mob')" style="color:orange">👹 Spawn Mob</button>
     </div>
 </div>
 
@@ -101,8 +106,9 @@ const CFG = {
     tileSize: 32,
     tickRate: 30,
     dayTicks: 50,
-    yearDays: 120, // Short years for generational speed
-    startCities: 3
+    yearDays: 120, 
+    startCities: 3,
+    maxMobs: 50
 };
 
 /** --- DATA & ASSETS --- */
@@ -118,22 +124,36 @@ const RACES = {
 
 const JOBS = {
     IDLE: 'Vagrant', CHILD: 'Child', FARMER: 'Farmer', GUARD: 'Guard', 
-    MAGE: 'Mage', THIEF: 'Thief', KING: 'Ruler', PRISONER: 'Prisoner'
+    MAGE: 'Mage', THIEF: 'Thief', KING: 'Ruler', PRISONER: 'Prisoner',
+    HUNTER: 'Hunter', SMITH: 'Blacksmith'
 };
 
 const GENETIC_TRAITS = {
     STRONG: { name: 'Strong', stat: 'str', mod: 20 },
     GENIUS: { name: 'Genius', stat: 'int', mod: 20 },
-    ARCANE: { name: 'Arcane', stat: 'manaMax', mod: 50 }, // Enables Magic
-    VIOLENT: { name: 'Violent', stat: 'agg', mod: 30 }, // Hereditary aggression
+    ARCANE: { name: 'Arcane', stat: 'manaMax', mod: 50 },
+    VIOLENT: { name: 'Violent', stat: 'agg', mod: 30 },
     CHARMING: { name: 'Charming', stat: 'cha', mod: 20 },
     SICKLY: { name: 'Sickly', stat: 'str', mod: -10 }
 };
 
-const SPELLS = {
-    FIREBALL: { cost: 30, combat: true },
-    BLOOM: { cost: 20, combat: false }, // Grows food
-    HEAL: { cost: 40, combat: false }
+const ITEMS = {
+    SWORD: { name: 'Iron Sword', type:'hand', atk: 15, def: 0, cost: 20 },
+    AXE: { name: 'Battle Axe', type:'hand', atk: 20, def: -5, cost: 25 },
+    BOW: { name: 'Hunter Bow', type:'hand', atk: 10, def: 0, cost: 15 },
+    ARMOR: { name: 'Chainmail', type:'body', atk: 0, def: 15, cost: 30 },
+    ROBES: { name: 'Silk Robes', type:'body', atk: 0, def: 2, cost: 40 } // Luxury
+};
+
+const MOBS = {
+    // Animals
+    DEER: { name: 'Deer', emoji: '🦌', hp: 20, atk: 2, passive: true, food: 40, mat: 5 },
+    BOAR: { name: 'Boar', emoji: '🐗', hp: 30, atk: 8, passive: false, food: 50, mat: 10 },
+    RABBIT: { name: 'Rabbit', emoji: '🐇', hp: 10, atk: 0, passive: true, food: 15, mat: 2 },
+    // Hostiles
+    GOBLIN: { name: 'Goblin', emoji: '👺', hp: 25, atk: 10, passive: false, loot: 5, mat: 5 },
+    WOLF: { name: 'Wolf', emoji: '🐺', hp: 35, atk: 12, passive: false, food: 0, mat: 15 },
+    BANDIT: { name: 'Bandit', emoji: '🥷', hp: 60, atk: 15, passive: false, loot: 20, mat: 0 }
 };
 
 /** --- UTILS --- */
@@ -160,6 +180,7 @@ class Game {
         this.map = [];
         this.cities = [];
         this.units = [];
+        this.mobs = [];
         this.particles = [];
         this.year = 1;
         this.day = 0;
@@ -219,6 +240,14 @@ class Game {
         this.units.push(u);
         return u;
     }
+    
+    spawnMob(type, x, y) {
+        if(this.mobs.length >= CFG.maxMobs) return;
+        if(this.map[Math.floor(y)][Math.floor(x)] === TILES.WATER) return;
+        const m = new Mob(x, y, type);
+        this.mobs.push(m);
+        return m;
+    }
 
     click(e) {
         const rect = this.canvas.getBoundingClientRect();
@@ -228,22 +257,23 @@ class Game {
         const ty = Math.floor(wy/CFG.tileSize);
         
         if(ui.tool === 'select') {
-            // Find unit
+            const m = this.mobs.find(u => Math.abs(u.x - tx) < 1 && Math.abs(u.y - ty) < 1);
+            if(m) { ui.select(m); return; }
             const u = this.units.find(u => Math.abs(u.x - tx) < 1 && Math.abs(u.y - ty) < 1);
             if(u) { ui.select(u); return; }
-            // Find City
             const c = this.cities.find(c => Math.abs(c.x - tx) < 2 && Math.abs(c.y - ty) < 2);
             if(c) { ui.select(c); return; }
             ui.select(null);
         } else if (ui.tool === 'god_smite') {
             const u = this.units.find(u => Math.abs(u.x - tx) < 1);
             if(u) u.die('Divine Smite');
-        } else if (ui.tool === 'spawn_plague') {
-            const c = this.cities.find(c => Math.abs(c.x - tx) < 5);
-            if(c) {
-                c.pop.forEach(p => { if(Math.random()<0.5) p.health = 10; });
-                ui.toast(`Plague strikes ${c.name}!`, 'crime');
-            }
+            const m = this.mobs.find(m => Math.abs(m.x - tx) < 1);
+            if(m) { m.die(); ui.toast('Mob Smited', 'crime'); }
+        } else if (ui.tool === 'spawn_mob') {
+            const keys = Object.keys(MOBS);
+            const type = MOBS[pick(keys)];
+            this.spawnMob(type, tx, ty);
+            this.addParticle(tx, ty, type.emoji);
         }
     }
 
@@ -257,10 +287,23 @@ class Game {
                 this.day++;
                 if(this.day > CFG.yearDays) { this.day=0; this.year++; ui.toast(`Year ${this.year}`); }
             }
+            
+            // Spawning Mobs randomly
+            if(this.ticks % 50 === 0 && this.mobs.length < CFG.maxMobs) {
+                 let rx = rand(CFG.w), ry = rand(CFG.h);
+                 // Don't spawn in cities
+                 if(!this.cities.some(c => dist(c, {x:rx, y:ry}) < 10)) {
+                     const type = Math.random() > 0.6 ? pick([MOBS.GOBLIN, MOBS.WOLF, MOBS.BANDIT]) : pick([MOBS.DEER, MOBS.RABBIT, MOBS.BOAR]);
+                     this.spawnMob(type, rx, ry);
+                 }
+            }
 
             this.cities.forEach(c => c.update());
             this.units.forEach(u => u.update());
-            this.units = this.units.filter(u => !u.dead); // Cleanup
+            this.mobs.forEach(m => m.update());
+            
+            this.units = this.units.filter(u => !u.dead);
+            this.mobs = this.mobs.filter(m => !m.dead);
 
             // Particles
             this.particles.forEach(p => { p.y+=p.vy; p.life--; });
@@ -300,6 +343,17 @@ class Game {
             c.fillStyle='#fff'; c.font='10px Arial';
             c.fillText(city.name, city.x*ts+ts/2, city.y*ts+ts*2);
         });
+        
+        // Mobs
+        this.mobs.forEach(m => {
+             if(m.x < vx || m.x > vx+vw || m.y < vy || m.y > vy+vh) return;
+             let px = m.x*ts, py = m.y*ts;
+             if(ui.selected === m) { c.strokeStyle='#f00'; c.lineWidth=1; c.strokeRect(px, py, ts, ts); }
+             c.font = `${ts*0.6}px Arial`; c.textAlign='center';
+             c.fillText(m.type.emoji, px+ts/2, py+ts*0.8);
+             // Health bar for mobs
+             c.fillStyle='red'; c.fillRect(px+2, py, (m.health/m.type.hp)*(ts-4), 3);
+        });
 
         // Units
         this.units.forEach(u => {
@@ -318,8 +372,12 @@ class Game {
             
             c.fillText(icon, px+ts/2, py+ts*0.8);
             
+            // Gear indicators
+            if(u.gear.hand) { c.font='8px Arial'; c.fillText('🗡️', px+ts-4, py+10); }
+
             // Effect Indicators
             if(u.state === 'MAGIC') { c.fillStyle= '#b388eb'; c.fillRect(px, py, ts, 2); }
+            if(u.state === 'CRAFT') { c.fillStyle= '#cd7f32'; c.fillRect(px, py, ts, 2); }
             if(u.crime > 50) { c.fillStyle='red'; c.fillText('!', px+ts, py); }
         });
 
@@ -340,13 +398,79 @@ class Game {
 }
 
 /** --- LOGIC CLASSES --- */
+class Mob {
+    constructor(x, y, type) {
+        this.x = x; this.y = y;
+        this.type = type;
+        this.health = type.hp;
+        this.dead = false;
+        this.target = null;
+        this.cooldown = 0;
+    }
+    
+    update() {
+        if(this.dead) return;
+        if(this.cooldown > 0) this.cooldown--;
+
+        // AI
+        let nearby = game.units.find(u => dist(this, u) < 5);
+        
+        if (nearby) {
+            if(!this.type.passive) {
+                // Hostile Behavior
+                this.moveTowards(nearby);
+                if(dist(this, nearby) < 1 && this.cooldown === 0) {
+                    nearby.health -= this.type.atk;
+                    game.addParticle(nearby.x, nearby.y, '💥', 'red');
+                    nearby.journal.push(`Attacked by ${this.type.name}`);
+                    if(nearby.health <= 0) nearby.die(`Killed by ${this.type.name}`);
+                    this.cooldown = 20;
+                }
+            } else {
+                // Flee Behavior
+                if(dist(this, nearby) < 3) {
+                    this.moveAway(nearby);
+                }
+            }
+        } else {
+            // Wander
+            if(Math.random() < 0.05) {
+                this.target = {x: this.x + (Math.random()-0.5)*5, y: this.y + (Math.random()-0.5)*5};
+            }
+            if(this.target) this.moveTowards(this.target);
+        }
+    }
+    
+    moveTowards(t) {
+        const d = dist(this, t);
+        if(d > 0.1) {
+            this.x += (t.x - this.x)/d * 0.05;
+            this.y += (t.y - this.y)/d * 0.05;
+        }
+    }
+    moveAway(t) {
+        const d = dist(this, t);
+        if(d > 0.1) {
+            this.x -= (t.x - this.x)/d * 0.06;
+            this.y -= (t.y - this.y)/d * 0.06;
+        }
+    }
+    
+    die() {
+        this.dead = true;
+        game.addParticle(this.x, this.y, '💀');
+        // Drop loot? logic handled by killer usually, but if died naturally:
+    }
+}
+
 class City {
     constructor(x, y, race) {
         this.name = race.name + 'ia ' + rand(99);
         this.x = x; this.y = y;
         this.race = race;
         this.pop = [];
-        this.resources = { food: 200, gold: 100 };
+        this.resources = { food: 200, gold: 100, materials: 50 };
+        this.storage = []; // Crafted items stored here
         this.ruler = null;
         this.isCapital = false;
         this.jail = [];
@@ -402,6 +526,9 @@ class Unit {
         this.traits = [];
         this.mixGenetics(parents, race);
         
+        // Equipment
+        this.gear = { hand: null, body: null };
+        
         // Personality (0-100)
         this.personality = {
             agg: clamp(race.baseStats.agg + rand(20)-10 + (this.hasTrait('Violent')?30:0), 0, 100),
@@ -420,8 +547,8 @@ class Unit {
     }
     
     genName() {
-        const syl = ['Ar', 'Bor', 'Cal', 'Dan', 'El', 'Fin', 'Gor', 'Hul'];
-        const end = ['a', 'on', 'us', 'ix', 'or', 'ia', 'et'];
+        const syl = ['Ar', 'Bor', 'Cal', 'Dan', 'El', 'Fin', 'Gor', 'Hul', 'Myr', 'Tyr'];
+        const end = ['a', 'on', 'us', 'ix', 'or', 'ia', 'et', 'os', 'ian'];
         return pick(syl) + pick(end);
     }
 
@@ -458,6 +585,14 @@ class Unit {
         });
     }
 
+    getCombatStats() {
+        let atk = this.stats.str / 2;
+        let def = 0;
+        if(this.gear.hand) { atk += this.gear.hand.atk; def += this.gear.hand.def; }
+        if(this.gear.body) { atk += this.gear.body.atk; def += this.gear.body.def; }
+        return { atk, def };
+    }
+
     update() {
         if(this.dead) return;
 
@@ -466,6 +601,8 @@ class Unit {
             this.age += 0.1;
             if(this.age > this.maxAge) this.die('Old Age');
             if(this.maxMana > 0 && this.mana < this.maxMana) this.mana += 5;
+            // Heal slowly
+            if(this.health < 100) this.health += 1;
         }
 
         // 2. Prison Logic
@@ -491,7 +628,6 @@ class Unit {
 
     decide() {
         // A. CRIME CHECK
-        // High Greed + Low Loyalty or High Aggression
         if (this.crime < 100 && Math.random() < 0.01) {
             if (this.personality.grd > 75 && this.personality.loy < 40) {
                 this.state = 'CRIME_THEFT';
@@ -503,30 +639,66 @@ class Unit {
             }
         }
 
-        // B. JOB ASSIGNMENT (Simplified)
+        // B. JOB ASSIGNMENT
         if(this.job === JOBS.CHILD && this.age >= 18) this.job = JOBS.IDLE;
         if(this.job === JOBS.IDLE && this.city) {
             if(this.hasTrait('Arcane')) this.job = JOBS.MAGE;
-            else if(this.stats.str > 30) this.job = JOBS.GUARD;
+            else if(this.stats.str > 40) this.job = Math.random()>0.5 ? JOBS.GUARD : JOBS.HUNTER;
+            else if(this.stats.str > 20 && Math.random()>0.7) this.job = JOBS.SMITH;
             else this.job = JOBS.FARMER;
         }
+        
+        // Equip Logic (If city has items)
+        if(this.city && this.city.storage.length > 0 && !this.gear.hand) {
+            const item = this.city.storage.pop();
+            if(item.type === 'hand') this.gear.hand = item;
+            else if(item.type === 'body') this.gear.body = item;
+            else this.city.storage.push(item); // Put back if can't use
+            if(this.gear.hand === item || this.gear.body === item) {
+                this.journal.push(`Equipped ${item.name}`);
+                game.addParticle(this.x, this.y, '🛡️');
+            }
+        }
 
-        // C. MAGIC
+        // C. WORK LOGIC
+        if(this.job === JOBS.HUNTER) {
+            // Find animals
+            const prey = game.mobs.find(m => m.type.passive && dist(this, m) < 20);
+            if(prey) {
+                this.target = prey;
+                this.state = 'HUNT';
+                return;
+            }
+        }
+        
+        if(this.job === JOBS.GUARD) {
+            const hostile = game.mobs.find(m => !m.type.passive && dist(this, m) < 15);
+            if(hostile) {
+                this.target = hostile;
+                this.state = 'ATTACK_MOB';
+                return;
+            }
+        }
+        
+        if(this.job === JOBS.SMITH && this.city.resources.materials >= 10 && Math.random() < 0.1) {
+            this.state = 'CRAFT';
+            return;
+        }
+
         if(this.job === JOBS.MAGE && this.mana >= 30 && Math.random() < 0.05) {
             this.state = 'MAGIC';
             return;
         }
         
         // D. REPRODUCTION (Strict Controls)
-        // Needs: Age 18-50, Partner, Resources, Low random chance
-        if(this.age > 18 && this.age < 50 && this.partner && Math.random() < 0.001) { // significantly lowered
+        if(this.age > 18 && this.age < 50 && this.partner && Math.random() < 0.001) {
              if(this.city.resources.food > 50 && this.children < 3) {
                  this.haveChild();
                  return;
              }
         }
 
-        // E. ROMANCE (Lowered)
+        // E. ROMANCE
         if(this.age > 18 && !this.partner && Math.random() < 0.005) {
             const p = this.city.pop.find(u => u!==this && !u.partner && u.age > 18);
             if(p) {
@@ -534,19 +706,6 @@ class Unit {
                 this.journal.push(`Married ${p.name}`);
                 game.addParticle(this.x, this.y, '❤️', 'pink');
             }
-        }
-
-        // F. AFFAIR (Rare, High Greed/Lust logic)
-        if(this.partner && this.personality.loy < 20 && Math.random() < 0.00005) {
-             this.journal.push('Had an affair');
-             this.partner.journal.push(`Partner ${this.name} cheated`);
-             if(this.partner.personality.agg > 60) {
-                 this.partner.state = 'CRIME_VIOLENCE'; // Crime of passion
-                 this.partner.target = this;
-             }
-             this.partner.partner = null; 
-             this.partner = null;
-             ui.toast(`${this.name} had a scandalous affair!`, 'crime');
         }
 
         // Wander
@@ -566,6 +725,47 @@ class Unit {
             }
         }
         
+        else if(this.state === 'HUNT' || this.state === 'ATTACK_MOB') {
+            if(!this.target || this.target.dead) { this.state = 'IDLE'; return; }
+            const d = dist(this, this.target);
+            if(d < 1) {
+                // Attack
+                const cs = this.getCombatStats();
+                this.target.health -= (cs.atk + rand(5));
+                game.addParticle(this.target.x, this.target.y, '💥', 'orange');
+                if(this.target.health <= 0) {
+                    this.target.die();
+                    this.journal.push(`Killed a ${this.target.type.name}`);
+                    // Loot
+                    if(this.city) {
+                        this.city.resources.food += (this.target.type.food || 0);
+                        this.city.resources.materials += (this.target.type.mat || 0);
+                        this.city.resources.gold += (this.target.type.loot || 0);
+                        if(this.target.type.mat > 0) game.addParticle(this.x, this.y, '📦', '#cd7f32');
+                    }
+                }
+                this.state = 'IDLE';
+            } else {
+                this.x += (this.target.x - this.x)/d * 0.12;
+                this.y += (this.target.y - this.y)/d * 0.12;
+            }
+        }
+        
+        else if(this.state === 'CRAFT') {
+            // Smithing
+            if(this.city && this.city.resources.materials >= 20) {
+                const type = Math.random() > 0.5 ? ITEMS.SWORD : ITEMS.ARMOR;
+                if(this.city.resources.materials >= type.cost) {
+                    this.city.resources.materials -= type.cost;
+                    this.city.storage.push(type);
+                    game.addParticle(this.x, this.y, '🔨', '#cd7f32');
+                    this.journal.push(`Crafted ${type.name}`);
+                    ui.toast(`${this.name} crafted ${type.name}`, 'item');
+                }
+            }
+            this.state = 'IDLE';
+        }
+        
         else if(this.state === 'CRIME_THEFT') {
             // Steal from city
             if(this.city) {
@@ -581,7 +781,8 @@ class Unit {
         else if (this.state === 'CRIME_VIOLENCE') {
             const victim = this.city ? pick(this.city.pop) : null;
             if(victim && victim !== this) {
-                victim.health -= 40;
+                const cs = this.getCombatStats();
+                victim.health -= (40 + cs.atk);
                 this.crime += 50;
                 game.addParticle(victim.x, victim.y, '🩸', 'red');
                 this.journal.push(`Attacked ${victim.name}`);
@@ -652,6 +853,7 @@ const ui = {
     update: function() {
         document.getElementById('ui-year').innerText = game.year;
         document.getElementById('ui-pop').innerText = game.units.length;
+        document.getElementById('ui-mobs').innerText = game.mobs.length;
         
         // Calc Avg Crime
         let totalCrime = 0;
@@ -691,6 +893,9 @@ const ui = {
         
         if(s instanceof Unit) {
             let traitsHtml = s.traits.map(t => `<span class="trait-badge ${t.name==='Arcane'?'trait-magic':(t.name==='Violent'?'trait-crime':'')}">${t.name}</span>`).join('');
+            let gearHtml = '';
+            if(s.gear.hand) gearHtml += `<span class="trait-badge item-badge">🗡️ ${s.gear.hand.name}</span>`;
+            if(s.gear.body) gearHtml += `<span class="trait-badge item-badge">🛡️ ${s.gear.body.name}</span>`;
             
             div.innerHTML = `
                 <div class="header-row">
@@ -715,6 +920,7 @@ const ui = {
 
                 <div class="inspector-row"><span>Criminal Record</span> <span style="color:red">${s.crime}</span></div>
                 <div style="margin:5px 0;">${traitsHtml || '<span style="color:#666">No Traits</span>'}</div>
+                <div style="margin:5px 0;">${gearHtml || '<span style="color:#666; font-size:10px;">No Equipment</span>'}</div>
                 
                 <h3>Stats</h3>
                 <div class="inspector-row"><span>STR: ${s.stats.str}</span> <span>INT: ${s.stats.int}</span> <span>CHA: ${s.stats.cha}</span></div>
@@ -736,11 +942,28 @@ const ui = {
                 <div class="inspector-row"><span>Ruler</span> <span style="color:gold">${s.ruler ? s.ruler.name : 'None'}</span></div>
                 <div class="inspector-row"><span>Food</span> <span>${Math.floor(s.resources.food)}</span></div>
                 <div class="inspector-row"><span>Gold</span> <span style="color:gold">${Math.floor(s.resources.gold)}</span></div>
+                <div class="inspector-row"><span>Materials</span> <span style="color:#cd7f32">${Math.floor(s.resources.materials)}</span></div>
+                <div class="inspector-row"><span>Armory</span> <span style="color:#cd7f32">${s.storage.length} items</span></div>
                 <br>
                 <div style="text-align:center; color:#666; font-style:italic">
                     ${s.isCapital ? 'The seat of power.' : 'A growing settlement.'}
                 </div>
             `;
+        } else if (s instanceof Mob) {
+             div.innerHTML = `
+                <div class="header-row">
+                    <div class="avatar" style="border-color:orange">${s.type.emoji}</div>
+                    <div>
+                        <h2>${s.type.name}</h2>
+                        <h3>${s.type.passive ? 'Passive Animal' : 'Hostile Monster'}</h3>
+                    </div>
+                </div>
+                <div class="inspector-row"><span>Health</span> <span style="color:red">${s.health}/${s.type.hp}</span></div>
+                <div class="inspector-row"><span>Damage</span> <span>${s.type.atk}</span></div>
+                <div style="margin-top:10px; font-size:11px; color:#888;">
+                    Drops: ${s.type.food ? 'Food ' : ''} ${s.type.mat ? 'Materials ' : ''} ${s.type.loot ? 'Gold' : ''}
+                </div>
+             `;
         }
     }
 };
