@@ -209,11 +209,10 @@ class Game {
 
         // --- CONTROLS FIX ---
         
-        // Disable Context Menu on Right Click
         this.canvas.oncontextmenu = e => e.preventDefault();
 
         this.canvas.onmousedown = e => {
-            // Middle Click (1) or Right Click (2) -> Always Pan
+            // Middle (1) or Right (2) -> Always Pan
             if(e.button === 1 || e.button === 2) {
                 this.camera.drag = true;
                 this.camera.lx = e.clientX;
@@ -221,7 +220,7 @@ class Game {
                 return;
             }
 
-            // Left Click (0) -> Tool Dependent
+            // Left Click (0)
             if(ui.tool === 'drag') { 
                 this.camera.drag = true; 
                 this.camera.lx = e.clientX; 
@@ -236,7 +235,6 @@ class Game {
                 this.camera.x -= (e.clientX - this.camera.lx) / this.camera.z;
                 this.camera.y -= (e.clientY - this.camera.ly) / this.camera.z;
                 
-                // LOOSE BOUNDS: Allow panning slightly past edges (-500 pixels)
                 const maxW = CFG.w * CFG.tileSize;
                 const maxH = CFG.h * CFG.tileSize;
                 this.camera.x = clamp(this.camera.x, -500, maxW + 500); 
@@ -246,7 +244,11 @@ class Game {
             }
         };
         
-        window.onmouseup = () => this.camera.drag = false;
+        // ROBUST DRAG RELEASE
+        const stopDrag = () => { this.camera.drag = false; };
+        window.onmouseup = stopDrag;
+        window.onmouseleave = stopDrag; // If mouse leaves window
+        window.onblur = stopDrag;       // If alt-tabbed
         
         window.onwheel = e => {
             e.preventDefault();
@@ -847,6 +849,7 @@ const ui = {
     },
 
     setTool: function(t) {
+        game.camera.drag = false; // FORCE STOP DRAGGING
         this.tool = t;
         document.querySelectorAll('.toolbar button').forEach(b => b.classList.remove('active'));
         const btn = document.getElementById(t==='select'?'btn-select':(t==='drag'?'btn-drag':''));
