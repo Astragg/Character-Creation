@@ -24,6 +24,32 @@
     .bottom-bar { bottom: 0; left: 0; right: 0; pointer-events: auto; justify-content: center; align-items: center; padding-bottom: 20px; }
     .panel { background: var(--panel); backdrop-filter: blur(10px); border: 1px solid var(--border); border-radius: 8px; padding: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); pointer-events: auto; }
     
+    /* Setup Screen */
+    #setup-screen {
+        position: absolute; top:0; left:0; width:100vw; height:100vh;
+        background: rgba(10,10,12, 0.95);
+        display: flex; align-items: center; justify-content: center;
+        z-index: 100; pointer-events: auto;
+    }
+    .setup-box {
+        width: 400px; max-width: 90%;
+        background: #1a1a1e; border: 1px solid var(--accent);
+        padding: 30px; border-radius: 12px;
+        box-shadow: 0 0 30px rgba(94, 156, 209, 0.2);
+    }
+    .setup-row { margin-bottom: 20px; }
+    .setup-row label { display: block; margin-bottom: 8px; font-size: 14px; color: #aaa; }
+    .setup-row input[type=range] { width: 100%; accent-color: var(--accent); }
+    .setup-row select { width: 100%; padding: 8px; background: #111; border: 1px solid #444; color: #fff; border-radius: 4px; }
+    .val-display { float: right; color: var(--accent); font-weight: bold; }
+    
+    .big-btn {
+        width: 100%; padding: 12px; background: var(--accent); border: none; color: white;
+        font-weight: bold; border-radius: 6px; cursor: pointer; font-size: 16px;
+        transition: filter 0.2s; margin-top: 10px;
+    }
+    .big-btn:hover { filter: brightness(1.1); }
+
     /* Stats */
     .stat-group { display: flex; gap: 20px; font-size: 14px; font-weight: 600; text-shadow: 0 2px 4px black; }
     .stat-item span { color: var(--accent); margin-left: 5px; }
@@ -64,6 +90,41 @@
 </head>
 <body>
 
+<div id="setup-screen">
+    <div class="setup-box">
+        <h1 style="margin-top:0; color: var(--gold); text-align: center;">Aethelgard III</h1>
+        <p style="text-align:center; color:#888; font-size:12px;">World Generation Settings</p>
+        <hr style="border:0; border-bottom:1px solid #333; margin-bottom:20px;">
+
+        <div class="setup-row">
+            <label>Map Size</label>
+            <select id="in-map">
+                <option value="100">Small (100x100)</option>
+                <option value="150" selected>Medium (150x150)</option>
+                <option value="250">Large (250x250)</option>
+                <option value="400">Massive (400x400)</option>
+            </select>
+        </div>
+
+        <div class="setup-row">
+            <label>Civilizations <span id="val-civs" class="val-display">3</span></label>
+            <input type="range" id="in-civs" min="1" max="10" value="3" oninput="updateVal('val-civs', this.value)">
+        </div>
+
+        <div class="setup-row">
+            <label>Birth Rate <span id="val-birth" class="val-display">Normal</span></label>
+            <input type="range" id="in-birth" min="1" max="10" value="2" oninput="updateText('val-birth', this.value)">
+        </div>
+
+        <div class="setup-row">
+            <label>Mutation Rate <span id="val-mut" class="val-display">5%</span></label>
+            <input type="range" id="in-mut" min="0" max="50" value="5" oninput="updateVal('val-mut', this.value + '%')">
+        </div>
+
+        <button class="big-btn" onclick="startWorld()">GENERATE WORLD</button>
+    </div>
+</div>
+
 <canvas id="gameCanvas"></canvas>
 
 <div class="ui-layer top-bar">
@@ -95,20 +156,49 @@
 
 <script>
 /** --- CONFIGURATION --- */
-const CFG = {
-    w: 150, h: 150,
+// Now mutable via settings
+let CFG = {
+    w: 350, h: 350,
     tileSize: 32,
     tickRate: 30,
     dayTicks: 50,
     yearDays: 120,
-    startCities: 3
+    startCities: 5,
+    reproChance: 0.05, // Default
+    mutationChance: 0.05
 };
+
+function updateVal(id, val) { document.getElementById(id).innerText = val; }
+function updateText(id, val) {
+    const v = parseInt(val);
+    let txt = 'Low';
+    if(v > 3) txt = 'Normal';
+    if(v > 6) txt = 'High';
+    if(v > 8) txt = 'Booming';
+    document.getElementById(id).innerText = txt;
+}
+
+function startWorld() {
+    const mapSize = parseInt(document.getElementById('in-map').value);
+    const civs = parseInt(document.getElementById('in-civs').value);
+    const birth = parseInt(document.getElementById('in-birth').value);
+    const mut = parseInt(document.getElementById('in-mut').value);
+
+    CFG.w = mapSize;
+    CFG.h = mapSize;
+    CFG.startCities = civs;
+    // Slider 1-10 maps to 0.0005 - 0.005
+    CFG.reproChance = (birth * 0.0005); 
+    CFG.mutationChance = mut / 100;
+
+    document.getElementById('setup-screen').style.display = 'none';
+    game.init();
+}
 
 /** --- DATA & ASSETS --- */
 const TILES = { WATER: 0, GRASS: 1, FOREST: 2, MOUNTAIN: 3, CITY: 4 };
 const PALETTE = { 0: '#4173a3', 1: '#5c9e63', 2: '#3a7042', 3: '#7a7a7a', 4: '#333' };
 
-// Building Types
 const BUILDINGS = {
     HALL: { type: 'HALL', icon: '🏰', name: 'Town Hall' },
     HOME: { type: 'HOME', icon: '🏠', name: 'Residence' },
@@ -269,7 +359,7 @@ class Game {
         for(let i=0; i<CFG.startCities; i++) {
             let placed = false;
             let attempts = 0;
-            while(!placed && attempts < 100) {
+            while(!placed && attempts < 200) {
                 let rx = rand(CFG.w-10) + 5;
                 let ry = rand(CFG.h-10) + 5;
                 if(this.map[ry][rx] !== TILES.WATER && !this.occupiedTiles.has(`${rx},${ry}`)) {
@@ -568,7 +658,8 @@ class Unit {
             const [p1, p2] = parents;
             const pool = [...p1.traits, ...p2.traits];
             pool.forEach(t => { if(Math.random() < 0.5 && !this.hasTrait(t.name)) this.traits.push(t); });
-            if(Math.random() < 0.05) {
+            // Configurable Mutation Chance
+            if(Math.random() < CFG.mutationChance) {
                 const mut = pick(Object.values(GENETIC_TRAITS));
                 if(!this.hasTrait(mut.name)) {
                     this.traits.push(mut);
@@ -682,7 +773,8 @@ class Unit {
             return;
         }
         
-        if(this.age > 18 && this.age < 50 && this.partner && Math.random() < 0.001) {
+        // REPRODUCTION LOGIC
+        if(this.age > 18 && this.age < 50 && this.partner && Math.random() < CFG.reproChance) {
              if(this.city.resources.food > 50 && this.children < 3) {
                  this.haveChild();
                  return;
@@ -949,7 +1041,7 @@ const ui = {
 
 // Start
 const game = new Game();
-game.init();
+// game.init() is now called by the start button in UI
 
 </script>
 </body>
