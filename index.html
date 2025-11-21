@@ -1,754 +1,295 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Aethelgard II: Rise of Kingdoms</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aetheria 11.0 — Wired</title>
 <style>
-    :root {
-        --bg: #121214;
-        --panel: rgba(20, 20, 25, 0.9);
-        --border: rgba(255, 255, 255, 0.1);
-        --accent: #5e9cd1;
-        --text: #e0e0e0;
-        --gold: #ffd700;
-        --magic: #b388eb;
-        --crime: #ff4d4d;
-    }
-    body { margin: 0; overflow: hidden; background: var(--bg); font-family: 'Segoe UI', monospace; color: var(--text); user-select: none; }
-    canvas { display: block; width: 100vw; height: 100vh; cursor: crosshair; }
-    
-    /* UI Layout */
-    .ui-layer { position: absolute; pointer-events: none; padding: 15px; display: flex; flex-direction: column; gap: 10px; }
-    .top-bar { top: 0; left: 0; right: 0; flex-direction: row; justify-content: space-between; pointer-events: auto; background: linear-gradient(to bottom, rgba(0,0,0,0.9), transparent); padding: 10px 20px; }
-    .bottom-bar { bottom: 0; left: 0; right: 0; pointer-events: auto; justify-content: center; align-items: center; padding-bottom: 20px; }
-    .panel { background: var(--panel); backdrop-filter: blur(10px); border: 1px solid var(--border); border-radius: 8px; padding: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); pointer-events: auto; }
-    
-    /* Stats */
-    .stat-group { display: flex; gap: 20px; font-size: 14px; font-weight: 600; text-shadow: 0 2px 4px black; }
-    .stat-item span { color: var(--accent); margin-left: 5px; }
-    
-    /* Inspector */
-    #inspector { top: 60px; left: 20px; width: 300px; max-height: 80vh; overflow-y: auto; display: none; font-size: 12px; }
-    .inspector-row { display: flex; justify-content: space-between; margin-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom:2px;}
-    .avatar { width: 45px; height: 45px; background: #222; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 26px; margin-right: 10px; border: 2px solid var(--accent); position: relative;}
-    .header-row { display: flex; align-items: center; margin-bottom: 10px; }
-    h2 { margin: 0; font-size: 16px; color: var(--gold); }
-    h3 { margin: 0; font-size: 12px; color: #888; }
-    
-    /* Specialized Badges */
-    .trait-badge { display: inline-block; padding: 2px 6px; background: #333; border-radius: 4px; margin: 2px; font-size: 10px; border: 1px solid #555; }
-    .trait-magic { border-color: var(--magic); color: var(--magic); }
-    .trait-crime { border-color: var(--crime); color: var(--crime); }
-    
-    /* Controls */
-    .toolbar { display: flex; gap: 8px; background: var(--panel); padding: 8px 16px; border-radius: 50px; border: 1px solid var(--border); }
-    button { background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: var(--text); padding: 6px 12px; border-radius: 4px; cursor: pointer; transition: all 0.2s; font-size: 12px; }
-    button:hover { background: rgba(255,255,255,0.15); }
-    button.active { background: var(--accent); color: #fff; border-color: transparent; }
-    
-    /* Toasts */
-    #toast-container { bottom: 100px; right: 20px; width: 320px; align-items: flex-end; pointer-events: none; }
-    .toast { background: rgba(0,0,0,0.9); border-left: 3px solid var(--accent); padding: 8px 12px; border-radius: 4px; margin-top: 6px; font-size: 11px; animation: fadeOut 6s forwards; pointer-events: auto; }
-    .toast.crime { border-color: var(--crime); }
-    .toast.magic { border-color: var(--magic); }
-    
-    @keyframes fadeOut { 0% { opacity:0; transform: translateX(20px); } 10% { opacity:1; transform: translateX(0); } 80% { opacity:1; } 100% { opacity: 0; display:none; } }
-    
-    /* Bars */
-    .bar-con { width: 100%; background: #333; height: 4px; margin: 2px 0; border-radius: 2px; overflow: hidden; }
-    .bar-fill { height: 100%; transition: width 0.5s; }
-    ::-webkit-scrollbar { width: 5px; }
-    ::-webkit-scrollbar-thumb { background: #444; }
+:root{--bg:#0b0b0d;--panel:rgba(28,28,30,0.85);--accent:#60cdff;--text:#eaeaea}
+*{box-sizing:border-box;font-family:system-ui,-apple-system,Segoe UI,Roboto;}
+body{margin:0;height:100vh;background:linear-gradient(180deg,#050505 0%, #0f1220 100%);color:var(--text);overflow:hidden}
+canvas{position:absolute;inset:0;z-index:0}
+#ui{position:absolute;inset:12px;display:flex;flex-direction:column;gap:12px;z-index:5;pointer-events:none}
+.panel{background:var(--panel);backdrop-filter:blur(24px);border-radius:12px;padding:10px;border:1px solid rgba(255,255,255,0.04);pointer-events:auto}
+#top{display:flex;gap:12px;align-items:center}
+.stat{min-width:80px}
+#tools{display:flex;gap:8px;align-items:center}
+.btn{padding:6px 10px;border-radius:8px;border:none;background:rgba(255,255,255,0.03);color:var(--text);cursor:pointer}
+#customize{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:50}
+#customize .card{width:360px;padding:16px;border-radius:12px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01))}
+.label{font-size:12px;color:#bfc7d3;margin-bottom:6px}
+.input,select{width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:var(--text)}
+#inspector{position:absolute;right:20px;top:80px;width:320px;max-height:70vh;overflow:auto}
+.toast{position:fixed;right:20px;bottom:20px;z-index:60}
+.small{font-size:12px;color:#bfc7d3}
 </style>
 </head>
 <body>
-
-<canvas id="gameCanvas"></canvas>
-
-<div class="ui-layer top-bar">
-    <div class="stat-group">
-        <div class="stat-item">Year: <span id="ui-year">1</span></div>
-        <div class="stat-item">Pop: <span id="ui-pop">0</span></div>
-        <div class="stat-item">Avg Crime: <span id="ui-crime">0%</span></div>
-    </div>
-    <div class="toolbar">
-        <button onclick="game.speed=0">⏸️</button>
-        <button onclick="game.speed=1" class="active" id="spd-1">▶️</button>
-        <button onclick="game.speed=10" id="spd-10">⏩</button>
-    </div>
+<canvas id="c"></canvas>
+<div id="ui">
+  <div id="top" class="panel">
+    <div class="stat"><div class="small">Year</div><div id="year">1</div></div>
+    <div class="stat"><div class="small">Time</div><div id="time">Day</div></div>
+    <div style="flex:1"></div>
+    <div id="tools" class="panel">
+      <button class="btn" id="pauseBtn">⏯️</button>
+      <button class="btn" id="faster">⏩</button>
+      <button class="btn" id="slower">⏪</button>
+      <select id="toolSelect" class="input" style="width:auto;margin-left:8px">
+        <option value="select">Select</option>
+        <option value="place">Place Building</option>
+        <option value="spawn">Spawn Unit</option>
+        <option value="smite">Smite</option>
+      </select>
+    </div>
+  </div>
 </div>
-
-<div id="inspector" class="ui-layer panel"></div>
-
-<div class="ui-layer bottom-bar">
-    <div class="toolbar">
-        <button onclick="ui.setTool('select')" id="btn-select" class="active">👆 Inspect</button>
-        <button onclick="ui.setTool('drag')" id="btn-drag">✋ Pan</button>
-        <div style="width:1px; background:#444; margin:0 4px;"></div>
-        <button onclick="ui.setTool('god_bless')" style="color:var(--gold)">✨ Bless</button>
-        <button onclick="ui.setTool('god_smite')" style="color:var(--crime)">⚡ Smite</button>
-        <button onclick="ui.setTool('spawn_plague')" style="color:lime">☣️ Plague</button>
-    </div>
+<div id="inspector" class="panel"></div>
+<div id="customize">
+  <div class="card panel">
+    <h3>Aetheria — Setup</h3>
+    <div class="label">World Width / Height (tiles)</div>
+    <input id="worldSize" class="input" type="number" value="80" />
+    <div class="label">Race Preset</div>
+    <select id="racePreset" class="input"><option value="expanded">Expanded</option><option value="all">All</option></select>
+    <div class="label">Aggression</div>
+    <select id="agg" class="input"><option value="low">Low</option><option value="med" selected>Medium</option><option value="high">High</option></select>
+    <div style="height:8px"></div>
+    <button id="start" class="btn">Start Simulation</button>
+  </div>
 </div>
-
-<div id="toast-container" class="ui-layer"></div>
-
+<div id="toast" class="toast"></div>
 <script>
-/** --- CONFIGURATION --- */
-const CFG = {
-    w: 150, h: 150, // Smaller map for density
-    tileSize: 32,
-    tickRate: 30,
-    dayTicks: 50,
-    yearDays: 120, // Short years for generational speed
-    startCities: 3
+/* ==========================
+   CORE STATE & UTIL
+   ========================== */
+const canvas = document.getElementById('c'); const ctx = canvas.getContext('2d');
+let STATE = { tiles:[], units:[], buildings:[], cities:[], kingdoms:[], mobs:[], time:{day:1,hour:12,year:1}, cam:{x:40,y:40,zoom:1}, gameSpeed:1, paused:false, tool:'select', selection:null };
+let CONFIG = { worldSize:80, tile:18, aggression:'med' };
+const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+const rnd = (a,b)=>Math.floor(Math.random()*(b-a+1))+a;
+const dist = (a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+const toastEl = document.getElementById('toast');
+function notify(t){ const d=document.createElement('div'); d.className='panel small'; d.textContent=t; toastEl.appendChild(d); setTimeout(()=>d.remove(),4000);} 
+
+/* ==========================
+   RACES (modular)
+   ========================== */
+let raceData = {
+  Human:{icon:'🧑',lifespan:[60,90],fertility:0.12,aggression:0.12,crime:0.08,combat:1,preferred:['plains','forest']},
+  Elf:{icon:'🧝',lifespan:[120,250],fertility:0.06,aggression:0.06,crime:0.03,combat:0.9,preferred:['forest']},
+  Dwarf:{icon:'🧔',lifespan:[90,140],fertility:0.07,aggression:0.18,crime:0.05,combat:1.2,preferred:['mountain']},
+  Orc:{icon:'👹',lifespan:[40,70],fertility:0.25,aggression:0.35,crime:0.18,combat:1.4,preferred:['plains']},
+  Goblin:{icon:'👺',lifespan:[20,50],fertility:0.35,aggression:0.2,crime:0.3,combat:0.7,preferred:['plains','forest']},
+  Vampire:{icon:'🧛',lifespan:[999,999],fertility:0.01,aggression:0.25,crime:0.05,combat:1.6,preferred:['plains']}
+};
+let extra = {Troll:{icon:'🧟',lifespan:[80,120],fertility:0.04,aggression:0.4,crime:0.2,combat:1.6,preferred:['forest']},Halfling:{icon:'🦶',lifespan:[60,90],fertility:0.15,aggression:0.03,crime:0.05,combat:0.6,preferred:['plains']},Gnome:{icon:'🤏',lifespan:[60,110],fertility:0.12,aggression:0.04,crime:0.09,combat:0.7,preferred:['forest']}};
+
+/* ==========================
+   JOBS & BUILDINGS
+   ========================== */
+let jobData = { farmer:{income:1,produces:{food:1}}, miner:{income:2,produces:{stone:1}}, lumberjack:{income:1,produces:{wood:1}}, builder:{income:0.5,build:true}, soldier:{income:0.6,combat:1.2}, guard:{income:0.7,combat:1.1}, merchant:{income:1.4} };
+let buildingData = {
+  house:{icon:'🏠',cost:{wood:20,stone:5},capacity:3,produces:{}},
+  farm:{icon:'🌾',cost:{wood:12},produces:{food:4}},
+  mine:{icon:'⛏️',cost:{wood:10,stone:20},produces:{stone:4}},
+  sawmill:{icon:'🪵',cost:{wood:20},produces:{wood:6}},
+  tavern:{icon:'🍺',cost:{wood:25},produces:{happiness:2}},
+  barracks:{icon:'🏰',cost:{stone:40,wood:20},enables:'soldier'},
+  market:{icon:'🏪',cost:{wood:20,stone:10}},
+  prison:{icon:'🚓',cost:{stone:30},capacity:6}
 };
 
-/** --- DATA & ASSETS --- */
-const TILES = { WATER: 0, GRASS: 1, FOREST: 2, MOUNTAIN: 3, CITY: 4 };
-const PALETTE = { 0: '#4173a3', 1: '#5c9e63', 2: '#3a7042', 3: '#7a7a7a', 4: '#333' };
+/* ==========================
+   MOBS
+   ========================== */
+let mobData = { deer:{icon:'🦌',passive:true,drop:{food:2}}, wolf:{icon:'🐺',passive:false,aggression:0.35,drop:{food:3}}, bear:{icon:'🐻',passive:false,aggression:0.5,drop:{food:6}} };
 
-const RACES = {
-    HUMAN: { name: 'Human', emoji: '🧑', life: 65, traits: ['Ambitious'], baseStats: {agg: 40, grd: 50, loy: 50} },
-    ELF: { name: 'Elf', emoji: '🧝', life: 180, traits: ['Arcane'], baseStats: {agg: 10, grd: 20, loy: 80} },
-    ORC: { name: 'Orc', emoji: '👹', life: 50, traits: ['Strong'], baseStats: {agg: 80, grd: 60, loy: 30} },
-    DWARF: { name: 'Dwarf', emoji: '🧔', life: 90, traits: ['Sturdy'], baseStats: {agg: 40, grd: 80, loy: 70} }
-};
+/* ==========================
+   WORLD GEN
+   ========================== */
+function generateWorld(n){ STATE.tiles=[]; for(let y=0;y<n;y++){ let row=[]; for(let x=0;x<n;x++){ let r=Math.random(); if(r<0.08) row.push('water'); else if(r<0.28) row.push('forest'); else if(r<0.38) row.push('mountain'); else row.push('plains'); } STATE.tiles.push(row);} }
 
-const JOBS = {
-    IDLE: 'Vagrant', CHILD: 'Child', FARMER: 'Farmer', GUARD: 'Guard', 
-    MAGE: 'Mage', THIEF: 'Thief', KING: 'Ruler', PRISONER: 'Prisoner'
-};
+/* ==========================
+   SPAWN & UNIT
+   ========================== */
+let UID=1; function createUnit(opts){ const id=UID++; const u=Object.assign({id,age: rnd(16,30),hp:100,maxHp:100,money:10,home:null,job:null,traits:[],stress:0,crimeScore:0,inventory:{},mood:'neutral',alive:true},opts); STATE.units.push(u); return u; }
 
-const GENETIC_TRAITS = {
-    STRONG: { name: 'Strong', stat: 'str', mod: 20 },
-    GENIUS: { name: 'Genius', stat: 'int', mod: 20 },
-    ARCANE: { name: 'Arcane', stat: 'manaMax', mod: 50 }, // Enables Magic
-    VIOLENT: { name: 'Violent', stat: 'agg', mod: 30 }, // Hereditary aggression
-    CHARMING: { name: 'Charming', stat: 'cha', mod: 20 },
-    SICKLY: { name: 'Sickly', stat: 'str', mod: -10 }
-};
-
-const SPELLS = {
-    FIREBALL: { cost: 30, combat: true },
-    BLOOM: { cost: 20, combat: false }, // Grows food
-    HEAL: { cost: 40, combat: false }
-};
-
-/** --- UTILS --- */
-const rand = (n) => Math.floor(Math.random() * n);
-const pick = (arr) => arr[rand(arr.length)];
-const dist = (a, b) => Math.sqrt((a.x-b.x)**2 + (a.y-b.y)**2);
-const uuid = () => Math.random().toString(36).substr(2, 9);
-const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
-
-/** --- ENGINE --- */
-class Game {
-    constructor() {
-        this.canvas = document.getElementById('gameCanvas');
-        this.ctx = this.canvas.getContext('2d');
-        this.width = window.innerWidth;
-        this.height = window.innerHeight;
-        this.canvas.width = this.width;
-        this.canvas.height = this.height;
-        
-        this.ticks = 0;
-        this.speed = 1;
-        this.camera = { x: 0, y: 0, z: 1.5, drag: false, lx: 0, ly: 0 };
-        
-        this.map = [];
-        this.cities = [];
-        this.units = [];
-        this.particles = [];
-        this.year = 1;
-        this.day = 0;
-        
-        // Input
-        this.canvas.onmousedown = e => {
-            if(ui.tool === 'drag') { this.camera.drag = true; this.camera.lx = e.clientX; this.camera.ly = e.clientY; }
-            else this.click(e);
-        };
-        window.onmousemove = e => {
-            if(this.camera.drag) {
-                this.camera.x -= (e.clientX - this.camera.lx) / this.camera.z;
-                this.camera.y -= (e.clientY - this.camera.ly) / this.camera.z;
-                this.camera.lx = e.clientX; this.camera.ly = e.clientY;
-            }
-        };
-        window.onmouseup = () => this.camera.drag = false;
-        window.onwheel = e => this.camera.z = clamp(this.camera.z - Math.sign(e.deltaY)*0.1, 0.5, 4);
-    }
-
-    init() {
-        // Gen Map
-        for(let y=0; y<CFG.h; y++) {
-            let row = [];
-            for(let x=0; x<CFG.w; x++) {
-                let n = Math.sin(x*0.1) + Math.cos(y*0.1) + Math.random()*0.2;
-                row.push(n < -0.5 ? TILES.WATER : (n > 1.2 ? TILES.MOUNTAIN : (n > 0.8 ? TILES.FOREST : TILES.GRASS)));
-            }
-            this.map.push(row);
-        }
-
-        // Gen Civs
-        const races = Object.values(RACES);
-        for(let i=0; i<CFG.startCities; i++) {
-            let rx = rand(CFG.w), ry = rand(CFG.h);
-            if(this.map[ry][rx] !== TILES.WATER) {
-                this.createCity(rx, ry, races[i%races.length], i===0);
-            }
-        }
-        
-        this.loop();
-    }
-
-    createCity(x, y, race, isCapital) {
-        const c = new City(x, y, race);
-        if(isCapital) c.isCapital = true;
-        this.cities.push(c);
-        // Initial Pop
-        for(let k=0; k<6; k++) this.spawnUnit(x, y, race, c);
-        ui.toast(`${c.name} founded. ${isCapital ? 'CAPITAL' : ''}`);
-    }
-
-    spawnUnit(x, y, race, city, parents=null) {
-        const u = new Unit(x, y, race, parents);
-        u.city = city;
-        city.pop.push(u);
-        this.units.push(u);
-        return u;
-    }
-
-    click(e) {
-        const rect = this.canvas.getBoundingClientRect();
-        const wx = (e.clientX - rect.left)/this.camera.z + this.camera.x;
-        const wy = (e.clientY - rect.top)/this.camera.z + this.camera.y;
-        const tx = Math.floor(wx/CFG.tileSize);
-        const ty = Math.floor(wy/CFG.tileSize);
-        
-        if(ui.tool === 'select') {
-            // Find unit
-            const u = this.units.find(u => Math.abs(u.x - tx) < 1 && Math.abs(u.y - ty) < 1);
-            if(u) { ui.select(u); return; }
-            // Find City
-            const c = this.cities.find(c => Math.abs(c.x - tx) < 2 && Math.abs(c.y - ty) < 2);
-            if(c) { ui.select(c); return; }
-            ui.select(null);
-        } else if (ui.tool === 'god_smite') {
-            const u = this.units.find(u => Math.abs(u.x - tx) < 1);
-            if(u) u.die('Divine Smite');
-        } else if (ui.tool === 'spawn_plague') {
-            const c = this.cities.find(c => Math.abs(c.x - tx) < 5);
-            if(c) {
-                c.pop.forEach(p => { if(Math.random()<0.5) p.health = 10; });
-                ui.toast(`Plague strikes ${c.name}!`, 'crime');
-            }
-        }
-    }
-
-    loop() {
-        requestAnimationFrame(() => this.loop());
-        if(this.speed === 0) return;
-
-        for(let s=0; s<this.speed; s++) {
-            this.ticks++;
-            if(this.ticks % CFG.dayTicks === 0) {
-                this.day++;
-                if(this.day > CFG.yearDays) { this.day=0; this.year++; ui.toast(`Year ${this.year}`); }
-            }
-
-            this.cities.forEach(c => c.update());
-            this.units.forEach(u => u.update());
-            this.units = this.units.filter(u => !u.dead); // Cleanup
-
-            // Particles
-            this.particles.forEach(p => { p.y+=p.vy; p.life--; });
-            this.particles = this.particles.filter(p => p.life > 0);
-            
-            if(this.ticks % 30 === 0) ui.update();
-        }
-        this.render();
-    }
-
-    render() {
-        const c = this.ctx;
-        const ts = CFG.tileSize;
-        c.fillStyle = '#121214'; c.fillRect(0,0,this.width,this.height);
-        c.save();
-        c.scale(this.camera.z, this.camera.z);
-        c.translate(-this.camera.x, -this.camera.y);
-
-        // Map
-        const vx = Math.floor(this.camera.x/ts), vy = Math.floor(this.camera.y/ts);
-        const vw = this.width/this.camera.z/ts + 2, vh = this.height/this.camera.z/ts + 2;
-        
-        for(let y=Math.max(0,vy); y<Math.min(CFG.h, vy+vh); y++) {
-            for(let x=Math.max(0,vx); x<Math.min(CFG.w, vx+vw); x++) {
-                c.fillStyle = PALETTE[this.map[y][x]];
-                c.fillRect(x*ts, y*ts, ts, ts);
-            }
-        }
-
-        // Cities
-        this.cities.forEach(city => {
-            c.fillStyle = 'rgba(0,0,0,0.5)';
-            c.fillRect(city.x*ts-ts, city.y*ts-ts, ts*3, ts*3);
-            c.textAlign='center';
-            c.font = '20px Arial';
-            c.fillText(city.isCapital ? '🏰' : '🏘️', city.x*ts + ts/2, city.y*ts + ts/2);
-            c.fillStyle='#fff'; c.font='10px Arial';
-            c.fillText(city.name, city.x*ts+ts/2, city.y*ts+ts*2);
-        });
-
-        // Units
-        this.units.forEach(u => {
-            if(u.x < vx || u.x > vx+vw || u.y < vy || u.y > vy+vh) return;
-            let px = u.x*ts, py = u.y*ts;
-            
-            // Selection
-            if(ui.selected === u) { c.strokeStyle='#fff'; c.lineWidth=1; c.strokeRect(px, py, ts, ts); }
-            
-            c.font = `${ts*0.7}px Arial`;
-            c.textAlign = 'center';
-            let icon = u.emoji;
-            if(u.job === JOBS.KING) icon = '👑';
-            else if(u.job === JOBS.PRISONER) icon = '⛓️';
-            else if(u.dead) icon = '💀';
-            
-            c.fillText(icon, px+ts/2, py+ts*0.8);
-            
-            // Effect Indicators
-            if(u.state === 'MAGIC') { c.fillStyle= '#b388eb'; c.fillRect(px, py, ts, 2); }
-            if(u.crime > 50) { c.fillStyle='red'; c.fillText('!', px+ts, py); }
-        });
-
-        // Particles
-        this.particles.forEach(p => {
-            c.globalAlpha = p.life/30;
-            c.fillStyle = p.color;
-            c.font = '12px Arial';
-            c.fillText(p.txt, p.x*ts, p.y*ts);
-        });
-        c.globalAlpha = 1;
-        c.restore();
-    }
-    
-    addParticle(x, y, txt, color='#fff') {
-        this.particles.push({x, y, txt, color, life:30, vy: -0.02});
-    }
+function spawnInitial(){ // create few cities and population
+  // simple: place N cities at random spaced points
+  const races=Object.keys(raceData);
+  for(let i=0;i<4;i++){ const x=rnd(6,CONFIG.worldSize-6), y=rnd(6,CONFIG.worldSize-6); const race=races[i%races.length]; createCity(x,y,race); }
 }
 
-/** --- LOGIC CLASSES --- */
-class City {
-    constructor(x, y, race) {
-        this.name = race.name + 'ia ' + rand(99);
-        this.x = x; this.y = y;
-        this.race = race;
-        this.pop = [];
-        this.resources = { food: 200, gold: 100 };
-        this.ruler = null;
-        this.isCapital = false;
-        this.jail = [];
-    }
-
-    update() {
-        // Resources
-        this.resources.food += this.pop.filter(u=>u.job===JOBS.FARMER).length * 0.8;
-        this.resources.gold += this.pop.filter(u=>u.job!==JOBS.PRISONER).length * 0.1; // Tax
-        
-        // Consumption
-        if(game.ticks % 100 === 0) {
-            this.resources.food -= this.pop.length * 1.0;
-            if(this.resources.food < 0) {
-                this.resources.food = 0;
-                // Starvation
-                if(Math.random() < 0.2) pick(this.pop).die('Starvation');
-            }
-        }
-
-        // Politics
-        if(!this.ruler || this.ruler.dead) {
-            // Elect highest Influence (Charisma + Age)
-            const candidates = this.pop.filter(u => u.age > 18 && u.job !== JOBS.PRISONER);
-            if(candidates.length) {
-                candidates.sort((a,b) => (b.stats.cha + b.age) - (a.stats.cha + a.age));
-                this.ruler = candidates[0];
-                this.ruler.job = JOBS.KING;
-                this.ruler.journal.push(`Crowned Ruler of ${this.name}`);
-                ui.toast(`${this.ruler.name} is the new Ruler of ${this.name}`, 'gold');
-            }
-        }
-    }
+function createCity(x,y,raceName){ const id=Date.now()+Math.random(); const city={id,x,y,race:raceName,pop:0,resources:{wood:200,stone:150,food:300,gold:200},buildings:[],radius:6,level:'village'}; STATE.cities.push(city);
+  // place a few houses and spawn population
+  placeBuilding(city,x,y,'house'); placeBuilding(city,x+1,y,'farm'); placeBuilding(city,x-1,y,'tavern');
+  for(let i=0;i<8;i++){ createUnit({race:raceName,x:x+Math.random()*3-1.5,y:y+Math.random()*3-1.5,home:city.id,job: ['farmer','lumberjack','miner','builder'][i%4] }); }
 }
 
-class Unit {
-    constructor(x, y, race, parents) {
-        this.id = uuid();
-        this.name = this.genName();
-        this.x = x; this.y = y;
-        this.race = race;
-        this.emoji = race.emoji;
-        this.age = parents ? 0 : 18 + rand(20);
-        this.maxAge = race.life + rand(10);
-        this.health = 100;
-        this.city = null;
-        this.job = parents ? JOBS.CHILD : JOBS.IDLE;
-        this.partner = null;
-        this.children = 0;
-        
-        // Stats & Genetics
-        this.stats = { str: 10, int: 10, cha: 10 };
-        this.traits = [];
-        this.mixGenetics(parents, race);
-        
-        // Personality (0-100)
-        this.personality = {
-            agg: clamp(race.baseStats.agg + rand(20)-10 + (this.hasTrait('Violent')?30:0), 0, 100),
-            grd: clamp(race.baseStats.grd + rand(20)-10, 0, 100),
-            loy: clamp(race.baseStats.loy + rand(20)-10, 0, 100)
-        };
-
-        // Advanced Stats
-        this.crime = 0; // Crime Score
-        this.mana = 0;
-        this.maxMana = this.hasTrait('Arcane') ? 100 : 0;
-
-        this.state = 'IDLE';
-        this.target = null;
-        this.journal = [];
-    }
-    
-    genName() {
-        const syl = ['Ar', 'Bor', 'Cal', 'Dan', 'El', 'Fin', 'Gor', 'Hul'];
-        const end = ['a', 'on', 'us', 'ix', 'or', 'ia', 'et'];
-        return pick(syl) + pick(end);
-    }
-
-    hasTrait(name) { return this.traits.some(t => t.name === name); }
-
-    mixGenetics(parents, race) {
-        // Base stats from Race
-        this.stats.str += rand(10);
-        this.stats.int += rand(10);
-        
-        if(parents) {
-            const [p1, p2] = parents;
-            // Inherit Traits (50% chance from each parent)
-            const pool = [...p1.traits, ...p2.traits];
-            pool.forEach(t => { if(Math.random() < 0.5 && !this.hasTrait(t.name)) this.traits.push(t); });
-            
-            // Mutation (5%)
-            if(Math.random() < 0.05) {
-                const mut = pick(Object.values(GENETIC_TRAITS));
-                if(!this.hasTrait(mut.name)) {
-                    this.traits.push(mut);
-                    this.journal.push(`Born with mutation: ${mut.name}`);
-                }
-            }
-        } else {
-            // Initial Gen Traits
-            if(Math.random() < 0.3) this.traits.push(pick(Object.values(GENETIC_TRAITS)));
-        }
-
-        // Apply Trait Mods
-        this.traits.forEach(t => {
-            if(t.stat === 'manaMax') this.maxMana = 100;
-            else if(this.stats[t.stat] !== undefined) this.stats[t.stat] += t.mod;
-        });
-    }
-
-    update() {
-        if(this.dead) return;
-
-        // 1. Aging & Mana
-        if(game.ticks % 100 === 0) {
-            this.age += 0.1;
-            if(this.age > this.maxAge) this.die('Old Age');
-            if(this.maxMana > 0 && this.mana < this.maxMana) this.mana += 5;
-        }
-
-        // 2. Prison Logic
-        if(this.job === JOBS.PRISONER) {
-            // Chance to escape or die
-            if(Math.random() < 0.001) {
-                 if(this.stats.str > 50) {
-                     this.job = JOBS.IDLE;
-                     this.crime += 20;
-                     this.journal.push('Escaped Prison');
-                     ui.toast(`${this.name} escaped jail!`, 'crime');
-                 } else {
-                     this.die('Rotting in cell');
-                 }
-            }
-            return; // Can't do anything else
-        }
-
-        // 3. Decision Making
-        if(this.state === 'IDLE') this.decide();
-        else this.act();
-    }
-
-    decide() {
-        // A. CRIME CHECK
-        // High Greed + Low Loyalty or High Aggression
-        if (this.crime < 100 && Math.random() < 0.01) {
-            if (this.personality.grd > 75 && this.personality.loy < 40) {
-                this.state = 'CRIME_THEFT';
-                return;
-            }
-            if (this.personality.agg > 80 && Math.random() < 0.3) {
-                this.state = 'CRIME_VIOLENCE';
-                return;
-            }
-        }
-
-        // B. JOB ASSIGNMENT (Simplified)
-        if(this.job === JOBS.CHILD && this.age >= 18) this.job = JOBS.IDLE;
-        if(this.job === JOBS.IDLE && this.city) {
-            if(this.hasTrait('Arcane')) this.job = JOBS.MAGE;
-            else if(this.stats.str > 30) this.job = JOBS.GUARD;
-            else this.job = JOBS.FARMER;
-        }
-
-        // C. MAGIC
-        if(this.job === JOBS.MAGE && this.mana >= 30 && Math.random() < 0.05) {
-            this.state = 'MAGIC';
-            return;
-        }
-        
-        // D. REPRODUCTION (Strict Controls)
-        // Needs: Age 18-50, Partner, Resources, Low random chance
-        if(this.age > 18 && this.age < 50 && this.partner && Math.random() < 0.001) { // significantly lowered
-             if(this.city.resources.food > 50 && this.children < 3) {
-                 this.haveChild();
-                 return;
-             }
-        }
-
-        // E. ROMANCE (Lowered)
-        if(this.age > 18 && !this.partner && Math.random() < 0.005) {
-            const p = this.city.pop.find(u => u!==this && !u.partner && u.age > 18);
-            if(p) {
-                this.partner = p; p.partner = this;
-                this.journal.push(`Married ${p.name}`);
-                game.addParticle(this.x, this.y, '❤️', 'pink');
-            }
-        }
-
-        // F. AFFAIR (Rare, High Greed/Lust logic)
-        if(this.partner && this.personality.loy < 20 && Math.random() < 0.00005) {
-             this.journal.push('Had an affair');
-             this.partner.journal.push(`Partner ${this.name} cheated`);
-             if(this.partner.personality.agg > 60) {
-                 this.partner.state = 'CRIME_VIOLENCE'; // Crime of passion
-                 this.partner.target = this;
-             }
-             this.partner.partner = null; 
-             this.partner = null;
-             ui.toast(`${this.name} had a scandalous affair!`, 'crime');
-        }
-
-        // Wander
-        let tx = this.x + (Math.random()-0.5)*4;
-        let ty = this.y + (Math.random()-0.5)*4;
-        this.target = {x:tx, y:ty};
-        this.state = 'MOVE';
-    }
-
-    act() {
-        if(this.state === 'MOVE' && this.target) {
-            const d = dist(this, this.target);
-            if(d < 0.5) this.state = 'IDLE';
-            else {
-                this.x += (this.target.x - this.x)/d * 0.1;
-                this.y += (this.target.y - this.y)/d * 0.1;
-            }
-        }
-        
-        else if(this.state === 'CRIME_THEFT') {
-            // Steal from city
-            if(this.city) {
-                this.city.resources.gold = Math.max(0, this.city.resources.gold - 10);
-                this.crime += 15;
-                this.journal.push('Stole gold from city');
-                game.addParticle(this.x, this.y, '💰', 'gold');
-                this.checkForGuards();
-            }
-            this.state = 'IDLE';
-        }
-
-        else if (this.state === 'CRIME_VIOLENCE') {
-            const victim = this.city ? pick(this.city.pop) : null;
-            if(victim && victim !== this) {
-                victim.health -= 40;
-                this.crime += 50;
-                game.addParticle(victim.x, victim.y, '🩸', 'red');
-                this.journal.push(`Attacked ${victim.name}`);
-                if(victim.health <= 0) victim.die(`Murdered by ${this.name}`);
-                this.checkForGuards();
-            }
-            this.state = 'IDLE';
-        }
-
-        else if (this.state === 'MAGIC') {
-            this.mana -= 30;
-            game.addParticle(this.x, this.y, '✨', '#b388eb');
-            // Effect: Grow food
-            if(this.city) {
-                this.city.resources.food += 20;
-                ui.toast(`${this.name} cast Bloom!`, 'magic');
-            }
-            this.state = 'IDLE';
-        }
-    }
-
-    checkForGuards() {
-        // If caught (random + crime score)
-        if(Math.random() * 100 < this.crime && this.city) {
-            const guards = this.city.pop.filter(u => u.job === JOBS.GUARD);
-            if(guards.length > 0) {
-                if(this.crime > 80) {
-                    // Capital Punishment
-                    this.die('Executed by Guards');
-                    ui.toast(`${this.name} executed for crimes.`, 'crime');
-                } else {
-                    // Jail
-                    this.job = JOBS.PRISONER;
-                    this.journal.push('Arrested');
-                    game.addParticle(this.x, this.y, '⛓️', '#ccc');
-                    this.crime = 0; // Reset after punishment
-                }
-            }
-        }
-    }
-
-    haveChild() {
-        this.city.resources.food -= 50; // Cost
-        const baby = game.spawnUnit(this.x, this.y, this.race, this.city, [this, this.partner]);
-        this.children++;
-        this.partner.children++;
-        game.addParticle(this.x, this.y, '👶');
-        ui.toast(`Birth: ${baby.name}`);
-    }
-
-    die(reason) {
-        this.dead = true;
-        if(this.city) this.city.pop = this.city.pop.filter(u => u !== this);
-        if(this.partner) { 
-            this.partner.mood -= 50; 
-            this.partner.journal.push(`Partner ${this.name} died`);
-            this.partner.partner = null; 
-        }
-        game.addParticle(this.x, this.y, '💀', 'white');
-    }
+function placeBuilding(city,x,y,type){ // grid occupancy check
+  const bx=Math.floor(x), by=Math.floor(y); const size=CONFIG.worldSize; if(bx<0||by<0||bx>=size||by>=size) return false; // can't place on water/mountain
+  if(STATE.tiles[by][bx]==='water' || STATE.tiles[by][bx]==='mountain') return false; // existing building collision
+  if(STATE.buildings.find(b=>b.x===bx && b.y===by)) return false; // occupancy
+  const bdef=buildingData[type]; if(!bdef) return false;
+  // pay cost
+  const cityObj = STATE.cities.find(c=>c.id===city);
+  if(!cityObj) return false;
+  for(const res in (bdef.cost||{})){ if((cityObj.resources[res]||0) < bdef.cost[res]) return false; }
+  for(const res in (bdef.cost||{})){ cityObj.resources[res]-=bdef.cost[res]; }
+  const b={id:Date.now()+Math.random(),x:bx,y:by,type,city:city,level:1,residents:[],capacity:bdef.capacity||0}; STATE.buildings.push(b); cityObj.buildings.push(b.id);
+  return true;
 }
 
-/** --- UI MANAGER --- */
-const ui = {
-    selected: null,
-    tool: 'select',
-    
-    update: function() {
-        document.getElementById('ui-year').innerText = game.year;
-        document.getElementById('ui-pop').innerText = game.units.length;
-        
-        // Calc Avg Crime
-        let totalCrime = 0;
-        game.units.forEach(u => totalCrime += u.crime);
-        let avg = game.units.length ? Math.floor(totalCrime/game.units.length) : 0;
-        const el = document.getElementById('ui-crime');
-        el.innerText = avg + '%';
-        el.style.color = avg > 20 ? 'red' : '#e0e0e0';
+/* ==========================
+   SIM: JOB TICK, ECONOMY, BUILDING UPKEEP
+   ========================== */
+function tickEconomy(){ // each worker at job produces and earns
+  for(const u of STATE.units){ if(!u.alive) continue; if(!u.job) continue; const jd = jobData[u.job]; if(!jd) continue; // produce to city
+    const city=STATE.cities.find(c=>c.id===u.home); if(city){ // income
+      u.money += jd.income; city.resources.gold = (city.resources.gold||0); city.resources.gold += 0; // city gold not used yet
+      for(const p in (jd.produces||{})){ city.resources[p] = (city.resources[p]||0) + jd.produces[p]; }
+    }
+  }
+}
 
-        if(this.selected) this.renderInspector();
-    },
+/* ==========================
+   PERSONALITY / MOODS / STRESS / DISEASES
+   ========================== */
+const personalities=['calm','anxious','industrious','lazy','greedy','loyal'];
+function seedPersonality(u){ if(!u.personality) u.personality = personalities[Math.floor(Math.random()*personalities.length)]; }
+function updateMoods(){ for(const u of STATE.units){ if(!u.alive) continue; seedPersonality(u); // stress fluctuates
+    u.stress = clamp((u.stress + (Math.random()-0.45)*0.2),0,100);
+    // stress affects mood
+    if(u.stress>70) u.mood='stressed'; else if(u.stress>40) u.mood='uneasy'; else u.mood='content';
+    // crime score influenced by personality and stress
+    u.crimeScore = (u.traits.includes('criminal')?0.3:0) + (u.personality==='greedy'?0.15:0) + (u.stress/200);
+  }
+}
 
-    select: function(obj) {
-        this.selected = obj;
-        document.getElementById('inspector').style.display = obj ? 'block' : 'none';
-        if(obj) this.renderInspector();
-    },
+/* ==========================
+   CRIME: theft & punishment
+   ========================== */
+function attemptCrime(u){ if(u.crimeScore < 0.08) return; if(u.cooldown>0) return; // find victim in same city
+  const victims = STATE.units.filter(v=>v.home===u.home && v.id!==u.id && v.alive && v.money>5 && dist(u,v)<3);
+  if(victims.length===0) return; const v=victims[Math.floor(Math.random()*victims.length)]; const steal = Math.min(v.money, Math.floor(1+Math.random()*5)); v.money-=steal; u.money+=steal; u.stress -=5; u.cooldown = 60; notify(`${u.race} stole ${steal} gold from ${v.race}`);
+  // chance to be caught based on guard presence
+  const city=STATE.cities.find(c=>c.id===u.home); if(city){ const guards = STATE.units.filter(g=>g.home===city.id && g.job==='guard'); if(guards.length>0 && Math.random()<0.3){ // caught
+      u.traits.push('arrested'); u.alive=true; // move to prison (simple: remove for time)
+      u.cooldown = 300; notify(`${u.race} was caught stealing and jailed`);
+    } }
+}
 
-    setTool: function(t) {
-        this.tool = t;
-        document.querySelectorAll('.toolbar button').forEach(b => b.classList.remove('active'));
-        const btn = document.getElementById(t==='select'?'btn-select':(t==='drag'?'btn-drag':''));
-        if(btn) btn.classList.add('active');
-    },
+/* ==========================
+   COMBAT & MOBS
+   ========================== */
+function mobBehavior(){ for(const m of STATE.mobs){ if(!m.alive) continue; // simple roam
+    m.x = clamp(m.x + (Math.random()*3-1),0,CONFIG.worldSize-1); m.y = clamp(m.y + (Math.random()*3-1),0,CONFIG.worldSize-1);
+    if(!m.passive){ // attack nearby units
+      const targets = STATE.units.filter(u=>u.alive && dist(u,m)<3);
+      if(targets.length>0){ const t=targets[Math.floor(Math.random()*targets.length)]; // fight
+          const dmg = Math.floor((m.aggression||0.3)*30); t.hp -= dmg; if(t.hp<=0){ t.alive=false; notify(`${t.race} was killed by ${m.type}`); }
+      }
+    }
+  } }
 
-    toast: function(msg, type='') {
-        const d = document.createElement('div');
-        d.className = `toast ${type}`;
-        d.innerText = msg;
-        document.getElementById('toast-container').appendChild(d);
-        setTimeout(()=>d.remove(), 6000);
-    },
+function unitCombat(){ // units attack mobs or other enemies when aggressive
+  for(const u of STATE.units){ if(!u.alive) continue; if(u.job==='soldier' || u.job==='guard'){ // seek nearby mobs or hostile units
+      const mobsNearby = STATE.mobs.filter(m=>m.alive && dist(m,u)<3);
+      if(mobsNearby.length>0){ const m=mobsNearby[0]; m.hp = (m.hp||50) - Math.floor(10 * (1 + (u.race && raceData[u.race]?.combat||1))); if(m.hp<=0){ m.alive=false; // loot
+            const city=STATE.cities.find(c=>c.id===u.home); if(city){ city.resources.food = (city.resources.food||0) + (m.drop?.food||1); }
+            notify(`${u.race} killed a ${m.type}`);
+          }
+      }
+    }
+  }
+}
 
-    renderInspector: function() {
-        const div = document.getElementById('inspector');
-        const s = this.selected;
-        
-        if(s instanceof Unit) {
-            let traitsHtml = s.traits.map(t => `<span class="trait-badge ${t.name==='Arcane'?'trait-magic':(t.name==='Violent'?'trait-crime':'')}">${t.name}</span>`).join('');
-            
-            div.innerHTML = `
-                <div class="header-row">
-                    <div class="avatar" style="border-color:${s.crime>50?'red':'var(--accent)'}">${s.emoji}</div>
-                    <div>
-                        <h2>${s.name} ${s.job === JOBS.KING ? '👑' : ''}</h2>
-                        <h3>${s.race.name} ${s.job} | Age ${Math.floor(s.age)}</h3>
-                    </div>
-                </div>
-                <div class="inspector-row"><span>Health</span> <span style="color:${s.health<50?'red':'lime'}">${s.health}</span></div>
-                <div class="inspector-row"><span>Mana</span> <span style="color:var(--magic)">${s.mana} / ${s.maxMana}</span></div>
-                
-                <h3>Personality</h3>
-                <div style="font-size:10px; margin-bottom:5px;">
-                    <div>Aggression: ${s.personality.agg}</div>
-                    <div class="bar-con"><div class="bar-fill" style="width:${s.personality.agg}%; background:red;"></div></div>
-                    <div>Greed: ${s.personality.grd}</div>
-                    <div class="bar-con"><div class="bar-fill" style="width:${s.personality.grd}%; background:gold;"></div></div>
-                    <div>Loyalty: ${s.personality.loy}</div>
-                    <div class="bar-con"><div class="bar-fill" style="width:${s.personality.loy}%; background:cyan;"></div></div>
-                </div>
+/* ==========================
+   CITY & KINGDOM Logic
+   ========================== */
+function updateCities(){ for(const c of STATE.cities){ c.pop = STATE.units.filter(u=>u.home===c.id && u.alive).length; // level up
+    if(c.pop>30) c.level='city'; else if(c.pop>12) c.level='town'; else c.level='village';
+    // resources used to build
+    if(c.pop > c.radius*1.5 && Math.random()<0.02){ c.radius+=1; }
+    // assign capital/kingdom if big
+    if(c.level==='city' && !STATE.kingdoms.find(k=>k.capital===c.id)){ const k={id:Date.now()+Math.random(),capital:c.id,ruler:null,treasury:{wood:100,stone:100,food:200}}; STATE.kingdoms.push(k); c.kingdom = k.id; notify(`A new kingdom formed around ${c.race} city`); assignRuler(k,c); }
+  } }
 
-                <div class="inspector-row"><span>Criminal Record</span> <span style="color:red">${s.crime}</span></div>
-                <div style="margin:5px 0;">${traitsHtml || '<span style="color:#666">No Traits</span>'}</div>
-                
-                <h3>Stats</h3>
-                <div class="inspector-row"><span>STR: ${s.stats.str}</span> <span>INT: ${s.stats.int}</span> <span>CHA: ${s.stats.cha}</span></div>
+function assignRuler(k,c){ // pick a unit from city
+  const candidates = STATE.units.filter(u=>u.home===c.id && u.alive);
+  if(candidates.length===0) return; const ruler=candidates[Math.floor(Math.random()*candidates.length)]; k.ruler = ruler.id; ruler.title = 'King/Queen'; notify(`${ruler.race} became ruler of a kingdom`);
+}
 
-                <h3>Journal</h3>
-                <div style="max-height:80px; overflow-y:auto; color:#888;">
-                    ${s.journal.map(j=>`<div>• ${j}</div>`).join('')}
-                </div>
-            `;
-        } else if (s instanceof City) {
-            div.innerHTML = `
-                <div class="header-row">
-                    <div class="avatar">🏰</div>
-                    <div>
-                        <h2>${s.name} ${s.isCapital ? '(Capital)' : ''}</h2>
-                        <h3>Pop: ${s.pop.length}</h3>
-                    </div>
-                </div>
-                <div class="inspector-row"><span>Ruler</span> <span style="color:gold">${s.ruler ? s.ruler.name : 'None'}</span></div>
-                <div class="inspector-row"><span>Food</span> <span>${Math.floor(s.resources.food)}</span></div>
-                <div class="inspector-row"><span>Gold</span> <span style="color:gold">${Math.floor(s.resources.gold)}</span></div>
-                <br>
-                <div style="text-align:center; color:#666; font-style:italic">
-                    ${s.isCapital ? 'The seat of power.' : 'A growing settlement.'}
-                </div>
-            `;
-        }
-    }
-};
+/* ==========================
+   TICKS & LOOP
+   ========================== */
+function gameTick(){ if(STATE.paused) return; // time
+  STATE.time.hour += 0.25*STATE.gameSpeed; if(STATE.time.hour>=24){ STATE.time.hour=0; STATE.time.day++; document.getElementById('year').innerText = Math.floor(STATE.time.day/365)+1; }
+  // each tick: economy, moods, crime, mobs, combat
+  tickEconomy(); updateMoods(); for(const u of STATE.units){ attemptCrime(u); }
+  mobBehavior(); unitCombat(); updateCities(); render(); }
 
-// Start
-const game = new Game();
-game.init();
+setInterval(gameTick, 180);
 
+/* ==========================
+   RENDER
+   ========================== */
+function resize(){ canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+window.addEventListener('resize', resize); resize();
+
+function render(){ ctx.fillStyle='#071018'; ctx.fillRect(0,0,canvas.width,canvas.height);
+  const size = CONFIG.worldSize; const tsize = CONFIG.tile; // center camera
+  const ox = canvas.width/2 - STATE.cam.x*tsize*STATE.cam.zoom; const oy = canvas.height/2 - STATE.cam.y*tsize*STATE.cam.zoom; ctx.save(); ctx.translate(ox,oy); ctx.scale(STATE.cam.zoom,STATE.cam.zoom);
+  // tiles
+  for(let y=0;y<size;y++){ for(let x=0;x<size;x++){ const tile=STATE.tiles[y][x]; if(tile==='water') ctx.fillStyle='#163a5b'; else if(tile==='forest') ctx.fillStyle='#1f5f3e'; else if(tile==='mountain') ctx.fillStyle='#5a5a5a'; else ctx.fillStyle='#2b2f36'; ctx.fillRect(x*tsize,y*tsize,tsize,tsize); } }
+  // buildings
+  for(const b of STATE.buildings){ const def=buildingData[b.type]; ctx.font=(tsize-2)+'px serif'; ctx.fillText(def.icon, b.x*tsize+2, b.y*tsize+tsize-4); }
+  // mobs
+  for(const m of STATE.mobs){ if(!m.alive) continue; ctx.font=(tsize-2)+'px serif'; ctx.fillText(m.icon, Math.floor(m.x)*tsize+2, Math.floor(m.y)*tsize+tsize-4); }
+  // units
+  for(const u of STATE.units){ if(!u.alive) continue; ctx.font=(tsize-2)+'px serif'; const icon = raceData[u.race]?.icon||'?'; ctx.fillText(icon, Math.floor(u.x)*tsize+2, Math.floor(u.y)*tsize+tsize-4); }
+  ctx.restore();
+}
+
+/* ==========================
+   INPUT / UI
+   ========================== */
+document.getElementById('pauseBtn').onclick = ()=>{ STATE.paused = !STATE.paused; document.getElementById('pauseBtn').textContent = STATE.paused? '▶️' : '⏯️'; };
+document.getElementById('faster').onclick = ()=>{ STATE.gameSpeed = Math.min(8, STATE.gameSpeed*2); notify('Speed x'+STATE.gameSpeed); };
+document.getElementById('slower').onclick = ()=>{ STATE.gameSpeed = Math.max(0.25, STATE.gameSpeed/2); notify('Speed x'+STATE.gameSpeed); };
+document.getElementById('toolSelect').onchange = (e)=>{ STATE.tool = e.target.value; };
+
+canvas.addEventListener('click', (ev)=>{ const rect=canvas.getBoundingClientRect(); const mx=ev.clientX-rect.left; const my=ev.clientY-rect.top; const size=CONFIG.tile; const ox = canvas.width/2 - STATE.cam.x*size*STATE.cam.zoom; const oy = canvas.height/2 - STATE.cam.y*size*STATE.cam.zoom; const gx = Math.floor((mx-ox)/ (size*STATE.cam.zoom)); const gy = Math.floor((my-oy)/ (size*STATE.cam.zoom)); if(gx<0||gy<0||gx>=CONFIG.worldSize||gy>=CONFIG.worldSize) return;
+  if(STATE.tool==='place'){ // place building near selection city
+    const city = STATE.cities[0]; // simple: first city
+    if(placeBuilding(city.id,gx,gy,'house')) notify('Placed a house'); else notify('Cannot place here');
+  } else if(STATE.tool==='spawn'){ createUnit({race: 'Human', x:gx, y:gy, home: STATE.cities[0].id}); notify('Spawned unit'); }
+  else if(STATE.tool==='smite'){ // kill units/mobs nearby
+    const targets = STATE.units.filter(u=>dist(u,{x:gx,y:gy})<2); for(const t of targets){ t.alive=false; notify('Smite killed a unit'); }
+  }
+});
+
+/* ==========================
+   INITIALIZATION
+   ========================== */
+function initFromUI(){ CONFIG.worldSize = parseInt(document.getElementById('worldSize').value); const rp = document.getElementById('racePreset').value; if(rp==='expanded'){ Object.assign(raceData, extra); } if(document.getElementById('agg').value==='low'){ for(const r in raceData) raceData[r].aggression *= 0.5; } else if(document.getElementById('agg').value==='high'){ for(const r in raceData) raceData[r].aggression *= 1.5; }
+  generateWorld(CONFIG.worldSize);
+  // spawn mobs
+  for(let i=0;i<40;i++){ const t=Object.keys(mobData)[Math.floor(Math.random()*Object.keys(mobData).length)]; STATE.mobs.push({type:t,icon:mobData[t].icon,x:Math.random()*CONFIG.worldSize,y:Math.random()*CONFIG.worldSize,alive:true,passive:mobData[t].passive,aggression:mobData[t].aggression,drop:mobData[t].drop}); }
+  spawnInitial(); document.getElementById('customize').style.display='none';
+}
+
+document.getElementById('start').onclick = initFromUI;
+
+/* ==========================
+   QUICK HELP / TEST ACTIONS
+   ========================== */
+function notify(msg){ try{ notifyRaw(msg); }catch(e){ console.log(msg); } }
+function notifyRaw(msg){ const el=document.createElement('div'); el.className='panel small'; el.textContent=msg; document.getElementById('toast').appendChild(el); setTimeout(()=>el.remove(),4000); }
+
+// start render loop
+setInterval(render,100);
 </script>
 </body>
 </html>
