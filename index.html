@@ -97,7 +97,7 @@
 <script>
 /** --- CONFIGURATION --- */
 const CFG = {
-    w: 200, h: 200,
+    w: 150, h: 150,
     tileSize: 32,
     tickRate: 30,
     dayTicks: 50,
@@ -205,23 +205,38 @@ class Game {
         this.year = 1;
         this.day = 0;
         
-        // Global Occupancy Map for buildings to prevent overlap
         this.occupiedTiles = new Set();
 
-        // Input
+        // --- CONTROLS FIX ---
+        
+        // Disable Context Menu on Right Click
+        this.canvas.oncontextmenu = e => e.preventDefault();
+
         this.canvas.onmousedown = e => {
-            if(ui.tool === 'drag') { this.camera.drag = true; this.camera.lx = e.clientX; this.camera.ly = e.clientY; }
-            else this.click(e);
+            // Middle Click (1) or Right Click (2) -> Always Pan
+            if(e.button === 1 || e.button === 2) {
+                this.camera.drag = true;
+                this.camera.lx = e.clientX;
+                this.camera.ly = e.clientY;
+                return;
+            }
+
+            // Left Click (0) -> Tool Dependent
+            if(ui.tool === 'drag') { 
+                this.camera.drag = true; 
+                this.camera.lx = e.clientX; 
+                this.camera.ly = e.clientY; 
+            } else {
+                this.click(e);
+            }
         };
         
-        // FIXED CAMERA MOVEMENT LOGIC
         window.onmousemove = e => {
             if(this.camera.drag) {
                 this.camera.x -= (e.clientX - this.camera.lx) / this.camera.z;
                 this.camera.y -= (e.clientY - this.camera.ly) / this.camera.z;
                 
-                // Camera Bounds Check - Fixed Math (Pixels, not Tiles)
-                // Allowing some buffer (-500) so you can pan a bit into the void
+                // LOOSE BOUNDS: Allow panning slightly past edges (-500 pixels)
                 const maxW = CFG.w * CFG.tileSize;
                 const maxH = CFG.h * CFG.tileSize;
                 this.camera.x = clamp(this.camera.x, -500, maxW + 500); 
@@ -231,9 +246,10 @@ class Game {
             }
         };
         
-        // FIXED ZOOM
+        window.onmouseup = () => this.camera.drag = false;
+        
         window.onwheel = e => {
-            e.preventDefault(); // Prevent scrolling the page
+            e.preventDefault();
             this.camera.z = clamp(this.camera.z - Math.sign(e.deltaY)*0.1, 0.5, 4);
         };
     }
@@ -257,7 +273,6 @@ class Game {
             while(!placed && attempts < 100) {
                 let rx = rand(CFG.w-10) + 5;
                 let ry = rand(CFG.h-10) + 5;
-                // Check if water or occupied
                 if(this.map[ry][rx] !== TILES.WATER && !this.occupiedTiles.has(`${rx},${ry}`)) {
                     this.createCity(rx, ry, pick(races), i===0);
                     placed = true;
@@ -273,10 +288,8 @@ class Game {
         const c = new City(x, y, race);
         if(isCapital) c.isCapital = true;
         
-        // Place Hall (Center)
         this.addBuilding(c, x, y, 'HALL');
 
-        // Require one of each other building
         const required = ['HOME', 'HOME', 'FARM', 'FARM', 'SHOP', 'TAVERN', 'GUILD', 'HOTEL'];
         
         required.forEach(type => {
@@ -298,7 +311,6 @@ class Game {
         });
 
         this.cities.push(c);
-        // Initial Pop
         for(let k=0; k<6; k++) this.spawnUnit(x, y, race, c);
         ui.toast(`${c.name} founded. ${isCapital ? 'CAPITAL' : ''}`);
     }
@@ -307,7 +319,6 @@ class Game {
         const bType = BUILDINGS[typeKey];
         city.buildings.push({ x, y, ...bType });
         this.occupiedTiles.add(`${x},${y}`);
-        // Clear trees for building
         if(this.map[y][x] === TILES.FOREST) this.map[y][x] = TILES.GRASS;
     }
 
@@ -330,7 +341,6 @@ class Game {
             const u = this.units.find(u => Math.abs(u.x - tx) < 1 && Math.abs(u.y - ty) < 1);
             if(u) { ui.select(u); return; }
             
-            // Find City via buildings
             for(let c of this.cities) {
                 const b = c.buildings.find(b => b.x === tx && b.y === ty);
                 if(b) { ui.select(c); return; }
@@ -395,15 +405,12 @@ class Game {
         this.cities.forEach(city => {
             city.buildings.forEach(b => {
                 if(b.x < vx || b.x > vx+vw || b.y < vy || b.y > vy+vh) return;
-                // Base
                 c.fillStyle = 'rgba(0,0,0,0.3)';
                 c.fillRect(b.x*ts, b.y*ts, ts, ts);
-                // Icon
                 c.font = `${ts*0.8}px Arial`;
                 c.fillText(b.icon, b.x*ts + ts/2, b.y*ts + ts/0.85);
             });
             
-            // Name label at Hall
             let hall = city.buildings[0];
             if(hall) {
                  c.fillStyle='#fff'; c.font='10px Arial';
@@ -416,7 +423,6 @@ class Game {
             if(u.x < vx || u.x > vx+vw || u.y < vy || u.y > vy+vh) return;
             let px = u.x*ts, py = u.y*ts;
             
-            // Selection
             if(ui.selected === u) { c.strokeStyle='#fff'; c.lineWidth=1; c.strokeRect(px, py, ts, ts); }
             
             c.font = `${ts*0.7}px Arial`;
@@ -428,7 +434,6 @@ class Game {
             
             c.fillText(icon, px+ts/2, py+ts*0.8);
             
-            // Effect Indicators
             if(u.state === 'MAGIC') { c.fillStyle= '#b388eb'; c.fillRect(px, py, ts, 2); }
             if(u.state === 'JOB_GATHER') { c.fillStyle='lime'; c.fillRect(px, py, ts, 2); }
             if(u.carrying > 0) { c.fillStyle='orange'; c.beginPath(); c.arc(px+ts, py, 3, 0, Math.PI*2); c.fill(); }
@@ -466,8 +471,6 @@ class City {
     }
 
     update() {
-        // Resources managed by units now
-        // Consumption
         if(game.ticks % 100 === 0) {
             this.resources.food -= this.pop.length * 1.0;
             if(this.resources.food < 0) {
@@ -476,7 +479,6 @@ class City {
             }
         }
 
-        // Politics
         if(!this.ruler || this.ruler.dead) {
             const candidates = this.pop.filter(u => u.age > 18 && u.job !== JOBS.PRISONER);
             if(candidates.length) {
@@ -586,7 +588,6 @@ class Unit {
     }
 
     decide() {
-        // CRIME
         if (this.crime < 100 && Math.random() < 0.01) {
             if (this.personality.grd > 75 && this.personality.loy < 40) {
                 this.state = 'CRIME_THEFT';
@@ -598,11 +599,9 @@ class Unit {
             }
         }
 
-        // JOB ASSIGNMENT
         if(this.job === JOBS.CHILD && this.age >= 18) this.job = JOBS.IDLE;
         
         if(this.job === JOBS.IDLE && this.city) {
-            // Check buildings to assign jobs
             const hasGuild = this.city.buildings.some(b => b.type === 'GUILD');
             const hasShop = this.city.buildings.some(b => b.type === 'SHOP');
             const hasTavern = this.city.buildings.some(b => b.type === 'TAVERN');
@@ -615,8 +614,6 @@ class Unit {
             else this.job = JOBS.FARMER;
         }
 
-        // --- JOB LOGIC ---
-        // FARMER -> Go to Farm
         if(this.job === JOBS.FARMER && this.city) {
             if(this.carrying > 0) {
                 this.target = this.city.buildings.find(b=>b.type==='HALL') || this.city;
@@ -629,22 +626,19 @@ class Unit {
             return;
         }
         
-        // ADVENTURER -> Go to Guild -> Go Hunt -> Return
         if(this.job === JOBS.ADVENTURER && this.city) {
             if(this.carrying > 0) {
                  this.target = this.city.buildings.find(b=>b.type==='GUILD') || this.city;
                  this.state = 'JOB_RETURN';
             } else {
-                 // Go hunt far away
                  let angle = Math.random() * Math.PI * 2;
                  let d = 20 + Math.random() * 20;
                  this.target = { x: clamp(this.city.x + Math.cos(angle)*d, 0, CFG.w), y: clamp(this.city.y + Math.sin(angle)*d, 0, CFG.h) };
-                 this.state = 'JOB_COMMUTE'; // Reusing commute for hunting travel
+                 this.state = 'JOB_COMMUTE';
             }
             return;
         }
 
-        // SHOPKEEPER/BARTERER -> Stay at Shop
         if((this.job === JOBS.SHOPKEEPER || this.job === JOBS.BARTERER) && this.city) {
              const shop = this.city.buildings.find(b => b.type === 'SHOP');
              this.target = shop ? {x: shop.x, y: shop.y} : this.city;
@@ -652,7 +646,6 @@ class Unit {
              return;
         }
 
-        // TAVERNKEEP -> Stay at Tavern
         if(this.job === JOBS.TAVERNKEEP && this.city) {
              const tav = this.city.buildings.find(b => b.type === 'TAVERN');
              this.target = tav ? {x: tav.x, y: tav.y} : this.city;
@@ -660,13 +653,11 @@ class Unit {
              return;
         }
 
-        // MAGIC
         if(this.job === JOBS.MAGE && this.mana >= 30 && Math.random() < 0.05) {
             this.state = 'MAGIC';
             return;
         }
         
-        // REPRODUCTION
         if(this.age > 18 && this.age < 50 && this.partner && Math.random() < 0.001) {
              if(this.city.resources.food > 50 && this.children < 3) {
                  this.haveChild();
@@ -674,7 +665,6 @@ class Unit {
              }
         }
 
-        // ROMANCE
         if(this.age > 18 && !this.partner && Math.random() < 0.005) {
             const p = this.city.pop.find(u => u!==this && !u.partner && u.age > 18);
             if(p) {
@@ -684,16 +674,13 @@ class Unit {
             }
         }
 
-        // WANDER
         let tx = this.x + (Math.random()-0.5)*4;
         let ty = this.y + (Math.random()-0.5)*4;
-        // Boundary Clamp for wandering
         this.target = {x: clamp(tx, 0, CFG.w), y: clamp(ty, 0, CFG.h)};
         this.state = 'MOVE';
     }
 
     act() {
-        // --- JOB MOVEMENT ---
         if(this.state === 'JOB_COMMUTE' && this.target) {
             const d = dist(this, this.target);
             if(d < 0.5) {
@@ -706,7 +693,6 @@ class Unit {
         else if(this.state === 'JOB_GATHER') {
             this.workTimer--;
             
-            // Specific job effects
             if(this.job === JOBS.FARMER && Math.random() < 0.1) game.addParticle(this.x, this.y, '.', 'lime');
             if(this.job === JOBS.ADVENTURER && Math.random() < 0.1) game.addParticle(this.x, this.y, '⚔️', 'red');
             if((this.job === JOBS.SHOPKEEPER || this.job === JOBS.BARTERER) && Math.random() < 0.05) {
@@ -715,16 +701,14 @@ class Unit {
             }
 
             if(this.workTimer <= 0) {
-                // Job Done
                 if(this.job === JOBS.FARMER) {
                     this.carrying = 20; 
                     this.state = 'IDLE';
                 } else if (this.job === JOBS.ADVENTURER) {
-                    this.carrying = 50; // Gold loot
+                    this.carrying = 50;
                     this.state = 'IDLE';
                 } else {
-                    // Shopkeepers just stay there, reset timer
-                    if(Math.random() < 0.1) this.state = 'IDLE'; // Take a break
+                    if(Math.random() < 0.1) this.state = 'IDLE';
                     else this.workTimer = 50;
                 }
             }
@@ -748,7 +732,6 @@ class Unit {
             }
         }
 
-        // --- EXISTING ACTIONS ---
         else if(this.state === 'MOVE' && this.target) {
             const d = dist(this, this.target);
             if(d < 0.5) this.state = 'IDLE';
@@ -793,10 +776,8 @@ class Unit {
     moveTowards(target) {
         const d = dist(this, target);
         if(d > 0) {
-            // Update pos
             let nx = this.x + (target.x - this.x)/d * 0.1;
             let ny = this.y + (target.y - this.y)/d * 0.1;
-            // Strict Clamp
             this.x = clamp(nx, 0, CFG.w);
             this.y = clamp(ny, 0, CFG.h);
         }
