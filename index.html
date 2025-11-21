@@ -107,8 +107,8 @@
         </div>
 
         <div class="setup-row">
-            <label>Civilizations <span id="val-civs" class="val-display">3</span></label>
-            <input type="range" id="in-civs" min="1" max="10" value="3" oninput="updateVal('val-civs', this.value)">
+            <label>Starting Kingdoms <span id="val-civs" class="val-display">3</span></label>
+            <input type="range" id="in-civs" min="2" max="10" value="3" oninput="updateVal('val-civs', this.value)">
         </div>
 
         <div class="setup-row">
@@ -117,8 +117,8 @@
         </div>
 
         <div class="setup-row">
-            <label>Mutation Rate <span id="val-mut" class="val-display">5%</span></label>
-            <input type="range" id="in-mut" min="0" max="50" value="5" oninput="updateVal('val-mut', this.value + '%')">
+            <label>Wild Mob Spawning <span id="val-mobs" class="val-display">Normal</span></label>
+            <input type="range" id="in-mobs" min="0" max="10" value="3" oninput="updateText('val-mobs', this.value)">
         </div>
 
         <button class="big-btn" onclick="startWorld()">GENERATE WORLD</button>
@@ -156,25 +156,26 @@
 
 <script>
 /** --- CONFIGURATION --- */
-// Now mutable via settings
 let CFG = {
-    w: 350, h: 350,
+    w: 150, h: 150,
     tileSize: 32,
     tickRate: 30,
     dayTicks: 50,
     yearDays: 120,
-    startCities: 5,
-    reproChance: 0.05, // Default
+    startCities: 3,
+    reproChance: 0.001,
+    mobSpawnChance: 0.02,
     mutationChance: 0.05
 };
 
 function updateVal(id, val) { document.getElementById(id).innerText = val; }
 function updateText(id, val) {
     const v = parseInt(val);
-    let txt = 'Low';
+    let txt = 'None';
+    if(v > 0) txt = 'Low';
     if(v > 3) txt = 'Normal';
     if(v > 6) txt = 'High';
-    if(v > 8) txt = 'Booming';
+    if(v > 8) txt = 'Extreme';
     document.getElementById(id).innerText = txt;
 }
 
@@ -182,14 +183,13 @@ function startWorld() {
     const mapSize = parseInt(document.getElementById('in-map').value);
     const civs = parseInt(document.getElementById('in-civs').value);
     const birth = parseInt(document.getElementById('in-birth').value);
-    const mut = parseInt(document.getElementById('in-mut').value);
+    const mobs = parseInt(document.getElementById('in-mobs').value);
 
     CFG.w = mapSize;
     CFG.h = mapSize;
     CFG.startCities = civs;
-    // Slider 1-10 maps to 0.0005 - 0.005
     CFG.reproChance = (birth * 0.0005); 
-    CFG.mutationChance = mut / 100;
+    CFG.mobSpawnChance = mobs * 0.01;
 
     document.getElementById('setup-screen').style.display = 'none';
     game.init();
@@ -209,53 +209,59 @@ const BUILDINGS = {
     HOTEL: { type: 'HOTEL', icon: '🏨', name: 'Inn' }
 };
 
+const RACE_CATS = {
+    CIVILIZED: ['HUMAN', 'ELF', 'ORC', 'DWARF'],
+    FRIENDLY: ['HALFLING', 'GNOME', 'FAIRY', 'ENT', 'CENTAUR', 'SATYR', 'MERFOLK', 'GENIE', 'ANGEL', 'TORTOISE', 'CATFOLK', 'RABBITFOLK', 'OWLBEAR_KIN', 'SLIME', 'GOLEM'],
+    HOSTILE: ['GOBLIN', 'TROLL', 'ZOMBIE', 'SKELETON', 'VAMPIRE', 'DEMON', 'ALIEN', 'GHOST', 'DRAGON_KIN', 'OGRE', 'CLOWN', 'ROBOT', 'INSECTOID', 'MIND_FLAYER', 'WEREWOLF']
+}
+
 const RACES = {
     // CORE
-    HUMAN: { name: 'Human', emoji: '🧑', life: 65, traits: ['Ambitious'], baseStats: {agg: 40, grd: 50, loy: 50} },
-    ELF: { name: 'Elf', emoji: '🧝', life: 180, traits: ['Arcane'], baseStats: {agg: 10, grd: 20, loy: 80} },
-    ORC: { name: 'Orc', emoji: '👹', life: 50, traits: ['Strong'], baseStats: {agg: 80, grd: 60, loy: 30} },
-    DWARF: { name: 'Dwarf', emoji: '🧔', life: 90, traits: ['Sturdy'], baseStats: {agg: 40, grd: 80, loy: 70} },
+    HUMAN: { name: 'Human', emoji: '🧑', life: 65, type:'CIVILIZED', traits: ['Ambitious'], baseStats: {agg: 40, grd: 50, loy: 50} },
+    ELF: { name: 'Elf', emoji: '🧝', life: 180, type:'CIVILIZED', traits: ['Arcane'], baseStats: {agg: 10, grd: 20, loy: 80} },
+    ORC: { name: 'Orc', emoji: '👹', life: 50, type:'CIVILIZED', traits: ['Strong'], baseStats: {agg: 80, grd: 60, loy: 30} },
+    DWARF: { name: 'Dwarf', emoji: '🧔', life: 90, type:'CIVILIZED', traits: ['Sturdy'], baseStats: {agg: 40, grd: 80, loy: 70} },
 
     // FRIENDLY
-    HALFLING: { name: 'Halfling', emoji: '🦶', life: 80, traits: ['Charming'], baseStats: {agg: 5, grd: 30, loy: 90} },
-    GNOME: { name: 'Gnome', emoji: '🍄', life: 120, traits: ['Genius'], baseStats: {agg: 10, grd: 40, loy: 70} },
-    FAIRY: { name: 'Fairy', emoji: '🧚', life: 200, traits: ['Arcane'], baseStats: {agg: 0, grd: 10, loy: 60} },
-    ENT: { name: 'Ent', emoji: '🌳', life: 300, traits: ['Strong'], baseStats: {agg: 5, grd: 0, loy: 100} },
-    CENTAUR: { name: 'Centaur', emoji: '🐎', life: 70, traits: ['Strong'], baseStats: {agg: 30, grd: 20, loy: 80} },
-    SATYR: { name: 'Satyr', emoji: '🐐', life: 60, traits: ['Charming'], baseStats: {agg: 20, grd: 40, loy: 50} },
-    MERFOLK: { name: 'Merfolk', emoji: '🧜', life: 90, traits: ['Arcane'], baseStats: {agg: 15, grd: 50, loy: 60} },
-    GENIE: { name: 'Genie', emoji: '🧞', life: 500, traits: ['Arcane'], baseStats: {agg: 20, grd: 60, loy: 40} },
-    ANGEL: { name: 'Angel', emoji: '👼', life: 1000, traits: ['Charming'], baseStats: {agg: 10, grd: 0, loy: 100} },
-    TORTOISE: { name: 'Tortle', emoji: '🐢', life: 150, traits: ['Sturdy'], baseStats: {agg: 5, grd: 20, loy: 90} },
-    CATFOLK: { name: 'Tabaxi', emoji: '🐱', life: 50, traits: ['Charming'], baseStats: {agg: 30, grd: 60, loy: 40} },
-    RABBITFOLK: { name: 'Harengon', emoji: '🐰', life: 40, traits: ['Ambitious'], baseStats: {agg: 10, grd: 20, loy: 70} },
-    OWLBEAR_KIN: { name: 'Strig', emoji: '🦉', life: 60, traits: ['Genius'], baseStats: {agg: 25, grd: 30, loy: 80} },
-    SLIME: { name: 'Slime', emoji: '💧', life: 999, traits: ['Sickly'], baseStats: {agg: 5, grd: 90, loy: 90} },
-    GOLEM: { name: 'Golem', emoji: '🗿', life: 200, traits: ['Sturdy'], baseStats: {agg: 0, grd: 0, loy: 100} },
+    HALFLING: { name: 'Halfling', emoji: '🦶', life: 80, type:'FRIENDLY', traits: ['Charming'], baseStats: {agg: 5, grd: 30, loy: 90} },
+    GNOME: { name: 'Gnome', emoji: '🍄', life: 120, type:'FRIENDLY', traits: ['Genius'], baseStats: {agg: 10, grd: 40, loy: 70} },
+    FAIRY: { name: 'Fairy', emoji: '🧚', life: 200, type:'FRIENDLY', traits: ['Arcane'], baseStats: {agg: 0, grd: 10, loy: 60} },
+    ENT: { name: 'Ent', emoji: '🌳', life: 300, type:'FRIENDLY', traits: ['Strong'], baseStats: {agg: 5, grd: 0, loy: 100} },
+    CENTAUR: { name: 'Centaur', emoji: '🐎', life: 70, type:'FRIENDLY', traits: ['Strong'], baseStats: {agg: 30, grd: 20, loy: 80} },
+    SATYR: { name: 'Satyr', emoji: '🐐', life: 60, type:'FRIENDLY', traits: ['Charming'], baseStats: {agg: 20, grd: 40, loy: 50} },
+    MERFOLK: { name: 'Merfolk', emoji: '🧜', life: 90, type:'FRIENDLY', traits: ['Arcane'], baseStats: {agg: 15, grd: 50, loy: 60} },
+    GENIE: { name: 'Genie', emoji: '🧞', life: 500, type:'FRIENDLY', traits: ['Arcane'], baseStats: {agg: 20, grd: 60, loy: 40} },
+    ANGEL: { name: 'Angel', emoji: '👼', life: 1000, type:'FRIENDLY', traits: ['Charming'], baseStats: {agg: 10, grd: 0, loy: 100} },
+    TORTOISE: { name: 'Tortle', emoji: '🐢', life: 150, type:'FRIENDLY', traits: ['Sturdy'], baseStats: {agg: 5, grd: 20, loy: 90} },
+    CATFOLK: { name: 'Tabaxi', emoji: '🐱', life: 50, type:'FRIENDLY', traits: ['Charming'], baseStats: {agg: 30, grd: 60, loy: 40} },
+    RABBITFOLK: { name: 'Harengon', emoji: '🐰', life: 40, type:'FRIENDLY', traits: ['Ambitious'], baseStats: {agg: 10, grd: 20, loy: 70} },
+    OWLBEAR_KIN: { name: 'Strig', emoji: '🦉', life: 60, type:'FRIENDLY', traits: ['Genius'], baseStats: {agg: 25, grd: 30, loy: 80} },
+    SLIME: { name: 'Slime', emoji: '💧', life: 999, type:'FRIENDLY', traits: ['Sickly'], baseStats: {agg: 5, grd: 90, loy: 90} },
+    GOLEM: { name: 'Golem', emoji: '🗿', life: 200, type:'FRIENDLY', traits: ['Sturdy'], baseStats: {agg: 0, grd: 0, loy: 100} },
 
     // HOSTILE
-    GOBLIN: { name: 'Goblin', emoji: '👺', life: 40, traits: ['Ambitious'], baseStats: {agg: 70, grd: 90, loy: 10} },
-    TROLL: { name: 'Troll', emoji: '🦍', life: 80, traits: ['Strong'], baseStats: {agg: 90, grd: 50, loy: 20} },
-    ZOMBIE: { name: 'Zombie', emoji: '🧟', life: 999, traits: ['Sickly'], baseStats: {agg: 100, grd: 0, loy: 100} },
-    SKELETON: { name: 'Skeleton', emoji: '💀', life: 999, traits: ['Sturdy'], baseStats: {agg: 80, grd: 0, loy: 100} },
-    VAMPIRE: { name: 'Vampire', emoji: '🧛', life: 400, traits: ['Charming'], baseStats: {agg: 60, grd: 80, loy: 40} },
-    DEMON: { name: 'Demon', emoji: '👿', life: 666, traits: ['Violent'], baseStats: {agg: 95, grd: 80, loy: 0} },
-    ALIEN: { name: 'Alien', emoji: '👽', life: 100, traits: ['Genius'], baseStats: {agg: 70, grd: 70, loy: 20} },
-    GHOST: { name: 'Ghost', emoji: '👻', life: 999, traits: ['Arcane'], baseStats: {agg: 50, grd: 10, loy: 30} },
-    DRAGON_KIN: { name: 'Kobold', emoji: '🦎', life: 50, traits: ['Ambitious'], baseStats: {agg: 60, grd: 80, loy: 40} },
-    OGRE: { name: 'Ogre', emoji: '🧌', life: 70, traits: ['Strong'], baseStats: {agg: 85, grd: 60, loy: 30} },
-    CLOWN: { name: 'Jester', emoji: '🤡', life: 60, traits: ['Violent'], baseStats: {agg: 90, grd: 10, loy: 10} },
-    ROBOT: { name: 'Automaton', emoji: '🤖', life: 200, traits: ['Sturdy'], baseStats: {agg: 60, grd: 0, loy: 90} },
-    INSECTOID: { name: 'Thri-Kreen', emoji: '🦗', life: 40, traits: ['Strong'], baseStats: {agg: 70, grd: 40, loy: 50} },
-    MIND_FLAYER: { name: 'Illithid', emoji: '🦑', life: 150, traits: ['Arcane'], baseStats: {agg: 60, grd: 90, loy: 10} },
-    WEREWOLF: { name: 'Lycan', emoji: '🐺', life: 70, traits: ['Violent'], baseStats: {agg: 90, grd: 30, loy: 30} }
+    GOBLIN: { name: 'Goblin', emoji: '👺', life: 40, type:'HOSTILE', traits: ['Ambitious'], baseStats: {agg: 70, grd: 90, loy: 10} },
+    TROLL: { name: 'Troll', emoji: '🦍', life: 80, type:'HOSTILE', traits: ['Strong'], baseStats: {agg: 90, grd: 50, loy: 20} },
+    ZOMBIE: { name: 'Zombie', emoji: '🧟', life: 999, type:'HOSTILE', traits: ['Sickly'], baseStats: {agg: 100, grd: 0, loy: 100} },
+    SKELETON: { name: 'Skeleton', emoji: '💀', life: 999, type:'HOSTILE', traits: ['Sturdy'], baseStats: {agg: 80, grd: 0, loy: 100} },
+    VAMPIRE: { name: 'Vampire', emoji: '🧛', life: 400, type:'HOSTILE', traits: ['Charming'], baseStats: {agg: 60, grd: 80, loy: 40} },
+    DEMON: { name: 'Demon', emoji: '👿', life: 666, type:'HOSTILE', traits: ['Violent'], baseStats: {agg: 95, grd: 80, loy: 0} },
+    ALIEN: { name: 'Alien', emoji: '👽', life: 100, type:'HOSTILE', traits: ['Genius'], baseStats: {agg: 70, grd: 70, loy: 20} },
+    GHOST: { name: 'Ghost', emoji: '👻', life: 999, type:'HOSTILE', traits: ['Arcane'], baseStats: {agg: 50, grd: 10, loy: 30} },
+    DRAGON_KIN: { name: 'Kobold', emoji: '🦎', life: 50, type:'HOSTILE', traits: ['Ambitious'], baseStats: {agg: 60, grd: 80, loy: 40} },
+    OGRE: { name: 'Ogre', emoji: '🧌', life: 70, type:'HOSTILE', traits: ['Strong'], baseStats: {agg: 85, grd: 60, loy: 30} },
+    CLOWN: { name: 'Jester', emoji: '🤡', life: 60, type:'HOSTILE', traits: ['Violent'], baseStats: {agg: 90, grd: 10, loy: 10} },
+    ROBOT: { name: 'Automaton', emoji: '🤖', life: 200, type:'HOSTILE', traits: ['Sturdy'], baseStats: {agg: 60, grd: 0, loy: 90} },
+    INSECTOID: { name: 'Thri-Kreen', emoji: '🦗', life: 40, type:'HOSTILE', traits: ['Strong'], baseStats: {agg: 70, grd: 40, loy: 50} },
+    MIND_FLAYER: { name: 'Illithid', emoji: '🦑', life: 150, type:'HOSTILE', traits: ['Arcane'], baseStats: {agg: 60, grd: 90, loy: 10} },
+    WEREWOLF: { name: 'Lycan', emoji: '🐺', life: 70, type:'HOSTILE', traits: ['Violent'], baseStats: {agg: 90, grd: 30, loy: 30} }
 };
 
 const JOBS = {
     IDLE: 'Vagrant', CHILD: 'Child', FARMER: 'Farmer', GUARD: 'Guard', 
     MAGE: 'Mage', THIEF: 'Thief', KING: 'Ruler', PRISONER: 'Prisoner',
     ADVENTURER: 'Adventurer', SHOPKEEPER: 'Shopkeeper', BARTERER: 'Barterer',
-    TAVERNKEEP: 'Tavernkeep'
+    TAVERNKEEP: 'Tavernkeep', SETTLER: 'Settler'
 };
 
 const GENETIC_TRAITS = {
@@ -354,18 +360,26 @@ class Game {
             this.map.push(row);
         }
 
-        // Gen Civs
-        const races = Object.values(RACES);
-        for(let i=0; i<CFG.startCities; i++) {
+        // Gen Civs with FORCED HUMAN PRIORITY
+        let racesToSpawn = [];
+        racesToSpawn.push(RACES.HUMAN); // 1. Human
+        racesToSpawn.push(RACES.HUMAN); // 2. Human
+        
+        // Fill remaining slots with random Civilized races
+        const civKeys = RACE_CATS.CIVILIZED;
+        for(let i=2; i<CFG.startCities; i++) {
+            racesToSpawn.push(RACES[pick(civKeys)]);
+        }
+
+        for(let i=0; i<racesToSpawn.length; i++) {
             let placed = false;
             let attempts = 0;
             while(!placed && attempts < 200) {
                 let rx = rand(CFG.w-10) + 5;
                 let ry = rand(CFG.h-10) + 5;
                 if(this.map[ry][rx] !== TILES.WATER && !this.occupiedTiles.has(`${rx},${ry}`)) {
-                    this.createCity(rx, ry, pick(races), i===0);
+                    this.createCity(rx, ry, racesToSpawn[i], i===0);
                     placed = true;
-                    // Center camera on first city
                     if(i===0) {
                          this.camera.x = (rx * CFG.tileSize) - (this.width / 2 / this.camera.z);
                          this.camera.y = (ry * CFG.tileSize) - (this.height / 2 / this.camera.z);
@@ -419,9 +433,32 @@ class Game {
     spawnUnit(x, y, race, city, parents=null) {
         const u = new Unit(x, y, race, parents);
         u.city = city;
-        city.pop.push(u);
+        if(city) city.pop.push(u);
         this.units.push(u);
         return u;
+    }
+    
+    spawnWildMobs() {
+        if(Math.random() > CFG.mobSpawnChance) return;
+        
+        let rx = rand(CFG.w);
+        let ry = rand(CFG.h);
+        
+        // Dont spawn in water
+        if(this.map[ry][rx] === TILES.WATER) return;
+
+        // Don't spawn too close to cities
+        const tooClose = this.cities.some(c => dist(c, {x:rx,y:ry}) < 15);
+        if(tooClose) return;
+
+        // Pick Hostile or Friendly
+        const cat = Math.random() < 0.6 ? 'HOSTILE' : 'FRIENDLY';
+        const raceKey = pick(RACE_CATS[cat]);
+        const race = RACES[raceKey];
+        
+        const mob = new Unit(rx, ry, race, null);
+        this.units.push(mob);
+        // No city attached!
     }
 
     click(e) {
@@ -459,7 +496,6 @@ class Game {
         if(this.keys.a) this.camera.x -= speed;
         if(this.keys.d) this.camera.x += speed;
         
-        // Loose Clamp
         const maxW = CFG.w * CFG.tileSize;
         const maxH = CFG.h * CFG.tileSize;
         this.camera.x = clamp(this.camera.x, -500, maxW + 500);
@@ -482,6 +518,9 @@ class Game {
                 this.day++;
                 if(this.day > CFG.yearDays) { this.day=0; this.year++; ui.toast(`Year ${this.year}`); }
             }
+
+            // Wild Spawning Logic
+            if(this.ticks % 50 === 0) this.spawnWildMobs();
 
             this.cities.forEach(c => c.update());
             this.units.forEach(u => u.update());
@@ -544,12 +583,14 @@ class Game {
             let icon = u.emoji;
             if(u.job === JOBS.KING) icon = '👑';
             else if(u.job === JOBS.PRISONER) icon = '⛓️';
+            else if(u.job === JOBS.SETTLER) icon = '🚩';
             else if(u.dead) icon = '💀';
             
             c.fillText(icon, px+ts/2, py+ts*0.8);
             
             if(u.state === 'MAGIC') { c.fillStyle= '#b388eb'; c.fillRect(px, py, ts, 2); }
             if(u.state === 'JOB_GATHER') { c.fillStyle='lime'; c.fillRect(px, py, ts, 2); }
+            if(u.state === 'HUNT') { c.fillStyle='red'; c.fillRect(px, py, ts, 2); }
             if(u.carrying > 0) { c.fillStyle='orange'; c.beginPath(); c.arc(px+ts, py, 3, 0, Math.PI*2); c.fill(); }
             if(u.crime > 50) { c.fillStyle='red'; c.fillText('!', px+ts, py); }
         });
@@ -590,6 +631,18 @@ class City {
             if(this.resources.food < 0) {
                 this.resources.food = 0;
                 if(Math.random() < 0.2) pick(this.pop).die('Starvation');
+            }
+        }
+        
+        // EXPANSION LOGIC
+        if(this.pop.length > 10 && this.resources.gold > 500 && Math.random() < 0.005) {
+            const candidate = this.pop.find(u => u.job === JOBS.IDLE || u.job === JOBS.FARMER);
+            if(candidate) {
+                this.resources.gold -= 500;
+                candidate.job = JOBS.SETTLER;
+                candidate.journal.push('Beame a Settler');
+                game.addParticle(this.x, this.y, '🚩', 'gold');
+                ui.toast(`${this.name} sent a Settler!`);
             }
         }
 
@@ -684,6 +737,12 @@ class Unit {
             if(this.maxMana > 0 && this.mana < this.maxMana) this.mana += 5;
         }
 
+        // WILD MOB LOGIC
+        if(!this.city) {
+            this.actWild();
+            return;
+        }
+
         if(this.job === JOBS.PRISONER) {
             if(Math.random() < 0.001) {
                  if(this.stats.str > 50) {
@@ -701,8 +760,58 @@ class Unit {
         if(this.state === 'IDLE') this.decide();
         else this.act();
     }
+    
+    actWild() {
+        // Hostiles Hunt
+        if(this.race.type === 'HOSTILE') {
+            // Find target
+            const prey = game.units.find(u => u.city && dist(this, u) < 8);
+            if(prey) {
+                this.target = prey;
+                this.state = 'HUNT';
+            } else {
+                this.state = 'WANDER';
+            }
+        } else {
+            this.state = 'WANDER';
+        }
+
+        if(this.state === 'HUNT' && this.target) {
+            const d = dist(this, this.target);
+            if(d < 0.5) {
+                this.target.health -= 20;
+                game.addParticle(this.target.x, this.target.y, '🩸', 'red');
+                if(this.target.health <= 0) {
+                     this.target.die(`Killed by wild ${this.race.name}`);
+                     this.state = 'WANDER';
+                }
+            } else {
+                this.moveTowards(this.target);
+            }
+        } else {
+            // Random Wander
+            if(!this.target || Math.random() < 0.05) {
+                let tx = this.x + (Math.random()-0.5)*10;
+                let ty = this.y + (Math.random()-0.5)*10;
+                this.target = {x: clamp(tx, 0, CFG.w), y: clamp(ty, 0, CFG.h)};
+            }
+            this.moveTowards(this.target);
+        }
+    }
 
     decide() {
+        // Settler Logic
+        if(this.job === JOBS.SETTLER) {
+             if(!this.target || dist(this, this.target) < 1) {
+                 // Find a far away spot
+                 let angle = Math.random() * Math.PI * 2;
+                 let d = 40 + Math.random() * 20;
+                 this.target = { x: clamp(this.city.x + Math.cos(angle)*d, 5, CFG.w-5), y: clamp(this.city.y + Math.sin(angle)*d, 5, CFG.h-5) };
+             }
+             this.state = 'COLONIZE';
+             return;
+        }
+
         if (this.crime < 100 && Math.random() < 0.01) {
             if (this.personality.grd > 75 && this.personality.loy < 40) {
                 this.state = 'CRIME_THEFT';
@@ -797,7 +906,26 @@ class Unit {
     }
 
     act() {
-        if(this.state === 'JOB_COMMUTE' && this.target) {
+        if(this.state === 'COLONIZE' && this.target) {
+             const d = dist(this, this.target);
+             if(d < 1.0) {
+                 // Check valid spot
+                 let tx = Math.floor(this.target.x);
+                 let ty = Math.floor(this.target.y);
+                 if(game.map[ty][tx] !== TILES.WATER && !game.occupiedTiles.has(`${tx},${ty}`)) {
+                     game.createCity(tx, ty, this.race, false);
+                     this.city.pop = this.city.pop.filter(u => u !== this); // Remove from old city
+                     this.die('Founded new colony'); // Remove unit object, createCity spawns new ones
+                 } else {
+                     // try again
+                     this.target = null;
+                 }
+             } else {
+                 this.moveTowards(this.target);
+             }
+        }
+
+        else if(this.state === 'JOB_COMMUTE' && this.target) {
             const d = dist(this, this.target);
             if(d < 0.5) {
                 this.state = 'JOB_GATHER';
