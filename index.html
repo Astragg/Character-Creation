@@ -1,295 +1,461 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Aetheria 11.0 — Wired</title>
-<style>
-:root{--bg:#0b0b0d;--panel:rgba(28,28,30,0.85);--accent:#60cdff;--text:#eaeaea}
-*{box-sizing:border-box;font-family:system-ui,-apple-system,Segoe UI,Roboto;}
-body{margin:0;height:100vh;background:linear-gradient(180deg,#050505 0%, #0f1220 100%);color:var(--text);overflow:hidden}
-canvas{position:absolute;inset:0;z-index:0}
-#ui{position:absolute;inset:12px;display:flex;flex-direction:column;gap:12px;z-index:5;pointer-events:none}
-.panel{background:var(--panel);backdrop-filter:blur(24px);border-radius:12px;padding:10px;border:1px solid rgba(255,255,255,0.04);pointer-events:auto}
-#top{display:flex;gap:12px;align-items:center}
-.stat{min-width:80px}
-#tools{display:flex;gap:8px;align-items:center}
-.btn{padding:6px 10px;border-radius:8px;border:none;background:rgba(255,255,255,0.03);color:var(--text);cursor:pointer}
-#customize{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:50}
-#customize .card{width:360px;padding:16px;border-radius:12px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01))}
-.label{font-size:12px;color:#bfc7d3;margin-bottom:6px}
-.input,select{width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:var(--text)}
-#inspector{position:absolute;right:20px;top:80px;width:320px;max-height:70vh;overflow:auto}
-.toast{position:fixed;right:20px;bottom:20px;z-index:60}
-.small{font-size:12px;color:#bfc7d3}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>High Noon Duel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Rye&family=VT323&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Rye', serif;
+            background-color: #2c241b;
+            color: #f3e5ab;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+        .pixel-font { font-family: 'VT323', monospace; }
+        .wood-texture {
+            background-color: #5d4037;
+            background-image: repeating-linear-gradient(45deg, #4e342e 25%, transparent 25%, transparent 75%, #4e342e 75%, #4e342e), repeating-linear-gradient(45deg, #4e342e 25%, #5d4037 25%, #5d4037 75%, #4e342e 75%, #4e342e);
+            background-position: 0 0, 10px 10px;
+            background-size: 20px 20px;
+        }
+        .shake { animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both; }
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+        .flash { animation: flash 0.2s ease-out; }
+        @keyframes flash {
+            0% { background-color: white; }
+            100% { background-color: transparent; }
+        }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #2c241b; }
+        ::-webkit-scrollbar-thumb { background: #8d6e63; border-radius: 4px; }
+    </style>
 </head>
-<body>
-<canvas id="c"></canvas>
-<div id="ui">
-  <div id="top" class="panel">
-    <div class="stat"><div class="small">Year</div><div id="year">1</div></div>
-    <div class="stat"><div class="small">Time</div><div id="time">Day</div></div>
-    <div style="flex:1"></div>
-    <div id="tools" class="panel">
-      <button class="btn" id="pauseBtn">⏯️</button>
-      <button class="btn" id="faster">⏩</button>
-      <button class="btn" id="slower">⏪</button>
-      <select id="toolSelect" class="input" style="width:auto;margin-left:8px">
-        <option value="select">Select</option>
-        <option value="place">Place Building</option>
-        <option value="spawn">Spawn Unit</option>
-        <option value="smite">Smite</option>
-      </select>
+<body class="h-screen w-screen flex flex-col items-center justify-center relative">
+
+    <div class="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none z-0" style="background-image: url('data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%239C92AC\' fill-opacity=\'0.4\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E');"></div>
+
+    <div id="app" class="w-full max-w-md h-full max-h-[800px] flex flex-col relative z-10">
+        
+        <header class="w-full p-4 flex justify-between items-center bg-amber-900/80 border-b-4 border-amber-950 shadow-lg">
+            <h1 class="text-2xl tracking-wider text-amber-200 drop-shadow-md">HIGH NOON</h1>
+            <div id="user-badge" class="text-xs pixel-font bg-black/50 px-2 py-1 rounded text-amber-400">Loading...</div>
+        </header>
+
+        <main class="flex-1 relative overflow-hidden flex flex-col">
+            
+            <!-- View: Login -->
+            <div id="view-login" class="absolute inset-0 flex flex-col items-center justify-center p-6 bg-black/40 backdrop-blur-sm">
+                <div class="wood-texture p-8 rounded-lg border-4 border-amber-800 shadow-2xl text-center w-full">
+                    <div class="mb-6 text-6xl">🤠</div>
+                    <h2 class="text-xl mb-4 text-amber-100">Enter Your Name, Partner</h2>
+                    <input type="text" id="username-input" maxlength="10" placeholder="Billy The Kid" 
+                           class="w-full bg-amber-100 text-amber-900 px-4 py-3 rounded border-2 border-amber-900 font-bold text-center mb-4 focus:outline-none focus:ring-4 focus:ring-amber-600 placeholder-amber-900/50">
+                    <button id="btn-enter" class="w-full bg-red-700 hover:bg-red-600 text-white py-3 rounded border-b-4 border-red-900 active:border-b-0 active:translate-y-1 transition-all font-bold tracking-widest">
+                        ENTER SALOON
+                    </button>
+                </div>
+            </div>
+
+            <!-- View: Lobby -->
+            <div id="view-lobby" class="absolute inset-0 flex flex-col p-4 hidden">
+                <div class="flex justify-between items-end mb-4">
+                    <h2 class="text-xl text-amber-400 border-b-2 border-amber-400 pb-1">WANTED POSTERS</h2>
+                    <button id="btn-refresh" class="text-sm text-amber-200 underline cursor-pointer">Refresh</button>
+                </div>
+                
+                <div id="game-list" class="flex-1 overflow-y-auto space-y-3 mb-4 p-2">
+                    <div class="text-center opacity-50 mt-10 pixel-font text-lg">Searching for open duels...</div>
+                </div>
+
+                <button id="btn-create" class="w-full bg-amber-600 hover:bg-amber-500 text-white py-4 rounded border-b-4 border-amber-800 active:border-b-0 active:translate-y-1 transition-all font-bold tracking-widest shadow-lg text-xl">
+                    CREATE NEW DUEL
+                </button>
+            </div>
+
+            <!-- View: Waiting -->
+            <div id="view-waiting" class="absolute inset-0 flex flex-col items-center justify-center p-6 hidden">
+                <div class="text-center animate-pulse">
+                    <h2 class="text-3xl mb-2">WAITING FOR OPPONENT...</h2>
+                    <p class="text-amber-400 pixel-font text-xl">Polishing revolver...</p>
+                </div>
+                <div class="mt-12 p-4 bg-black/30 rounded border border-amber-700 text-center">
+                    <p class="text-xs text-gray-400 mb-1">SHARE CODE (Optional)</p>
+                    <p id="waiting-code" class="text-xl font-mono select-all cursor-pointer text-white">---</p>
+                </div>
+                <button id="btn-cancel-game" class="mt-8 text-red-400 hover:text-red-300 underline">Cancel Duel</button>
+            </div>
+
+            <!-- View: Game -->
+            <div id="view-game" class="absolute inset-0 flex flex-col hidden bg-black">
+                <div class="h-16 bg-stone-900 flex justify-between items-center px-4 border-b border-stone-700">
+                    <div class="flex items-center gap-2">
+                        <div class="w-3 h-3 rounded-full bg-green-500 animate-pulse"></div>
+                        <span id="game-status-text" class="pixel-font text-xl text-green-400">CONNECTED</span>
+                    </div>
+                    <div class="text-xs text-stone-500">VS: <span id="opponent-name" class="text-stone-300 font-bold">???</span></div>
+                </div>
+
+                <div id="duel-area" class="flex-1 relative flex flex-col items-center justify-center cursor-crosshair select-none active:bg-stone-900 transition-colors">
+                    <div id="center-display" class="text-center z-20 pointer-events-none">
+                        <h1 id="main-message" class="text-6xl md:text-8xl text-stone-500 font-black tracking-tighter transition-all">READY...</h1>
+                        <p id="sub-message" class="text-xl text-stone-600 mt-2 pixel-font">Don't shoot yet!</p>
+                    </div>
+
+                    <div class="absolute bottom-0 left-1/2 transform -translate-x-1/2 mb-4 transition-transform duration-100" id="my-avatar">
+                         <svg width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="#f3e5ab" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="8" r="5" />
+                            <path d="M3 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" />
+                            <path d="M16 11l2 2l4 -4" />
+                        </svg>
+                    </div>
+
+                    <div class="absolute top-0 left-1/2 transform -translate-x-1/2 mt-20 opacity-50 grayscale transition-all duration-300" id="opponent-avatar">
+                        <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="8" r="5" />
+                            <path d="M3 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" />
+                            <path d="M16 11l2 2l4 -4" />
+                        </svg>
+                    </div>
+
+                    <div id="gunshot-fx" class="absolute inset-0 bg-white opacity-0 pointer-events-none"></div>
+                </div>
+
+                <div id="result-overlay" class="absolute inset-0 bg-black/90 z-50 flex flex-col items-center justify-center hidden">
+                    <div id="result-emoji" class="text-8xl mb-4">💀</div>
+                    <h2 id="result-title" class="text-5xl text-red-500 mb-2">YOU DIED</h2>
+                    <p id="result-subtitle" class="text-stone-400 mb-8 pixel-font">Opponent was 0.02s faster</p>
+                    <button id="btn-leave-game" class="bg-stone-700 hover:bg-stone-600 px-8 py-3 rounded text-white font-bold border-b-4 border-stone-900">
+                        BACK TO TOWN
+                    </button>
+                </div>
+            </div>
+
+        </main>
     </div>
-  </div>
-</div>
-<div id="inspector" class="panel"></div>
-<div id="customize">
-  <div class="card panel">
-    <h3>Aetheria — Setup</h3>
-    <div class="label">World Width / Height (tiles)</div>
-    <input id="worldSize" class="input" type="number" value="80" />
-    <div class="label">Race Preset</div>
-    <select id="racePreset" class="input"><option value="expanded">Expanded</option><option value="all">All</option></select>
-    <div class="label">Aggression</div>
-    <select id="agg" class="input"><option value="low">Low</option><option value="med" selected>Medium</option><option value="high">High</option></select>
-    <div style="height:8px"></div>
-    <button id="start" class="btn">Start Simulation</button>
-  </div>
-</div>
-<div id="toast" class="toast"></div>
-<script>
-/* ==========================
-   CORE STATE & UTIL
-   ========================== */
-const canvas = document.getElementById('c'); const ctx = canvas.getContext('2d');
-let STATE = { tiles:[], units:[], buildings:[], cities:[], kingdoms:[], mobs:[], time:{day:1,hour:12,year:1}, cam:{x:40,y:40,zoom:1}, gameSpeed:1, paused:false, tool:'select', selection:null };
-let CONFIG = { worldSize:80, tile:18, aggression:'med' };
-const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
-const rnd = (a,b)=>Math.floor(Math.random()*(b-a+1))+a;
-const dist = (a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
-const toastEl = document.getElementById('toast');
-function notify(t){ const d=document.createElement('div'); d.className='panel small'; d.textContent=t; toastEl.appendChild(d); setTimeout(()=>d.remove(),4000);} 
 
-/* ==========================
-   RACES (modular)
-   ========================== */
-let raceData = {
-  Human:{icon:'🧑',lifespan:[60,90],fertility:0.12,aggression:0.12,crime:0.08,combat:1,preferred:['plains','forest']},
-  Elf:{icon:'🧝',lifespan:[120,250],fertility:0.06,aggression:0.06,crime:0.03,combat:0.9,preferred:['forest']},
-  Dwarf:{icon:'🧔',lifespan:[90,140],fertility:0.07,aggression:0.18,crime:0.05,combat:1.2,preferred:['mountain']},
-  Orc:{icon:'👹',lifespan:[40,70],fertility:0.25,aggression:0.35,crime:0.18,combat:1.4,preferred:['plains']},
-  Goblin:{icon:'👺',lifespan:[20,50],fertility:0.35,aggression:0.2,crime:0.3,combat:0.7,preferred:['plains','forest']},
-  Vampire:{icon:'🧛',lifespan:[999,999],fertility:0.01,aggression:0.25,crime:0.05,combat:1.6,preferred:['plains']}
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, updateDoc, onSnapshot, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+
+        // --------------------------------------------------------------
+        // 1. PASTE YOUR FIREBASE CONFIGURATION HERE
+        // --------------------------------------------------------------
+const firebaseConfig = {
+  apiKey: "AIzaSyDCrKQVcGBW4iy7OMAtn4Jcf1ot5CGALBE",
+  authDomain: "highnoon-66ee0.firebaseapp.com",
+  databaseURL: "https://highnoon-66ee0-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "highnoon-66ee0",
+  storageBucket: "highnoon-66ee0.firebasestorage.app",
+  messagingSenderId: "754268761672",
+  appId: "1:754268761672:web:7fbf59d2c403b43356727d"
 };
-let extra = {Troll:{icon:'🧟',lifespan:[80,120],fertility:0.04,aggression:0.4,crime:0.2,combat:1.6,preferred:['forest']},Halfling:{icon:'🦶',lifespan:[60,90],fertility:0.15,aggression:0.03,crime:0.05,combat:0.6,preferred:['plains']},Gnome:{icon:'🤏',lifespan:[60,110],fertility:0.12,aggression:0.04,crime:0.09,combat:0.7,preferred:['forest']}};
+        // --------------------------------------------------------------
 
-/* ==========================
-   JOBS & BUILDINGS
-   ========================== */
-let jobData = { farmer:{income:1,produces:{food:1}}, miner:{income:2,produces:{stone:1}}, lumberjack:{income:1,produces:{wood:1}}, builder:{income:0.5,build:true}, soldier:{income:0.6,combat:1.2}, guard:{income:0.7,combat:1.1}, merchant:{income:1.4} };
-let buildingData = {
-  house:{icon:'🏠',cost:{wood:20,stone:5},capacity:3,produces:{}},
-  farm:{icon:'🌾',cost:{wood:12},produces:{food:4}},
-  mine:{icon:'⛏️',cost:{wood:10,stone:20},produces:{stone:4}},
-  sawmill:{icon:'🪵',cost:{wood:20},produces:{wood:6}},
-  tavern:{icon:'🍺',cost:{wood:25},produces:{happiness:2}},
-  barracks:{icon:'🏰',cost:{stone:40,wood:20},enables:'soldier'},
-  market:{icon:'🏪',cost:{wood:20,stone:10}},
-  prison:{icon:'🚓',cost:{stone:30},capacity:6}
-};
+        // Fallback if config is missing to prevent crash on load
+        if (Object.keys(firebaseConfig).length === 0) {
+            alert("⚠️ You must paste your Firebase Config in the code! Open index.html and look for the 'firebaseConfig' variable.");
+        }
 
-/* ==========================
-   MOBS
-   ========================== */
-let mobData = { deer:{icon:'🦌',passive:true,drop:{food:2}}, wolf:{icon:'🐺',passive:false,aggression:0.35,drop:{food:3}}, bear:{icon:'🐻',passive:false,aggression:0.5,drop:{food:6}} };
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
 
-/* ==========================
-   WORLD GEN
-   ========================== */
-function generateWorld(n){ STATE.tiles=[]; for(let y=0;y<n;y++){ let row=[]; for(let x=0;x<n;x++){ let r=Math.random(); if(r<0.08) row.push('water'); else if(r<0.28) row.push('forest'); else if(r<0.38) row.push('mountain'); else row.push('plains'); } STATE.tiles.push(row);} }
+        // We used to use a deep path for the demo environment, but for your own GitHub pages,
+        // we can use a simpler collection name at the root level.
+        const GAMES_COLLECTION = "high_noon_duels";
+        
+        let currentUser = null;
+        let currentUserName = localStorage.getItem('cowboyName') || '';
+        let currentGameId = null;
+        let gameUnsubscribe = null;
+        let myRole = null; 
+        let gameState = 'menu'; 
+        let canShoot = false;
 
-/* ==========================
-   SPAWN & UNIT
-   ========================== */
-let UID=1; function createUnit(opts){ const id=UID++; const u=Object.assign({id,age: rnd(16,30),hp:100,maxHp:100,money:10,home:null,job:null,traits:[],stress:0,crimeScore:0,inventory:{},mood:'neutral',alive:true},opts); STATE.units.push(u); return u; }
+        const views = {
+            login: document.getElementById('view-login'),
+            lobby: document.getElementById('view-lobby'),
+            waiting: document.getElementById('view-waiting'),
+            game: document.getElementById('view-game')
+        };
+        const inputs = { name: document.getElementById('username-input') };
+        const ui = {
+            badge: document.getElementById('user-badge'),
+            gameList: document.getElementById('game-list'),
+            waitingCode: document.getElementById('waiting-code'),
+            mainMsg: document.getElementById('main-message'),
+            subMsg: document.getElementById('sub-message'),
+            duelArea: document.getElementById('duel-area'),
+            resultOverlay: document.getElementById('result-overlay'),
+            resultTitle: document.getElementById('result-title'),
+            resultSub: document.getElementById('result-subtitle'),
+            resultEmoji: document.getElementById('result-emoji'),
+            opponentName: document.getElementById('opponent-name'),
+            gunshot: document.getElementById('gunshot-fx')
+        };
 
-function spawnInitial(){ // create few cities and population
-  // simple: place N cities at random spaced points
-  const races=Object.keys(raceData);
-  for(let i=0;i<4;i++){ const x=rnd(6,CONFIG.worldSize-6), y=rnd(6,CONFIG.worldSize-6); const race=races[i%races.length]; createCity(x,y,race); }
-}
+        // Sound Logic
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playSound(type) {
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
 
-function createCity(x,y,raceName){ const id=Date.now()+Math.random(); const city={id,x,y,race:raceName,pop:0,resources:{wood:200,stone:150,food:300,gold:200},buildings:[],radius:6,level:'village'}; STATE.cities.push(city);
-  // place a few houses and spawn population
-  placeBuilding(city,x,y,'house'); placeBuilding(city,x+1,y,'farm'); placeBuilding(city,x-1,y,'tavern');
-  for(let i=0;i<8;i++){ createUnit({race:raceName,x:x+Math.random()*3-1.5,y:y+Math.random()*3-1.5,home:city.id,job: ['farmer','lumberjack','miner','builder'][i%4] }); }
-}
+            if (type === 'click') {
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.1);
+            } else if (type === 'shoot') {
+                const bufferSize = audioCtx.sampleRate * 0.5;
+                const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) { data[i] = Math.random() * 2 - 1; }
+                const noise = audioCtx.createBufferSource();
+                noise.buffer = buffer;
+                noise.connect(gain);
+                gain.gain.setValueAtTime(1, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                noise.start();
+            } else if (type === 'win') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+                osc.frequency.setValueAtTime(554, audioCtx.currentTime + 0.1); 
+                osc.frequency.setValueAtTime(659, audioCtx.currentTime + 0.2);
+                gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.6);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.6);
+            }
+        }
 
-function placeBuilding(city,x,y,type){ // grid occupancy check
-  const bx=Math.floor(x), by=Math.floor(y); const size=CONFIG.worldSize; if(bx<0||by<0||bx>=size||by>=size) return false; // can't place on water/mountain
-  if(STATE.tiles[by][bx]==='water' || STATE.tiles[by][bx]==='mountain') return false; // existing building collision
-  if(STATE.buildings.find(b=>b.x===bx && b.y===by)) return false; // occupancy
-  const bdef=buildingData[type]; if(!bdef) return false;
-  // pay cost
-  const cityObj = STATE.cities.find(c=>c.id===city);
-  if(!cityObj) return false;
-  for(const res in (bdef.cost||{})){ if((cityObj.resources[res]||0) < bdef.cost[res]) return false; }
-  for(const res in (bdef.cost||{})){ cityObj.resources[res]-=bdef.cost[res]; }
-  const b={id:Date.now()+Math.random(),x:bx,y:by,type,city:city,level:1,residents:[],capacity:bdef.capacity||0}; STATE.buildings.push(b); cityObj.buildings.push(b.id);
-  return true;
-}
+        // Auth Logic - Simplified for Static Hosting
+        signInAnonymously(auth).catch(console.error);
 
-/* ==========================
-   SIM: JOB TICK, ECONOMY, BUILDING UPKEEP
-   ========================== */
-function tickEconomy(){ // each worker at job produces and earns
-  for(const u of STATE.units){ if(!u.alive) continue; if(!u.job) continue; const jd = jobData[u.job]; if(!jd) continue; // produce to city
-    const city=STATE.cities.find(c=>c.id===u.home); if(city){ // income
-      u.money += jd.income; city.resources.gold = (city.resources.gold||0); city.resources.gold += 0; // city gold not used yet
-      for(const p in (jd.produces||{})){ city.resources[p] = (city.resources[p]||0) + jd.produces[p]; }
-    }
-  }
-}
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+                ui.badge.textContent = "ID: " + user.uid.slice(0, 4);
+                if (currentUserName) {
+                    inputs.name.value = currentUserName;
+                    showView('lobby');
+                    refreshGameList();
+                } else {
+                    showView('login');
+                }
+            }
+        });
 
-/* ==========================
-   PERSONALITY / MOODS / STRESS / DISEASES
-   ========================== */
-const personalities=['calm','anxious','industrious','lazy','greedy','loyal'];
-function seedPersonality(u){ if(!u.personality) u.personality = personalities[Math.floor(Math.random()*personalities.length)]; }
-function updateMoods(){ for(const u of STATE.units){ if(!u.alive) continue; seedPersonality(u); // stress fluctuates
-    u.stress = clamp((u.stress + (Math.random()-0.45)*0.2),0,100);
-    // stress affects mood
-    if(u.stress>70) u.mood='stressed'; else if(u.stress>40) u.mood='uneasy'; else u.mood='content';
-    // crime score influenced by personality and stress
-    u.crimeScore = (u.traits.includes('criminal')?0.3:0) + (u.personality==='greedy'?0.15:0) + (u.stress/200);
-  }
-}
+        // DOM Events
+        function showView(viewName) {
+            Object.values(views).forEach(el => el.classList.add('hidden'));
+            views[viewName].classList.remove('hidden');
+            gameState = viewName;
+        }
 
-/* ==========================
-   CRIME: theft & punishment
-   ========================== */
-function attemptCrime(u){ if(u.crimeScore < 0.08) return; if(u.cooldown>0) return; // find victim in same city
-  const victims = STATE.units.filter(v=>v.home===u.home && v.id!==u.id && v.alive && v.money>5 && dist(u,v)<3);
-  if(victims.length===0) return; const v=victims[Math.floor(Math.random()*victims.length)]; const steal = Math.min(v.money, Math.floor(1+Math.random()*5)); v.money-=steal; u.money+=steal; u.stress -=5; u.cooldown = 60; notify(`${u.race} stole ${steal} gold from ${v.race}`);
-  // chance to be caught based on guard presence
-  const city=STATE.cities.find(c=>c.id===u.home); if(city){ const guards = STATE.units.filter(g=>g.home===city.id && g.job==='guard'); if(guards.length>0 && Math.random()<0.3){ // caught
-      u.traits.push('arrested'); u.alive=true; // move to prison (simple: remove for time)
-      u.cooldown = 300; notify(`${u.race} was caught stealing and jailed`);
-    } }
-}
+        document.getElementById('btn-enter').addEventListener('click', () => {
+            const name = inputs.name.value.trim();
+            if (!name) return;
+            currentUserName = name;
+            localStorage.setItem('cowboyName', name);
+            playSound('click');
+            showView('lobby');
+            refreshGameList();
+        });
 
-/* ==========================
-   COMBAT & MOBS
-   ========================== */
-function mobBehavior(){ for(const m of STATE.mobs){ if(!m.alive) continue; // simple roam
-    m.x = clamp(m.x + (Math.random()*3-1),0,CONFIG.worldSize-1); m.y = clamp(m.y + (Math.random()*3-1),0,CONFIG.worldSize-1);
-    if(!m.passive){ // attack nearby units
-      const targets = STATE.units.filter(u=>u.alive && dist(u,m)<3);
-      if(targets.length>0){ const t=targets[Math.floor(Math.random()*targets.length)]; // fight
-          const dmg = Math.floor((m.aggression||0.3)*30); t.hp -= dmg; if(t.hp<=0){ t.alive=false; notify(`${t.race} was killed by ${m.type}`); }
-      }
-    }
-  } }
+        document.getElementById('btn-create').addEventListener('click', createGame);
+        document.getElementById('btn-refresh').addEventListener('click', () => {
+            playSound('click');
+            refreshGameList();
+        });
+        document.getElementById('btn-cancel-game').addEventListener('click', leaveGame);
+        document.getElementById('btn-leave-game').addEventListener('click', leaveGame);
 
-function unitCombat(){ // units attack mobs or other enemies when aggressive
-  for(const u of STATE.units){ if(!u.alive) continue; if(u.job==='soldier' || u.job==='guard'){ // seek nearby mobs or hostile units
-      const mobsNearby = STATE.mobs.filter(m=>m.alive && dist(m,u)<3);
-      if(mobsNearby.length>0){ const m=mobsNearby[0]; m.hp = (m.hp||50) - Math.floor(10 * (1 + (u.race && raceData[u.race]?.combat||1))); if(m.hp<=0){ m.alive=false; // loot
-            const city=STATE.cities.find(c=>c.id===u.home); if(city){ city.resources.food = (city.resources.food||0) + (m.drop?.food||1); }
-            notify(`${u.race} killed a ${m.type}`);
-          }
-      }
-    }
-  }
-}
+        // Game Functions
+        async function refreshGameList() {
+            ui.gameList.innerHTML = '<div class="text-center opacity-50 pixel-font">Scouting the plains...</div>';
+            try {
+                const gamesRef = collection(db, GAMES_COLLECTION);
+                const snapshot = await getDocs(gamesRef);
+                
+                ui.gameList.innerHTML = '';
+                let found = false;
 
-/* ==========================
-   CITY & KINGDOM Logic
-   ========================== */
-function updateCities(){ for(const c of STATE.cities){ c.pop = STATE.units.filter(u=>u.home===c.id && u.alive).length; // level up
-    if(c.pop>30) c.level='city'; else if(c.pop>12) c.level='town'; else c.level='village';
-    // resources used to build
-    if(c.pop > c.radius*1.5 && Math.random()<0.02){ c.radius+=1; }
-    // assign capital/kingdom if big
-    if(c.level==='city' && !STATE.kingdoms.find(k=>k.capital===c.id)){ const k={id:Date.now()+Math.random(),capital:c.id,ruler:null,treasury:{wood:100,stone:100,food:200}}; STATE.kingdoms.push(k); c.kingdom = k.id; notify(`A new kingdom formed around ${c.race} city`); assignRuler(k,c); }
-  } }
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    if (data.status === 'waiting' && data.host !== currentUser.uid) {
+                        found = true;
+                        const el = document.createElement('div');
+                        el.className = 'bg-amber-900/40 border border-amber-700 p-3 rounded flex justify-between items-center cursor-pointer hover:bg-amber-800/50 transition-colors';
+                        el.innerHTML = `
+                            <div>
+                                <div class="font-bold text-amber-200">${data.hostName || 'Unknown Cowboy'}</div>
+                                <div class="text-xs text-amber-500 pixel-font">Status: Waiting</div>
+                            </div>
+                            <button class="bg-amber-600 text-white px-3 py-1 rounded text-sm shadow">JOIN</button>
+                        `;
+                        el.onclick = () => joinGame(doc.id, data);
+                        ui.gameList.appendChild(el);
+                    }
+                });
 
-function assignRuler(k,c){ // pick a unit from city
-  const candidates = STATE.units.filter(u=>u.home===c.id && u.alive);
-  if(candidates.length===0) return; const ruler=candidates[Math.floor(Math.random()*candidates.length)]; k.ruler = ruler.id; ruler.title = 'King/Queen'; notify(`${ruler.race} became ruler of a kingdom`);
-}
+                if (!found) {
+                    ui.gameList.innerHTML = '<div class="text-center opacity-50 mt-4 pixel-font">No open duels found.<br>Start your own!</div>';
+                }
+            } catch (err) {
+                console.error(err);
+                ui.gameList.innerText = "Error loading saloon data. Did you add your API Key?";
+            }
+        }
 
-/* ==========================
-   TICKS & LOOP
-   ========================== */
-function gameTick(){ if(STATE.paused) return; // time
-  STATE.time.hour += 0.25*STATE.gameSpeed; if(STATE.time.hour>=24){ STATE.time.hour=0; STATE.time.day++; document.getElementById('year').innerText = Math.floor(STATE.time.day/365)+1; }
-  // each tick: economy, moods, crime, mobs, combat
-  tickEconomy(); updateMoods(); for(const u of STATE.units){ attemptCrime(u); }
-  mobBehavior(); unitCombat(); updateCities(); render(); }
+        async function createGame() {
+            playSound('click');
+            try {
+                const newId = doc(collection(db, GAMES_COLLECTION)).id;
+                await setDoc(doc(db, GAMES_COLLECTION, newId), {
+                    host: currentUser.uid,
+                    hostName: currentUserName,
+                    status: 'waiting',
+                    createdAt: Date.now()
+                });
+                
+                currentGameId = newId;
+                myRole = 'host';
+                ui.waitingCode.textContent = currentGameId;
+                showView('waiting');
+                subscribeToGame(currentGameId);
+            } catch (e) { console.error(e); }
+        }
 
-setInterval(gameTick, 180);
+        async function joinGame(gameId, gameData) {
+            playSound('click');
+            try {
+                await updateDoc(doc(db, GAMES_COLLECTION, gameId), {
+                    joiner: currentUser.uid,
+                    joinerName: currentUserName,
+                    status: 'ready'
+                });
+                currentGameId = gameId;
+                myRole = 'joiner';
+                subscribeToGame(gameId);
+            } catch (e) { console.error(e); }
+        }
 
-/* ==========================
-   RENDER
-   ========================== */
-function resize(){ canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
-window.addEventListener('resize', resize); resize();
+        function subscribeToGame(gameId) {
+            if (gameUnsubscribe) gameUnsubscribe();
+            gameUnsubscribe = onSnapshot(doc(db, GAMES_COLLECTION, gameId), (docSnap) => {
+                if (!docSnap.exists()) { leaveGame(); return; }
+                handleGameState(docSnap.data());
+            });
+        }
 
-function render(){ ctx.fillStyle='#071018'; ctx.fillRect(0,0,canvas.width,canvas.height);
-  const size = CONFIG.worldSize; const tsize = CONFIG.tile; // center camera
-  const ox = canvas.width/2 - STATE.cam.x*tsize*STATE.cam.zoom; const oy = canvas.height/2 - STATE.cam.y*tsize*STATE.cam.zoom; ctx.save(); ctx.translate(ox,oy); ctx.scale(STATE.cam.zoom,STATE.cam.zoom);
-  // tiles
-  for(let y=0;y<size;y++){ for(let x=0;x<size;x++){ const tile=STATE.tiles[y][x]; if(tile==='water') ctx.fillStyle='#163a5b'; else if(tile==='forest') ctx.fillStyle='#1f5f3e'; else if(tile==='mountain') ctx.fillStyle='#5a5a5a'; else ctx.fillStyle='#2b2f36'; ctx.fillRect(x*tsize,y*tsize,tsize,tsize); } }
-  // buildings
-  for(const b of STATE.buildings){ const def=buildingData[b.type]; ctx.font=(tsize-2)+'px serif'; ctx.fillText(def.icon, b.x*tsize+2, b.y*tsize+tsize-4); }
-  // mobs
-  for(const m of STATE.mobs){ if(!m.alive) continue; ctx.font=(tsize-2)+'px serif'; ctx.fillText(m.icon, Math.floor(m.x)*tsize+2, Math.floor(m.y)*tsize+tsize-4); }
-  // units
-  for(const u of STATE.units){ if(!u.alive) continue; ctx.font=(tsize-2)+'px serif'; const icon = raceData[u.race]?.icon||'?'; ctx.fillText(icon, Math.floor(u.x)*tsize+2, Math.floor(u.y)*tsize+tsize-4); }
-  ctx.restore();
-}
+        function handleGameState(data) {
+            if (data.status === 'waiting') {
+                if (gameState !== 'waiting' && myRole === 'host') showView('waiting');
+                return;
+            }
 
-/* ==========================
-   INPUT / UI
-   ========================== */
-document.getElementById('pauseBtn').onclick = ()=>{ STATE.paused = !STATE.paused; document.getElementById('pauseBtn').textContent = STATE.paused? '▶️' : '⏯️'; };
-document.getElementById('faster').onclick = ()=>{ STATE.gameSpeed = Math.min(8, STATE.gameSpeed*2); notify('Speed x'+STATE.gameSpeed); };
-document.getElementById('slower').onclick = ()=>{ STATE.gameSpeed = Math.max(0.25, STATE.gameSpeed/2); notify('Speed x'+STATE.gameSpeed); };
-document.getElementById('toolSelect').onchange = (e)=>{ STATE.tool = e.target.value; };
+            if (gameState !== 'game' && (data.status === 'ready' || data.status === 'counting' || data.status === 'draw')) {
+                showView('game');
+                const oppName = myRole === 'host' ? data.joinerName : data.hostName;
+                ui.opponentName.textContent = oppName;
+                if (myRole === 'host' && data.status === 'ready') startCountdownSequence();
+            }
 
-canvas.addEventListener('click', (ev)=>{ const rect=canvas.getBoundingClientRect(); const mx=ev.clientX-rect.left; const my=ev.clientY-rect.top; const size=CONFIG.tile; const ox = canvas.width/2 - STATE.cam.x*size*STATE.cam.zoom; const oy = canvas.height/2 - STATE.cam.y*size*STATE.cam.zoom; const gx = Math.floor((mx-ox)/ (size*STATE.cam.zoom)); const gy = Math.floor((my-oy)/ (size*STATE.cam.zoom)); if(gx<0||gy<0||gx>=CONFIG.worldSize||gy>=CONFIG.worldSize) return;
-  if(STATE.tool==='place'){ // place building near selection city
-    const city = STATE.cities[0]; // simple: first city
-    if(placeBuilding(city.id,gx,gy,'house')) notify('Placed a house'); else notify('Cannot place here');
-  } else if(STATE.tool==='spawn'){ createUnit({race: 'Human', x:gx, y:gy, home: STATE.cities[0].id}); notify('Spawned unit'); }
-  else if(STATE.tool==='smite'){ // kill units/mobs nearby
-    const targets = STATE.units.filter(u=>dist(u,{x:gx,y:gy})<2); for(const t of targets){ t.alive=false; notify('Smite killed a unit'); }
-  }
-});
+            if (data.status === 'counting') {
+                ui.mainMsg.textContent = "STEADY...";
+                ui.mainMsg.className = "text-6xl md:text-8xl text-amber-600 font-black tracking-tighter animate-pulse";
+                ui.subMsg.textContent = "Wait for the signal...";
+                ui.duelArea.classList.remove('cursor-crosshair');
+                ui.duelArea.classList.add('cursor-not-allowed');
+                canShoot = false;
+            } else if (data.status === 'draw') {
+                if (!canShoot && !data.winner) {
+                    ui.mainMsg.textContent = "DRAW!";
+                    ui.mainMsg.className = "text-8xl md:text-9xl text-red-600 font-black tracking-widest shake";
+                    ui.subMsg.textContent = "FIRE!";
+                    ui.duelArea.classList.add('cursor-crosshair');
+                    ui.duelArea.classList.remove('cursor-not-allowed');
+                    ui.gunshot.classList.add('flash');
+                    setTimeout(() => ui.gunshot.classList.remove('flash'), 200);
+                    canShoot = true;
+                }
+            }
 
-/* ==========================
-   INITIALIZATION
-   ========================== */
-function initFromUI(){ CONFIG.worldSize = parseInt(document.getElementById('worldSize').value); const rp = document.getElementById('racePreset').value; if(rp==='expanded'){ Object.assign(raceData, extra); } if(document.getElementById('agg').value==='low'){ for(const r in raceData) raceData[r].aggression *= 0.5; } else if(document.getElementById('agg').value==='high'){ for(const r in raceData) raceData[r].aggression *= 1.5; }
-  generateWorld(CONFIG.worldSize);
-  // spawn mobs
-  for(let i=0;i<40;i++){ const t=Object.keys(mobData)[Math.floor(Math.random()*Object.keys(mobData).length)]; STATE.mobs.push({type:t,icon:mobData[t].icon,x:Math.random()*CONFIG.worldSize,y:Math.random()*CONFIG.worldSize,alive:true,passive:mobData[t].passive,aggression:mobData[t].aggression,drop:mobData[t].drop}); }
-  spawnInitial(); document.getElementById('customize').style.display='none';
-}
+            if (data.winner) {
+                canShoot = false;
+                ui.resultOverlay.classList.remove('hidden');
+                if (data.winner === currentUser.uid) {
+                    playSound('win');
+                    ui.resultEmoji.textContent = "🤠";
+                    ui.resultTitle.textContent = "VICTORY";
+                    ui.resultTitle.className = "text-5xl text-amber-400 mb-2";
+                    ui.resultSub.textContent = "You are the fastest hand in the West.";
+                } else {
+                    ui.resultEmoji.textContent = "💀";
+                    ui.resultTitle.textContent = "WASTED";
+                    ui.resultTitle.className = "text-5xl text-red-600 mb-2";
+                    ui.resultSub.textContent = "Better luck next time, partner.";
+                }
+            }
+        }
 
-document.getElementById('start').onclick = initFromUI;
+        async function startCountdownSequence() {
+            const gameRef = doc(db, GAMES_COLLECTION, currentGameId);
+            await updateDoc(gameRef, { status: 'counting' });
+            const delay = 2000 + Math.random() * 4000;
+            setTimeout(async () => {
+                await updateDoc(gameRef, { status: 'draw', drawTimestamp: Date.now() });
+            }, delay);
+        }
 
-/* ==========================
-   QUICK HELP / TEST ACTIONS
-   ========================== */
-function notify(msg){ try{ notifyRaw(msg); }catch(e){ console.log(msg); } }
-function notifyRaw(msg){ const el=document.createElement('div'); el.className='panel small'; el.textContent=msg; document.getElementById('toast').appendChild(el); setTimeout(()=>el.remove(),4000); }
+        ui.duelArea.addEventListener('mousedown', handleShoot); 
+        ui.duelArea.addEventListener('touchstart', handleShoot);
 
-// start render loop
-setInterval(render,100);
-</script>
+        async function handleShoot(e) {
+            if(e.type === 'touchstart') e.preventDefault();
+            if (!canShoot) {
+                if (gameState === 'game' && ui.mainMsg.textContent === "STEADY...") {
+                    ui.mainMsg.classList.add('shake');
+                    setTimeout(() => ui.mainMsg.classList.remove('shake'), 500);
+                }
+                return;
+            }
+            canShoot = false;
+            playSound('shoot');
+            ui.gunshot.classList.add('flash');
+            try {
+                await updateDoc(doc(db, GAMES_COLLECTION, currentGameId), { winner: currentUser.uid });
+            } catch (err) { console.log(err); }
+        }
+
+        async function leaveGame() {
+            if (gameUnsubscribe) gameUnsubscribe();
+            ui.resultOverlay.classList.add('hidden');
+            if (currentGameId && myRole === 'host') {
+                try { await deleteDoc(doc(db, GAMES_COLLECTION, currentGameId)); } catch (e) {}
+            }
+            currentGameId = null;
+            myRole = null;
+            showView('lobby');
+            refreshGameList();
+        }
+
+        window.oncontextmenu = (e) => { e.preventDefault(); return false; };
+    </script>
 </body>
 </html>
