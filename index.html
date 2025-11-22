@@ -10,8 +10,8 @@
         :root {
             --neon-green: #00ff41;
             --neon-red: #ff0055;
+            --neon-blue: #00eaff;
             --dark-bg: #050505;
-            --grid-color: #003b00;
         }
         body {
             font-family: 'Share Tech Mono', monospace;
@@ -22,95 +22,77 @@
             -webkit-tap-highlight-color: transparent;
         }
         
-        /* CRT Effects */
+        /* Scanlines & CRT */
         .scanline {
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
+            position: absolute; inset: 0;
             background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.2));
-            background-size: 100% 4px;
-            pointer-events: none;
-            z-index: 50;
+            background-size: 100% 4px; pointer-events: none; z-index: 50;
         }
         .glow { text-shadow: 0 0 5px var(--neon-green); }
         .glow-red { text-shadow: 0 0 5px var(--neon-red); color: var(--neon-red); }
         
-        /* Glitch Animation */
-        @keyframes glitch {
-            0% { transform: translate(0) }
-            20% { transform: translate(-2px, 2px) }
-            40% { transform: translate(-2px, -2px) }
-            60% { transform: translate(2px, 2px) }
-            80% { transform: translate(2px, -2px) }
-            100% { transform: translate(0) }
-        }
-        .glitch-hover:hover { animation: glitch 0.2s infinite; }
-
         /* Grid Mechanics */
-        .hex-cell {
-            transition: all 0.1s;
-            cursor: pointer;
-        }
+        .hex-cell { transition: all 0.1s; cursor: pointer; }
         .hex-cell:active { transform: scale(0.95); }
-        .hex-cell.disabled { 
-            opacity: 0.2; 
-            pointer-events: none; 
-            filter: grayscale(1);
-        }
+        .hex-cell.disabled { opacity: 0.1; pointer-events: none; filter: grayscale(1); }
         .hex-cell.active-axis {
-            background-color: rgba(0, 255, 65, 0.1);
-            box-shadow: inset 0 0 10px var(--neon-green);
+            background-color: rgba(0, 255, 65, 0.05);
+            box-shadow: inset 0 0 8px var(--neon-green);
         }
         .hex-cell.selected {
-            background-color: var(--neon-green);
-            color: black;
+            background-color: var(--neon-green); color: black;
             box-shadow: 0 0 15px var(--neon-green);
+        }
+
+        /* Select Dropdown Customization */
+        select {
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%2300FF41%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.7rem top 50%;
+            background-size: 0.65rem auto;
         }
 
         /* Scrollbar */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #001100; }
         ::-webkit-scrollbar-thumb { background: var(--neon-green); }
-
-        /* Utility */
-        .crt-flicker { animation: flicker 0.15s infinite; opacity: 0.9; }
-        @keyframes flicker { 0% { opacity: 0.9; } 50% { opacity: 0.8; } 100% { opacity: 0.9; } }
     </style>
 </head>
 <body class="h-screen w-screen flex flex-col relative">
 
     <div class="scanline"></div>
 
-    <!-- BACKGROUND DECO -->
-    <div class="absolute top-0 left-0 p-2 text-xs opacity-30 leading-tight pointer-events-none">
-        SYSTEM.ROOT<br>CONN_ESTABLISHED<br>ENCRYPTION: 2048-BIT
+    <!-- DECORATION -->
+    <div class="absolute top-0 left-0 p-2 text-[10px] opacity-30 leading-tight pointer-events-none">
+        SYS.ROOT >> 0xEF22<br>MEM_ALLOC: 64TB<br>SECURE_LINK: TRUE
     </div>
 
-    <!-- APP CONTAINER -->
     <div id="app" class="relative z-10 w-full h-full flex flex-col">
         
-        <!-- 1. LOGIN TERMINAL -->
+        <!-- 1. LOGIN -->
         <div id="view-login" class="absolute inset-0 flex flex-col items-center justify-center bg-black z-50">
             <div class="border border-[var(--neon-green)] p-8 max-w-md w-full bg-black shadow-[0_0_20px_rgba(0,255,65,0.2)]">
-                <h1 class="text-4xl mb-2 glitch-hover cursor-default">NET_RUNNER_V.2.0</h1>
+                <h1 class="text-4xl mb-2 text-center">NET_RUNNER</h1>
                 <div class="h-px w-full bg-[var(--neon-green)] mb-6"></div>
                 
-                <div class="text-sm mb-2 opacity-70">> IDENTIFY_YOURSELF</div>
+                <div class="text-sm mb-2 opacity-70">> IDENTIFY_USER</div>
                 <input type="text" id="username-input" maxlength="8" placeholder="ALIAS" 
-                       class="w-full bg-[#001100] border border-[var(--neon-green)] text-[var(--neon-green)] p-4 text-xl outline-none focus:shadow-[0_0_10px_var(--neon-green)] uppercase placeholder-green-900 font-bold mb-6">
+                       class="w-full bg-[#001100] border border-[var(--neon-green)] text-[var(--neon-green)] p-4 text-xl outline-none uppercase placeholder-green-900 font-bold mb-6">
                 
                 <button id="btn-enter" class="w-full bg-[var(--neon-green)] text-black font-bold py-4 hover:bg-white transition-colors text-xl">
-                    > INITIATE_LINK
+                    > CONNECT
                 </button>
-                <div id="auth-status" class="mt-2 text-xs animate-pulse">Est. Connection...</div>
+                <div id="auth-status" class="mt-2 text-xs animate-pulse text-center">Initializing...</div>
             </div>
         </div>
 
-        <!-- 2. LOBBY (NODE LIST) -->
+        <!-- 2. LOBBY -->
         <div id="view-lobby" class="absolute inset-0 bg-black hidden flex flex-col">
             <header class="p-4 border-b border-green-900 flex justify-between items-center bg-[#001100]">
                 <div class="flex items-center gap-2">
                     <div class="w-3 h-3 bg-[var(--neon-green)] rounded-full animate-pulse"></div>
-                    <span class="text-xl">LOCAL_NET</span>
+                    <span class="text-xl">PUBLIC_NET</span>
                 </div>
                 <div class="text-right text-sm">
                     <div id="lobby-user" class="opacity-80">GUEST</div>
@@ -120,114 +102,105 @@
 
             <div class="flex-1 p-4 overflow-hidden flex flex-col">
                 <div class="flex justify-between items-end mb-2 border-b border-green-900/50 pb-2">
-                    <h2 class="text-lg glow">AVAILABLE_NODES</h2>
-                    <button id="btn-refresh" class="text-xs underline hover:text-white">[REFRESH_SCAN]</button>
+                    <h2 class="text-lg glow">ACTIVE_NODES</h2>
+                    <button id="btn-refresh" class="text-xs underline hover:text-white">[REFRESH]</button>
                 </div>
-
                 <div id="game-list" class="flex-1 overflow-y-auto space-y-2 pr-2">
-                    <!-- Game Items -->
+                    <!-- Games List -->
                 </div>
             </div>
 
-            <div class="p-4 border-t border-green-900">
-                <button id="btn-create" class="w-full border border-[var(--neon-green)] text-[var(--neon-green)] py-4 hover:bg-[var(--neon-green)] hover:text-black transition-all font-bold text-lg shadow-[0_0_15px_rgba(0,255,65,0.1)]">
-                    > CREATE_NEW_NODE
+            <!-- Create Game Section -->
+            <div class="p-4 border-t border-green-900 bg-[#001100]">
+                <div class="mb-2 flex justify-between items-center">
+                    <label class="text-xs opacity-70">SECURITY LEVEL (DIFFICULTY)</label>
+                </div>
+                <div class="flex gap-2 mb-4">
+                    <select id="difficulty-select" class="w-full bg-black border border-[var(--neon-green)] text-[var(--neon-green)] p-2 outline-none">
+                        <option value="easy">ROOKIE (4x4)</option>
+                        <option value="medium" selected>RUNNER (5x5)</option>
+                        <option value="hard">NETGOD (6x6)</option>
+                    </select>
+                </div>
+                <button id="btn-create" class="w-full bg-[var(--neon-green)] text-black py-4 font-bold text-lg hover:bg-white transition-colors">
+                    > ESTABLISH_NODE
                 </button>
             </div>
         </div>
 
-        <!-- 3. WAITING (HANDSHAKE) -->
-        <div id="view-waiting" class="absolute inset-0 bg-black hidden flex flex-col items-center justify-center">
-            <div class="text-center w-full max-w-md p-6 border-y border-green-900">
-                <h2 class="text-2xl mb-4 animate-pulse">AWAITING_CLIENT_HANDSHAKE</h2>
-                <div class="text-6xl mb-6 opacity-50">⏳</div>
+        <!-- 3. WAITING -->
+        <div id="view-waiting" class="absolute inset-0 bg-black hidden flex flex-col items-center justify-center z-40">
+            <div class="text-center w-full max-w-md p-6 border-y border-green-900 bg-[#050505]">
+                <h2 class="text-2xl mb-4 animate-pulse">AWAITING_LINK</h2>
                 <div class="bg-[#001100] p-4 mb-6 border border-green-800 font-mono">
-                    <div class="text-[10px] opacity-50 mb-1">ACCESS_KEY</div>
-                    <div id="waiting-code" class="text-xl select-all">LOADING</div>
+                    <div class="text-[10px] opacity-50 mb-1">ACCESS_CODE</div>
+                    <div id="waiting-code" class="text-xl select-all font-bold text-white">---</div>
+                    <div id="waiting-difficulty" class="text-xs mt-2 text-[var(--neon-blue)]">DIFFICULTY: MEDIUM</div>
                 </div>
-                <button id="btn-cancel" class="text-red-500 hover:text-red-400 text-sm border border-red-900 px-6 py-2 hover:bg-red-900/20">
-                    [ABORT_SESSION]
+                <button id="btn-cancel" class="text-red-500 border border-red-900 px-6 py-2 text-sm hover:bg-red-900/20">
+                    [ABORT]
                 </button>
             </div>
         </div>
 
-        <!-- 4. GAME INTERFACE (BREACH) -->
-        <div id="view-game" class="absolute inset-0 bg-black hidden flex flex-col">
-            
+        <!-- 4. GAME INTERFACE -->
+        <div id="view-game" class="absolute inset-0 bg-black hidden flex flex-col z-30">
             <!-- HUD -->
             <div class="flex justify-between items-start p-2 bg-[#001100] border-b border-green-800 h-24">
-                <!-- My Score -->
                 <div class="flex flex-col w-1/3">
-                    <span class="text-[10px] opacity-70">USER_UPLOAD</span>
-                    <div class="flex gap-1 mt-1" id="hud-my-score">
-                        <!-- Pips -->
-                    </div>
+                    <span class="text-[10px] opacity-70">YOU</span>
+                    <div class="flex gap-1 mt-1" id="hud-my-score"></div>
                 </div>
-                
-                <!-- Round/Timer -->
                 <div class="flex flex-col items-center w-1/3">
                     <div class="text-2xl font-bold text-white" id="hud-round">R:01</div>
                     <div id="game-status-msg" class="text-[10px] text-[var(--neon-red)] animate-pulse">LOCKED</div>
                 </div>
-
-                <!-- Enemy Score -->
                 <div class="flex flex-col items-center w-1/3 items-end text-right">
-                    <span class="text-[10px] opacity-70 text-[var(--neon-red)]">RIVAL_UPLOAD</span>
-                    <div class="flex gap-1 mt-1 justify-end" id="hud-enemy-score">
-                        <!-- Pips -->
-                    </div>
+                    <span class="text-[10px] opacity-70 text-[var(--neon-red)]">RIVAL</span>
+                    <div class="flex gap-1 mt-1 justify-end" id="hud-enemy-score"></div>
                 </div>
             </div>
 
-            <!-- TARGET SEQUENCE -->
+            <!-- SEQUENCE -->
             <div class="p-2 flex flex-col items-center justify-center bg-black border-b border-green-900/50 h-20">
                 <div class="text-[10px] opacity-50 mb-1">TARGET_SEQUENCE</div>
-                <div id="target-sequence" class="flex gap-2 text-xl font-bold">
-                    <!-- <span class="bg-green-900/30 px-2 py-1">BD</span> -->
-                </div>
+                <div id="target-sequence" class="flex gap-2 text-xl font-bold"></div>
             </div>
 
-            <!-- BUFFER (Your inputs) -->
+            <!-- BUFFER -->
             <div class="p-2 flex gap-2 items-center justify-center h-12 bg-[#050505]">
                 <span class="text-[10px] opacity-50">BUFFER:</span>
-                <div id="buffer-display" class="flex gap-1 text-sm text-white">
-                    <!-- <span class="text-green-500">BD</span> -->
-                </div>
+                <div id="buffer-display" class="flex gap-1 text-sm text-white"></div>
             </div>
 
-            <!-- THE MATRIX (Grid) -->
+            <!-- MATRIX -->
             <div class="flex-1 p-4 flex items-center justify-center bg-black relative overflow-hidden">
-                <!-- Scanline decoration -->
-                <div class="absolute top-0 left-0 w-full h-1 bg-[var(--neon-green)] opacity-20 animate-[scan_2s_linear_infinite] pointer-events-none"></div>
-                
-                <div id="hex-grid" class="grid grid-cols-6 gap-2 p-2 border border-green-900 bg-[#000500]">
-                    <!-- Cells injected by JS -->
-                </div>
+                <div class="absolute inset-0 pointer-events-none opacity-10 bg-[radial-gradient(circle_at_center,_var(--neon-green)_0%,_transparent_70%)]"></div>
+                <div id="hex-grid" class="grid gap-2 p-2 border border-green-900 bg-[#000500] transition-all duration-500"></div>
             </div>
-            
         </div>
 
-        <!-- 5. OVERLAYS (Round End / Game Over) -->
+        <!-- 5. OVERLAY (ROUND/MATCH OVER) -->
         <div id="view-overlay" class="absolute inset-0 z-[60] bg-black/95 flex flex-col items-center justify-center hidden">
-            <div class="border-2 border-[var(--neon-green)] p-8 min-w-[300px] text-center relative overflow-hidden">
-                <div class="absolute inset-0 bg-[var(--neon-green)] opacity-5 pointer-events-none"></div>
-                
-                <h2 id="overlay-title" class="text-5xl mb-2 glow font-bold">BREACH_SUCCESS</h2>
-                <p id="overlay-sub" class="text-sm opacity-80 mb-8">DATA_PACKET_UPLOADED</p>
+            <div class="border-2 border-[var(--neon-green)] p-8 min-w-[300px] max-w-sm w-full text-center relative">
+                <h2 id="overlay-title" class="text-4xl mb-2 glow font-bold">BREACH_SUCCESS</h2>
+                <p id="overlay-sub" class="text-sm opacity-80 mb-8">DATA_UPLOADED</p>
                 
                 <div id="overlay-scores" class="flex justify-center gap-8 text-2xl mb-8">
                     <div class="text-[var(--neon-green)]">YOU: <span id="os-me">0</span></div>
-                    <div class="text-[var(--neon-red)]">RIVAL: <span id="os-them">0</span></div>
+                    <div class="text-[var(--neon-red)]">THEM: <span id="os-them">0</span></div>
                 </div>
 
-                <div id="overlay-timer" class="text-xs animate-pulse">INITIALIZING_NEXT_NODE...</div>
-                <button id="btn-quit" class="hidden mt-4 border border-red-800 text-red-500 px-6 py-2 text-sm hover:bg-red-900/20">DISCONNECT</button>
+                <div id="overlay-timer" class="text-xs animate-pulse text-[var(--neon-blue)] mb-4">NEXT_NODE_IN_3...</div>
+                
+                <button id="btn-quit" class="hidden w-full border border-red-800 text-red-500 py-3 text-sm hover:bg-red-900/20 font-bold">
+                    DISCONNECT FROM SYSTEM
+                </button>
             </div>
         </div>
 
     </div>
 
-    <!-- LOGIC -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
@@ -247,26 +220,34 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const GAMES_COLLECTION = "cyber_breach_race"; 
+        const GAMES_COLLECTION = "cyber_breach_race_v2"; 
+
+        // --- CONSTANTS ---
+        const DIFFICULTY_SETTINGS = {
+            easy: { gridSize: 4, seqLength: 3, name: "ROOKIE" },
+            medium: { gridSize: 5, seqLength: 4, name: "RUNNER" },
+            hard: { gridSize: 6, seqLength: 6, name: "NETGOD" }
+        };
+        const HEX_CODES = ['BD', '1C', '55', '7A', 'E9', 'FF'];
 
         // --- STATE ---
         let currentUser = null;
         let currentUserName = '';
         let currentGameId = null;
         let gameUnsubscribe = null;
-        let myRole = null; 
+        let myRole = null;
         let gameState = 'login';
         
-        // Game Logic State
-        let grid = []; // 2D array or 1D array with logic
-        let gridSize = 6;
+        // Game Logic
+        let grid = [];
         let targetSequence = [];
         let playerBuffer = [];
         let activeAxis = 'row'; // 'row' or 'col'
-        let activeIndex = 0; // Which row/col index is active
+        let activeIndex = 0; 
         let isLocked = false;
+        let currentDifficulty = 'medium';
 
-        // --- DOM ---
+        // --- UI REFS ---
         const ui = {
             views: {
                 login: document.getElementById('view-login'),
@@ -274,6 +255,10 @@
                 waiting: document.getElementById('view-waiting'),
                 game: document.getElementById('view-game'),
                 overlay: document.getElementById('view-overlay')
+            },
+            inputs: {
+                difficulty: document.getElementById('difficulty-select'),
+                username: document.getElementById('username-input')
             },
             grid: document.getElementById('hex-grid'),
             targetSeq: document.getElementById('target-sequence'),
@@ -294,7 +279,7 @@
             }
         };
 
-        // --- AUDIO SYNTHESIS ---
+        // --- AUDIO ---
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         const playSound = (type) => {
             if(audioCtx.state === 'suspended') audioCtx.resume();
@@ -304,60 +289,43 @@
             gain.connect(audioCtx.destination);
             const now = audioCtx.currentTime;
 
-            if(type === 'hover') {
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(800, now);
-                osc.frequency.exponentialRampToValueAtTime(1200, now + 0.05);
-                gain.gain.setValueAtTime(0.02, now);
-                gain.gain.linearRampToValueAtTime(0, now + 0.05);
-                osc.start();
-                osc.stop(now + 0.05);
-            } else if (type === 'select') {
-                // Digital blip
+            if(type === 'select') {
                 osc.type = 'square';
                 osc.frequency.setValueAtTime(600, now);
                 osc.frequency.setValueAtTime(1200, now + 0.05);
                 gain.gain.setValueAtTime(0.1, now);
                 gain.gain.linearRampToValueAtTime(0, now + 0.1);
-                osc.start();
-                osc.stop(now + 0.1);
+                osc.start(); osc.stop(now + 0.1);
             } else if (type === 'error') {
-                // Low buzz
                 osc.type = 'sawtooth';
                 osc.frequency.setValueAtTime(100, now);
                 osc.frequency.linearRampToValueAtTime(50, now + 0.3);
                 gain.gain.setValueAtTime(0.2, now);
                 gain.gain.linearRampToValueAtTime(0, now + 0.3);
-                osc.start();
-                osc.stop(now + 0.3);
+                osc.start(); osc.stop(now + 0.3);
             } else if (type === 'success') {
-                // High success chime
                 osc.type = 'triangle';
                 osc.frequency.setValueAtTime(880, now);
                 osc.frequency.setValueAtTime(1760, now + 0.1);
                 gain.gain.setValueAtTime(0.1, now);
                 gain.gain.linearRampToValueAtTime(0, now + 0.4);
-                osc.start();
-                osc.stop(now + 0.4);
+                osc.start(); osc.stop(now + 0.4);
             }
         };
 
-        // --- AUTH ---
+        // --- AUTH & INIT ---
         signInAnonymously(auth).catch(console.error);
         onAuthStateChanged(auth, (user) => {
             if(user) {
                 currentUser = user;
-                document.getElementById('auth-status').innerText = "UPLINK_ESTABLISHED";
-                document.getElementById('lobby-id').innerText = `ID: ${user.uid.slice(0,6)}`;
-                if(currentUserName) {
-                    switchView('lobby');
-                    refreshLobby();
-                }
+                document.getElementById('auth-status').innerText = "LINK_ESTABLISHED";
+                document.getElementById('lobby-id').innerText = `ID: ${user.uid.slice(0,4)}`;
+                if(currentUserName) { switchView('lobby'); refreshLobby(); }
             }
         });
 
         document.getElementById('btn-enter').addEventListener('click', () => {
-            const name = document.getElementById('username-input').value.trim().toUpperCase();
+            const name = ui.inputs.username.value.trim().toUpperCase();
             if(!name) return;
             currentUserName = name;
             document.getElementById('lobby-user').innerText = name;
@@ -366,64 +334,68 @@
             refreshLobby();
         });
 
-        // --- NAVIGATION ---
         function switchView(name) {
             Object.values(ui.views).forEach(v => v.classList.add('hidden'));
             ui.views[name].classList.remove('hidden');
             gameState = name;
         }
 
-        // --- LOBBY ---
+        // --- LOBBY LOGIC ---
         document.getElementById('btn-refresh').addEventListener('click', () => { playSound('select'); refreshLobby(); });
         document.getElementById('btn-create').addEventListener('click', createGame);
         document.getElementById('btn-cancel').addEventListener('click', leaveGame);
-        document.getElementById('btn-quit').addEventListener('click', leaveGame);
+        ui.overlay.quitBtn.addEventListener('click', leaveGame);
 
         async function refreshLobby() {
             const list = document.getElementById('game-list');
-            list.innerHTML = '<div class="text-xs animate-pulse">SCANNING_NETWORK...</div>';
+            list.innerHTML = '<div class="text-xs animate-pulse">SCANNING...</div>';
             try {
-                const q = collection(db, GAMES_COLLECTION);
-                const snap = await getDocs(q);
+                const snap = await getDocs(collection(db, GAMES_COLLECTION));
                 list.innerHTML = '';
                 let found = false;
                 snap.forEach(d => {
                     const data = d.data();
                     if(data.status === 'waiting') {
                         found = true;
+                        const diffName = DIFFICULTY_SETTINGS[data.difficulty]?.name || "UNKNOWN";
                         const div = document.createElement('div');
                         div.className = 'border border-green-900 p-2 flex justify-between items-center hover:bg-green-900/20 cursor-pointer';
                         div.innerHTML = `
-                            <div><div class="font-bold text-sm">${data.hostName}</div><div class="text-[10px] opacity-50">OPEN_PORT</div></div>
-                            <div class="text-xs bg-green-900 text-black px-2 py-1">JACK_IN</div>
+                            <div><div class="font-bold text-sm">${data.hostName}</div><div class="text-[10px] opacity-70">${diffName} NODE</div></div>
+                            <div class="text-xs bg-green-900 text-black px-2 py-1 font-bold">BREACH</div>
                         `;
                         div.onclick = () => joinGame(d.id);
                         list.appendChild(div);
                     }
                 });
-                if(!found) list.innerHTML = '<div class="text-xs opacity-50 p-2">NO_NODES_DETECTED</div>';
+                if(!found) list.innerHTML = '<div class="text-xs opacity-50 p-2">NO_SIGNALS_DETECTED</div>';
             } catch(e) { console.error(e); }
         }
 
-        // --- GAME CREATION / JOINING ---
         async function createGame() {
             playSound('select');
             if(!currentUser) return;
+            
+            const difficulty = ui.inputs.difficulty.value; // 'easy', 'medium', 'hard'
             const ref = doc(collection(db, GAMES_COLLECTION));
-            const gameData = {
+            
+            await setDoc(ref, {
                 host: currentUser.uid,
                 hostName: currentUserName,
                 status: 'waiting',
                 createdAt: Date.now(),
+                difficulty: difficulty,
                 round: 1,
                 hostScore: 0,
                 joinerScore: 0,
-                // Puzzle data will be generated per round
-            };
-            await setDoc(ref, gameData);
+            });
+            
             currentGameId = ref.id;
             myRole = 'host';
+            currentDifficulty = difficulty;
             document.getElementById('waiting-code').innerText = ref.id.slice(0, 6);
+            document.getElementById('waiting-difficulty').innerText = `DIFFICULTY: ${DIFFICULTY_SETTINGS[difficulty].name}`;
+            
             switchView('waiting');
             subscribe(currentGameId);
         }
@@ -444,123 +416,88 @@
             if(gameUnsubscribe) gameUnsubscribe();
             gameUnsubscribe = onSnapshot(doc(db, GAMES_COLLECTION, id), (snap) => {
                 if(!snap.exists()) { leaveGame(); return; }
-                handleGameUpdate(snap.data());
+                const data = snap.data();
+                handleGameUpdate(data);
             });
         }
 
-        // --- GAME LOGIC & PUZZLE GENERATION ---
-        
-        // Hex Codes for flavor
-        const CODES = ['BD', '1C', '55', '7A', 'E9', 'FF'];
+        // --- CORE GAME ENGINE ---
 
-        function generatePuzzle() {
-            // 1. Create Grid
+        function generatePuzzle(difficulty) {
+            const settings = DIFFICULTY_SETTINGS[difficulty];
+            const size = settings.gridSize;
+            const seqLen = settings.seqLength;
+
+            // 1. Grid
             const newGrid = [];
-            for(let i=0; i<gridSize*gridSize; i++) {
-                newGrid.push(CODES[Math.floor(Math.random() * CODES.length)]);
-            }
-            
-            // 2. Generate a Valid Path (Length 4 or 5)
-            // Start at Row 0, any column
-            let path = [];
+            for(let i=0; i<size*size; i++) newGrid.push(HEX_CODES[Math.floor(Math.random() * HEX_CODES.length)]);
+
+            // 2. Valid Path Generation (Simulate a breach to ensure solvability)
             let r = 0;
-            let c = Math.floor(Math.random() * gridSize);
+            let c = Math.floor(Math.random() * size);
+            const sequence = [];
             
-            // Force the grid to have this starting value
-            newGrid[c] = CODES[Math.floor(Math.random() * CODES.length)];
-            path.push(newGrid[c]); // First code is just picked, usually implicitly
+            // Start Move (Row 0)
+            sequence.push(newGrid[c]); 
 
-            // Logic: Move Horizontal -> Vertical -> Horizontal
-            let currentAxis = 'row'; // We start selecting from a row (changing column)
-            // Wait, Breach Protocol: 
-            // Pick from Row 0 (Top). Changes active Column.
-            // Next pick from that Column. Changes active Row.
+            let currR = r;
+            let currC = c;
             
-            // Let's generate a random sequence of length 4
-            let seq = [];
-            let simR = 0;
-            let simC = Math.floor(Math.random() * gridSize); // Starting simulation point
-            
-            // Actually, to make it "fairly" random but solvable, we just generate a random sequence
-            // and scatter it? No, Breach protocol requires a path.
-            // Let's just generate a random sequence of length 4 for the race. 
-            // There's a chance it's unsolvable, but in a race, players can reset or find partials.
-            // BETTER: Ensure solvability by "walking" the grid.
-            
-            // Force valid start
-            let walkR = 0;
-            let walkC = Math.floor(Math.random() * gridSize);
-            let sequence = [];
-            
-            // First item: We pick from Row 0.
-            sequence.push(newGrid[walkC]); // (0, walkC)
-            
-            // Next: Pick from Column walkC (change Row)
-            let nextR = Math.floor(Math.random() * gridSize);
-            while(nextR === 0) nextR = Math.floor(Math.random() * gridSize); // Move somewhere else
-            let idx = nextR * gridSize + walkC;
-            sequence.push(newGrid[idx]);
-            walkR = nextR;
+            // Move Vertical (pick new Row from curr Column)
+            let nextR = Math.floor(Math.random() * size);
+            while(nextR === currR) nextR = Math.floor(Math.random() * size);
+            sequence.push(newGrid[nextR * size + currC]);
+            currR = nextR;
 
-            // Next: Pick from Row walkR (change Col)
-            let nextC = Math.floor(Math.random() * gridSize);
-            while(nextC === walkC) nextC = Math.floor(Math.random() * gridSize);
-            idx = walkR * gridSize + nextC;
-            sequence.push(newGrid[idx]);
-            
-            // 3 steps is good for a fast race
+            // Move Horizontal (pick new Col from curr Row)
+            let nextC = Math.floor(Math.random() * size);
+            while(nextC === currC) nextC = Math.floor(Math.random() * size);
+            sequence.push(newGrid[currR * size + nextC]);
+            currC = nextC;
+
+            // If hard/medium, add more steps
+            if (seqLen > 3) {
+                 nextR = Math.floor(Math.random() * size);
+                 while(nextR === currR) nextR = Math.floor(Math.random() * size);
+                 sequence.push(newGrid[nextR * size + currC]);
+            }
+
             return { grid: newGrid, sequence: sequence };
         }
 
         function handleGameUpdate(data) {
-            // Lobby -> Game
+            if(data.difficulty) currentDifficulty = data.difficulty;
+
+            // Waiting -> Start
             if(gameState === 'waiting' && data.status === 'ready') {
                 if(myRole === 'host') startRound();
                 return;
             }
 
-            if(data.status === 'active' || data.status === 'finished') {
-                if(gameState !== 'game' && gameState !== 'overlay') {
+            // Active Round
+            if(data.status === 'active') {
+                // Check if we need to initialize a new round (Grid mismatch or just not in game view)
+                const isNewRound = JSON.stringify(data.sequence) !== JSON.stringify(targetSequence);
+                
+                if(gameState !== 'game' || isNewRound) {
                     switchView('game');
-                    // Init Round visuals
+                    ui.views.overlay.classList.add('hidden'); // CRITICAL FIX: Hide overlay on new round
                     initRound(data);
                 }
-            }
-            
-            // Only init round if the puzzle data changed (simple check: sequence length/content)
-            // We'll rely on local state `targetSequence` to know if we need to re-render
-            const dataSeqStr = JSON.stringify(data.sequence);
-            const localSeqStr = JSON.stringify(targetSequence);
-            
-            if(data.status === 'active' && dataSeqStr !== localSeqStr) {
-                initRound(data);
             }
 
             updateHUD(data);
 
-            if(data.status === 'finished' && gameState !== 'overlay') {
-                showRoundResult(data);
+            // Round Over / Match Over
+            if(data.status === 'finished' || data.status === 'match_over') {
+                if(!ui.views.overlay.classList.contains('flex')) { // Only show if not already shown
+                    showResultScreen(data);
+                }
             }
         }
 
-        function updateHUD(data) {
-            ui.hud.round.innerText = `R:0${data.round}`;
-            
-            const hostS = data.hostScore || 0;
-            const joinerS = data.joinerScore || 0;
-            
-            const myS = myRole === 'host' ? hostS : joinerS;
-            const enS = myRole === 'host' ? joinerS : hostS;
-            
-            const renderPips = (n) => Array(3).fill(0).map((_,i) => `<div class="w-2 h-4 ${i<n ? 'bg-[var(--neon-green)]' : 'bg-green-900/30'}"></div>`).join('');
-            
-            ui.hud.myScore.innerHTML = renderPips(myS);
-            ui.hud.enemyScore.innerHTML = renderPips(enS);
-        }
-
-        // --- ROUND LOGIC ---
         async function startRound() {
-            const puzzle = generatePuzzle();
+            const puzzle = generatePuzzle(currentDifficulty);
             const gameRef = doc(db, GAMES_COLLECTION, currentGameId);
             await updateDoc(gameRef, {
                 status: 'active',
@@ -571,123 +508,86 @@
         }
 
         function initRound(data) {
-            // Reset Local State
             grid = data.grid;
             targetSequence = data.sequence;
             playerBuffer = [];
-            activeAxis = 'row'; // Start Horizontal (Row 0)
-            activeIndex = 0;    // Row 0
+            activeAxis = 'row'; 
+            activeIndex = 0; 
             isLocked = false;
 
-            ui.views.overlay.classList.add('hidden');
-            ui.hud.status.innerText = "BREACH_PROTOCOL_INITIATED";
-            ui.hud.status.className = "text-[10px] text-[var(--neon-green)]";
-            
-            renderGrid();
+            const settings = DIFFICULTY_SETTINGS[currentDifficulty];
+            ui.grid.style.gridTemplateColumns = `repeat(${settings.gridSize}, minmax(0, 1fr))`;
+
+            renderGrid(settings.gridSize);
             renderTarget();
             renderBuffer();
+            
+            ui.hud.status.innerText = "BREACH_PROTOCOL_INITIATED";
+            ui.hud.status.className = "text-[10px] text-[var(--neon-green)]";
         }
 
         function renderTarget() {
-            ui.targetSeq.innerHTML = targetSequence.map(code => 
-                `<span class="bg-green-900/20 px-2 py-1 border border-green-900/50">${code}</span>`
-            ).join('');
+            ui.targetSeq.innerHTML = targetSequence.map(code => `<span class="bg-green-900/20 px-2 py-1 border border-green-900/50">${code}</span>`).join('');
         }
 
         function renderBuffer() {
-            ui.buffer.innerHTML = playerBuffer.map(code => 
-                `<span class="text-white font-bold">${code}</span>`
-            ).join(' ');
+            ui.buffer.innerHTML = playerBuffer.map(code => `<span class="text-white font-bold">${code}</span>`).join(' ');
         }
 
-        function renderGrid() {
+        function renderGrid(size) {
             ui.grid.innerHTML = '';
             grid.forEach((code, i) => {
-                const r = Math.floor(i / gridSize);
-                const c = i % gridSize;
-                
+                const r = Math.floor(i / size);
+                const c = i % size;
                 const el = document.createElement('div');
                 el.className = `hex-cell w-full aspect-square flex items-center justify-center border border-green-900/30 bg-[#001100] hover:bg-green-900/50 text-lg font-bold`;
                 el.innerText = code;
-                el.dataset.idx = i;
-                el.dataset.r = r;
-                el.dataset.c = c;
                 
-                // Highlight Active Axis logic
                 if (activeAxis === 'row' && r === activeIndex) el.classList.add('active-axis');
                 if (activeAxis === 'col' && c === activeIndex) el.classList.add('active-axis');
-
-                el.onclick = () => handleCellClick(r, c, code, el);
-                el.onmouseenter = () => playSound('hover');
                 
+                el.onclick = () => handleMove(r, c, code, el);
                 ui.grid.appendChild(el);
             });
         }
 
-        async function handleCellClick(r, c, code, el) {
-            if(isLocked) return;
-            if(gameState !== 'game') return;
+        async function handleMove(r, c, code, el) {
+            if(isLocked || gameState !== 'game') return;
 
-            // Validate Move
-            let isValid = false;
-            if(activeAxis === 'row' && r === activeIndex) isValid = true;
-            if(activeAxis === 'col' && c === activeIndex) isValid = true;
-
+            let isValid = (activeAxis === 'row' && r === activeIndex) || (activeAxis === 'col' && c === activeIndex);
             if(!isValid) {
                 playSound('error');
-                ui.hud.status.innerText = "INVALID_VECTOR";
-                ui.hud.status.className = "text-[var(--neon-red)] animate-pulse";
                 return;
             }
 
-            // Execute Move
             playSound('select');
-            el.classList.add('selected'); // Visual only, real logic is purely data
-            el.classList.add('disabled'); // Cannot pick same cell twice usually in breach protocol
-
+            el.classList.add('selected', 'disabled');
             playerBuffer.push(code);
             renderBuffer();
 
             // Switch Axis
-            if(activeAxis === 'row') {
-                activeAxis = 'col';
-                activeIndex = c;
-            } else {
-                activeAxis = 'row';
-                activeIndex = r;
-            }
-
-            // Re-render grid highlights
-            renderGrid(); 
-
-            // Check Win Condition
-            // In Breach Protocol, buffer acts as a sliding window. 
-            // For this Race, let's make it strict: Buffer must equal Sequence exactly.
+            if(activeAxis === 'row') { activeAxis = 'col'; activeIndex = c; }
+            else { activeAxis = 'row'; activeIndex = r; }
             
-            // Check if current buffer matches the start of target
-            const currentDepth = playerBuffer.length;
-            const targetSlice = targetSequence.slice(0, currentDepth);
-            
-            const isMatchSoFar = playerBuffer.every((val, index) => val === targetSlice[index]);
+            renderGrid(DIFFICULTY_SETTINGS[currentDifficulty].gridSize);
 
-            if(!isMatchSoFar) {
-                // Failed Sequence
+            // Check Sequence
+            const depth = playerBuffer.length;
+            const targetSlice = targetSequence.slice(0, depth);
+            const match = playerBuffer.every((v, i) => v === targetSlice[i]);
+
+            if(!match) {
                 playSound('error');
-                playerBuffer = []; // Hard reset on error for race pressure
-                activeAxis = 'row';
-                activeIndex = 0; // Reset to top
-                renderBuffer();
-                renderGrid(); // Reset highlights
-                ui.hud.status.innerText = "BUFFER_FLUSHED_//_RESET";
+                playerBuffer = []; activeAxis = 'row'; activeIndex = 0;
+                renderBuffer(); renderGrid(DIFFICULTY_SETTINGS[currentDifficulty].gridSize);
+                ui.hud.status.innerText = "BUFFER_RESET // INVALID_SEQ";
                 ui.hud.status.className = "text-[var(--neon-red)]";
                 return;
             }
 
             if(playerBuffer.length === targetSequence.length) {
-                // WINNER
                 isLocked = true;
                 playSound('success');
-                // Update DB
                 try {
                     await updateDoc(doc(db, GAMES_COLLECTION, currentGameId), {
                         roundWinner: currentUser.uid,
@@ -697,63 +597,96 @@
             }
         }
 
-        function showRoundResult(data) {
+        function updateHUD(data) {
+            ui.hud.round.innerText = `R:0${data.round}`;
+            const hS = data.hostScore || 0;
+            const jS = data.joinerScore || 0;
+            const myS = myRole === 'host' ? hS : jS;
+            const enS = myRole === 'host' ? jS : hS;
+            
+            const pips = (n) => Array(3).fill(0).map((_,i) => `<div class="w-2 h-4 ${i<n ? 'bg-[var(--neon-green)]' : 'bg-green-900/30'}"></div>`).join('');
+            ui.hud.myScore.innerHTML = pips(myS);
+            ui.hud.enemyScore.innerHTML = pips(enS);
+        }
+
+        function showResultScreen(data) {
             ui.views.overlay.classList.remove('hidden');
-            ui.overlay.quitBtn.classList.add('hidden');
-            ui.overlay.timer.classList.remove('hidden');
+            ui.views.overlay.classList.add('flex');
             
             const iWon = data.roundWinner === currentUser.uid;
             
-            if(iWon) {
-                ui.overlay.title.innerText = "ACCESS_GRANTED";
-                ui.overlay.title.style.color = "var(--neon-green)";
-                ui.overlay.sub.innerText = "DAEMON_UPLOAD_COMPLETE";
-            } else {
-                ui.overlay.title.innerText = "SYSTEM_LOCKOUT";
-                ui.overlay.title.style.color = "var(--neon-red)";
-                ui.overlay.sub.innerText = "RIVAL_BREACH_DETECTED";
+            // Match Over Logic (Final Screen)
+            if (data.status === 'match_over') {
+                ui.overlay.title.innerText = data.matchWinner === currentUser.uid ? "SYSTEM_OWNED" : "CONNECTION_LOST";
+                ui.overlay.title.style.color = data.matchWinner === currentUser.uid ? "var(--neon-green)" : "var(--neon-red)";
+                ui.overlay.sub.innerText = data.matchWinner === currentUser.uid ? "YOU ARE THE NETGOD" : "FLATLINED";
+                ui.overlay.timer.classList.add('hidden');
+                ui.overlay.quitBtn.classList.remove('hidden'); // FIX: Show quit button
+            } 
+            // Round Over Logic (Transition)
+            else {
+                ui.overlay.title.innerText = iWon ? "ACCESS_GRANTED" : "LOCKOUT";
+                ui.overlay.title.style.color = iWon ? "var(--neon-green)" : "var(--neon-red)";
+                ui.overlay.sub.innerText = iWon ? "UPLOAD_COMPLETE" : "RIVAL_BREACHED";
+                ui.overlay.timer.classList.remove('hidden');
+                ui.overlay.quitBtn.classList.add('hidden');
+
+                // Host controls progression
+                if(myRole === 'host') {
+                    setTimeout(async () => {
+                        // Calculate Score
+                        let hS = data.hostScore;
+                        let jS = data.joinerScore;
+                        if(data.roundWinner === currentUser.uid) hS++; else jS++;
+
+                        // Match Win Check: First to 3 AND Win by 2
+                        let matchWinner = null;
+                        if (hS >= 3 && (hS - jS) >= 2) matchWinner = currentUser.uid;
+                        else if (jS >= 3 && (jS - hS) >= 2) matchWinner = data.joiner;
+
+                        if (matchWinner) {
+                            await updateDoc(doc(db, GAMES_COLLECTION, currentGameId), {
+                                hostScore: hS, joinerScore: jS,
+                                status: 'match_over',
+                                matchWinner: matchWinner
+                            });
+                        } else {
+                            // Next Round
+                            const puzzle = generatePuzzle(currentDifficulty);
+                            await updateDoc(doc(db, GAMES_COLLECTION, currentGameId), {
+                                hostScore: hS, joinerScore: jS,
+                                round: data.round + 1,
+                                roundWinner: null,
+                                status: 'active',
+                                grid: puzzle.grid,
+                                sequence: puzzle.sequence
+                            });
+                        }
+                    }, 3000);
+                }
             }
 
-            // Calculate Next Round (Host Only)
-            if(myRole === 'host') {
-                setTimeout(async () => {
-                    let hS = data.hostScore;
-                    let jS = data.joinerScore;
-                    
-                    if(data.roundWinner === currentUser.uid) hS++; else jS++;
-
-                    // Win Condition: First to 3 AND Win by 2
-                    let winner = null;
-                    if(hS >= 3 && (hS - jS) >= 2) winner = currentUser.uid;
-                    else if(jS >= 3 && (jS - hS) >= 2) winner = data.joiner; // simplified
-
-                    if(winner) {
-                        // End Game
-                        // We just stay on overlay with Quit button
-                    } else {
-                        // Next Round
-                        await updateDoc(doc(db, GAMES_COLLECTION, currentGameId), {
-                            hostScore: hS,
-                            joinerScore: jS,
-                            round: data.round + 1,
-                            roundWinner: null,
-                            status: 'active', // Trigger next
-                            ...generatePuzzle() // New grid
-                        });
-                    }
-                }, 3000);
+            // Update Score Text on Overlay
+            const hS = data.hostScore;
+            const jS = data.joinerScore;
+            // Add 1 visual point if round just ended but DB not updated yet (for smooth UX)
+            let myDisplayS = myRole === 'host' ? hS : jS;
+            let enDisplayS = myRole === 'host' ? jS : hS;
+            
+            if(data.status === 'finished') {
+                if(iWon) myDisplayS++; else enDisplayS++;
             }
 
-            ui.overlay.scoreMe.innerText = myRole === 'host' ? (data.hostScore + (iWon?1:0)) : (data.joinerScore + (iWon?1:0));
-            ui.overlay.scoreThem.innerText = myRole === 'host' ? (data.joinerScore + (!iWon?1:0)) : (data.hostScore + (!iWon?1:0));
+            ui.overlay.scoreMe.innerText = myDisplayS;
+            ui.overlay.scoreThem.innerText = enDisplayS;
         }
 
         async function leaveGame() {
             if(gameUnsubscribe) gameUnsubscribe();
             if(currentGameId && myRole === 'host') {
-                await deleteDoc(doc(db, GAMES_COLLECTION, currentGameId));
+                try { await deleteDoc(doc(db, GAMES_COLLECTION, currentGameId)); } catch(e){}
             }
-            window.location.reload(); // Easiest reset
+            window.location.reload();
         }
 
     </script>
