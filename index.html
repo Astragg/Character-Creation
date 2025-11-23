@@ -155,6 +155,16 @@
             return score;
         };
 
+        // For High/Low: 2=2, ... J=11, Q=12, K=13, A=14
+        const getCardRank = (card) => {
+            if (!card) return 0;
+            if (card.value === 'A') return 14;
+            if (card.value === 'K') return 13;
+            if (card.value === 'Q') return 12;
+            if (card.value === 'J') return 11;
+            return parseInt(card.value);
+        }
+
         // --- COMPONENTS ---
 
         const Card = ({ card, hidden }) => {
@@ -217,7 +227,7 @@
                 if (!user || !roomName) return;
 
                 const appId = "default-app-id";
-                // FIXED: Added 'rooms' subcollection to make path even (6 segments)
+                // Even path segments: artifacts > {appId} > public > data > rooms > {roomName}
                 const roomRef = window.doc(window.db, 'artifacts', appId, 'public', 'data', 'rooms', `room_${roomName}`);
 
                 const unsub = window.onSnapshot(roomRef, (snap) => {
@@ -247,20 +257,18 @@
                 if (!name || !pin) return;
 
                 const appId = "default-app-id";
-                // FIXED: Added 'rooms' subcollection
                 const roomRef = window.doc(window.db, 'artifacts', appId, 'public', 'data', 'rooms', `room_${name}`);
                 
-                // Initialize empty room
                 await window.setDoc(roomRef, {
                     roomId: name,
                     dealerPin: pin,
                     dealerId: null,
                     activeGame: '21', // '21', 'highlow', 'redblack'
-                    gameState: 'waiting', // 'waiting', 'playing', 'finished'
+                    gameState: 'waiting', 
                     deck: createDeck(),
-                    turnIndex: -1, // -1 is dealer/waiting, 0-9 is players
+                    turnIndex: -1, 
                     dealerHand: [],
-                    players: {}, // Map of uid -> { name, hand, status }
+                    players: {}, 
                     createdAt: Date.now()
                 });
                 setRoomName(name);
@@ -276,7 +284,6 @@
 
             const updateRoom = async (data) => {
                 const appId = "default-app-id";
-                // FIXED: Added 'rooms' subcollection
                 const roomRef = window.doc(window.db, 'artifacts', appId, 'public', 'data', 'rooms', `room_${roomName}`);
                 await window.updateDoc(roomRef, data);
             };
@@ -293,13 +300,12 @@
 
             const sitAsPlayer = async (seatIndex) => {
                 const newPlayers = { ...roomData.players };
-                // Remove user from other seats if necessary, or just overwrite
                 newPlayers[user.uid] = {
                     name: `P${seatIndex + 1}`,
                     hand: [],
-                    status: 'active', // active, stand, bust
+                    status: 'active', // active, stand, bust, win, lose
                     seatIndex: seatIndex,
-                    bet: 0
+                    vote: null // 'red', 'black', 'high', 'low'
                 };
                 await updateRoom({ players: newPlayers });
             };
@@ -317,11 +323,11 @@
             // --- DEALER GM ACTIONS ---
 
             const resetGame = async () => {
-                // Reset everyone's hands
                 const newPlayers = { ...roomData.players };
                 Object.keys(newPlayers).forEach(key => {
                     newPlayers[key].hand = [];
                     newPlayers[key].status = 'active';
+                    newPlayers[key].vote = null;
                 });
 
                 await updateRoom({
@@ -337,64 +343,126 @@
                 if (Object.keys(roomData.players).length === 0) return;
 
                 let currentDeck = [...roomData.deck];
-                // Reshuffle if low
                 if (currentDeck.length < 15) currentDeck = createDeck();
 
                 const newPlayers = { ...roomData.players };
                 const playerIds = Object.keys(newPlayers);
+                let newDealerHand = [];
 
-                // Deal 2 cards to each player
-                playerIds.forEach(pid => {
-                    newPlayers[pid].hand = [currentDeck.pop(), currentDeck.pop()];
-                    newPlayers[pid].status = 'active';
-                });
-
-                // Deal 1 to dealer (hidden logic handled in render)
-                const dealerHand = [currentDeck.pop()]; 
+                if (roomData.activeGame === '21') {
+                    // 21: Deal 2 cards to players, 1 to dealer
+                    playerIds.forEach(pid => {
+                        newPlayers[pid].hand = [currentDeck.pop(), currentDeck.pop()];
+                        newPlayers[pid].status = 'active';
+                        newPlayers[pid].vote = null;
+                    });
+                    newDealerHand = [currentDeck.pop()];
+                } else if (roomData.activeGame === 'redblack') {
+                    // Red/Black: No cards for players, just reset status
+                    playerIds.forEach(pid => {
+                        newPlayers[pid].hand = []; // Players don't need hands
+                        newPlayers[pid].status = 'active';
+                        newPlayers[pid].vote = null;
+                    });
+                    newDealerHand = []; // Dealer draws on "Deal"
+                } else if (roomData.activeGame === 'highlow') {
+                    // High/Low: Dealer starts with 1 card
+                    playerIds.forEach(pid => {
+                        newPlayers[pid].hand = [];
+                        newPlayers[pid].status = 'active';
+                        newPlayers[pid].vote = null;
+                    });
+                    newDealerHand = [currentDeck.pop()];
+                }
 
                 await updateRoom({
                     gameState: 'playing',
                     deck: currentDeck,
                     players: newPlayers,
-                    dealerHand: dealerHand,
-                    turnIndex: 0 // Start with first player logic (need to map turnIndex to actual player ID later)
+                    dealerHand: newDealerHand,
+                    turnIndex: 0
                 });
             };
 
-            const dealerHit = async () => {
+            const dealerDrawAndResolve = async () => {
+                // This handles "Hit Dealer" for 21 AND "Draw" for Red/Black / High/Low
                 let currentDeck = [...roomData.deck];
-                const newHand = [...roomData.dealerHand, currentDeck.pop()];
+                const newCard = currentDeck.pop();
+                const oldHand = [...roomData.dealerHand];
+                const newHand = [...oldHand, newCard];
+                
+                const newPlayers = { ...roomData.players };
+
+                if (roomData.activeGame === 'redblack') {
+                    const isRed = newCard.suit === '♥' || newCard.suit === '♦';
+                    Object.keys(newPlayers).forEach(pid => {
+                        const p = newPlayers[pid];
+                        if (!p.vote) {
+                            p.status = 'active'; // No vote, no result
+                        } else if ((p.vote === 'red' && isRed) || (p.vote === 'black' && !isRed)) {
+                            p.status = 'win';
+                        } else {
+                            p.status = 'lose';
+                        }
+                        // Clear vote for next card immediately? Or keep it? 
+                        // Let's keep vote so they can spam same color if they want.
+                        // But maybe reset status on vote change.
+                    });
+                } else if (roomData.activeGame === 'highlow') {
+                    const prevCard = oldHand[oldHand.length - 1];
+                    const prevRank = getCardRank(prevCard);
+                    const newRank = getCardRank(newCard);
+
+                    Object.keys(newPlayers).forEach(pid => {
+                        const p = newPlayers[pid];
+                        if (!p.vote) {
+                            p.status = 'active';
+                        } else if (p.vote === 'high') {
+                            if (newRank > prevRank) p.status = 'win';
+                            else if (newRank < prevRank) p.status = 'lose';
+                            else p.status = 'push'; // Tie
+                        } else if (p.vote === 'low') {
+                            if (newRank < prevRank) p.status = 'win';
+                            else if (newRank > prevRank) p.status = 'lose';
+                            else p.status = 'push'; // Tie
+                        }
+                    });
+                }
+                
+                // For 21, logic is simpler (just adding card), wins calculated at end usually
+                // But this function is primarily for the Dealer drawing.
+
                 await updateRoom({
                     dealerHand: newHand,
-                    deck: currentDeck
+                    deck: currentDeck,
+                    players: newPlayers
                 });
             };
 
             // --- PLAYER ACTIONS ---
 
-            const hit = async () => {
+            const playerAction = async (actionType, payload) => {
+                if (roomData.gameState !== 'playing') return;
+                
                 let currentDeck = [...roomData.deck];
                 const newPlayers = { ...roomData.players };
                 const player = newPlayers[user.uid];
-                
-                const newCard = currentDeck.pop();
-                player.hand.push(newCard);
 
-                const score = calculateScore(player.hand);
-                if (score > 21) {
-                    player.status = 'bust';
+                if (actionType === 'vote') {
+                    player.vote = payload; // 'red', 'black', 'high', 'low'
+                    player.status = 'active'; // Reset status when changing vote
+                } else if (actionType === 'hit') {
+                    const newCard = currentDeck.pop();
+                    player.hand.push(newCard);
+                    if (calculateScore(player.hand) > 21) player.status = 'bust';
+                } else if (actionType === 'stand') {
+                    player.status = 'stand';
                 }
 
                 await updateRoom({
                     players: newPlayers,
                     deck: currentDeck
                 });
-            };
-
-            const stand = async () => {
-                const newPlayers = { ...roomData.players };
-                newPlayers[user.uid].status = 'stand';
-                await updateRoom({ players: newPlayers });
             };
 
             // --- RENDERERS ---
@@ -439,14 +507,22 @@
             // GAME ROOM VIEW
             const isDealer = roomData.dealerId === user.uid;
             const isSeated = Object.keys(roomData.players).includes(user.uid);
-            const myPlayer = isSeated ? roomData.players[user.uid] : null;
+            
+            // Helper for Game Title
+            const getGameTitle = () => {
+                if (roomData.activeGame === '21') return '21 / BLACKJACK';
+                if (roomData.activeGame === 'redblack') return 'RED OR BLACK';
+                if (roomData.activeGame === 'highlow') return 'HIGHER / LOWER';
+                return 'UNKNOWN';
+            };
 
             return (
                 <div className="min-h-screen flex flex-col p-2 max-w-6xl mx-auto">
                     {/* Header */}
                     <div className="flex justify-between items-center mb-4 bg-gray-900 p-2 pixel-box">
-                        <div className="text-xs md:text-sm text-yellow-500">
-                            TABLE: <span className="text-white">{roomName}</span>
+                        <div className="text-xs md:text-sm text-yellow-500 flex flex-col md:flex-row md:gap-4">
+                            <span>TABLE: <span className="text-white">{roomName}</span></span>
+                            <span>GAME: <span className="text-green-400">{getGameTitle()}</span></span>
                         </div>
                         <div className="flex gap-4">
                              <button onClick={() => {
@@ -459,8 +535,7 @@
 
                     {/* DEALER SECTION */}
                     <div className="flex flex-col items-center mb-8 relative">
-                        {/* Dealer Seat */}
-                        <div className="w-full max-w-2xl bg-gray-800 p-4 pixel-box-red flex flex-col items-center min-h-[160px]">
+                        <div className="w-full max-w-2xl bg-gray-800 p-4 pixel-box-red flex flex-col items-center min-h-[220px]">
                             <div className="absolute top-2 left-2 text-xs text-red-500">DEALER (GM)</div>
                             
                             {!roomData.dealerId ? (
@@ -471,51 +546,50 @@
                                     [ EMPTY SEAT - CLICK TO GM ]
                                 </button>
                             ) : (
-                                <div className="w-full">
+                                <div className="w-full flex flex-col items-center">
                                     {/* Dealer Hand */}
-                                    <div className="flex justify-center gap-2 mb-4 mt-6">
+                                    <div className="flex justify-center gap-2 mb-4 mt-6 flex-wrap">
                                         {roomData.dealerHand && roomData.dealerHand.length > 0 ? (
                                             roomData.dealerHand.map((c, i) => <Card key={i} card={c} />)
                                         ) : (
-                                            <div className="w-12 h-16 border-2 border-gray-600 rounded flex items-center justify-center text-gray-600 text-xs">Empty</div>
+                                            <div className="w-12 h-16 border-2 border-gray-600 rounded flex items-center justify-center text-gray-600 text-xs">Wait</div>
                                         )}
                                     </div>
+                                    
+                                    {/* Dealer Score / Info */}
                                     <div className="text-center text-sm text-red-300 mb-2">
-                                        Score: {calculateScore(roomData.dealerHand)}
+                                        {roomData.activeGame === '21' && `Score: ${calculateScore(roomData.dealerHand)}`}
+                                        {roomData.activeGame === 'highlow' && roomData.dealerHand.length > 0 && "Current Card"}
+                                        {roomData.activeGame === 'redblack' && "Dealing..."}
                                     </div>
                                     
-                                    {/* GM Controls (Only visible to Dealer) */}
+                                    {/* GM Controls */}
                                     {isDealer && (
-                                        <div className="bg-black bg-opacity-30 p-2 mt-2 flex flex-wrap gap-2 justify-center">
+                                        <div className="bg-black bg-opacity-30 p-2 mt-2 flex flex-wrap gap-2 justify-center w-full">
                                             <div className="text-xs text-white w-full text-center mb-1">--- GM CONTROLS ---</div>
                                             
-                                            {roomData.gameState === 'waiting' && (
-                                                <button onClick={startRound} className="bg-green-600 text-white text-xs px-2 py-1 pixel-btn border-b-2 border-green-800">
-                                                    DEAL ROUND
+                                            {roomData.gameState === 'waiting' ? (
+                                                <button onClick={startRound} className="bg-green-600 text-white text-xs px-2 py-2 pixel-btn border-b-2 border-green-800">
+                                                    START ROUND
+                                                </button>
+                                            ) : (
+                                                <button onClick={dealerDrawAndResolve} className="bg-blue-600 text-white text-xs px-2 py-2 pixel-btn border-b-2 border-blue-800">
+                                                    {roomData.activeGame === '21' ? "HIT DEALER" : "DRAW & RESOLVE"}
                                                 </button>
                                             )}
 
-                                            {roomData.gameState === 'playing' && (
-                                                <>
-                                                    <button onClick={dealerHit} className="bg-blue-600 text-white text-xs px-2 py-1 pixel-btn border-b-2 border-blue-800">
-                                                        HIT DEALER
-                                                    </button>
-                                                </>
-                                            )}
-
-                                            <button onClick={resetGame} className="bg-red-600 text-white text-xs px-2 py-1 pixel-btn border-b-2 border-red-800">
-                                                RESET ALL
+                                            <button onClick={resetGame} className="bg-red-600 text-white text-xs px-2 py-2 pixel-btn border-b-2 border-red-800">
+                                                RESET
                                             </button>
 
-                                            <button onClick={standUp} className="bg-gray-600 text-white text-xs px-2 py-1 pixel-btn border-b-2 border-gray-800">
+                                            <button onClick={standUp} className="bg-gray-600 text-white text-xs px-2 py-2 pixel-btn border-b-2 border-gray-800">
                                                 STAND UP
                                             </button>
                                             
-                                            {/* Future Proofing Selector */}
                                             <select 
-                                                className="bg-gray-900 text-white text-xs p-1 border border-gray-600"
+                                                className="bg-gray-900 text-white text-xs p-2 border border-gray-600"
                                                 value={roomData.activeGame}
-                                                onChange={(e) => updateRoom({ activeGame: e.target.value })}
+                                                onChange={(e) => updateRoom({ activeGame: e.target.value, gameState: 'waiting', dealerHand: [], players: {}, deck: createDeck() })}
                                             >
                                                 <option value="21">Game: 21</option>
                                                 <option value="highlow">Game: High/Low</option>
@@ -531,20 +605,17 @@
                     {/* PLAYERS GRID */}
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                         {[...Array(10)].map((_, index) => {
-                            // Find player in this seat index
                             const playerEntry = Object.entries(roomData.players).find(([uid, data]) => data.seatIndex === index);
                             const pId = playerEntry ? playerEntry[0] : null;
                             const pData = playerEntry ? playerEntry[1] : null;
                             const isMe = pId === user.uid;
 
                             return (
-                                <div key={index} className={`relative min-h-[180px] p-2 flex flex-col items-center justify-between transition-colors ${isMe ? 'bg-gray-700 pixel-box-green' : 'bg-gray-800 pixel-box'}`}>
+                                <div key={index} className={`relative min-h-[200px] p-2 flex flex-col items-center justify-between transition-colors ${isMe ? 'bg-gray-700 pixel-box-green' : 'bg-gray-800 pixel-box'}`}>
                                     
-                                    {/* Seat Label */}
                                     <div className="text-[10px] text-gray-500 absolute top-1 left-1">P{index + 1}</div>
 
                                     {!pData ? (
-                                        // Empty Seat
                                         <button 
                                             onClick={() => sitAsPlayer(index)}
                                             disabled={isSeated || isDealer}
@@ -553,41 +624,70 @@
                                             SIT
                                         </button>
                                     ) : (
-                                        // Occupied Seat
                                         <>
                                             <div className="text-xs text-green-400 mb-1 truncate w-full text-center">
                                                 {isMe ? "YOU" : "PLAYER"}
                                             </div>
 
-                                            {/* Cards */}
-                                            <div className="flex -space-x-4 mb-2 h-16 items-center">
-                                                {pData.hand && pData.hand.map((c, i) => (
-                                                    <div key={i} className="transform hover:-translate-y-2 transition-transform">
-                                                        <Card card={c} />
-                                                    </div>
-                                                ))}
-                                                {(!pData.hand || pData.hand.length === 0) && (
-                                                    <div className="text-[10px] text-gray-600">No Cards</div>
+                                            {/* Game Specific Display */}
+                                            {roomData.activeGame === '21' ? (
+                                                <div className="flex -space-x-4 mb-2 h-16 items-center">
+                                                    {pData.hand && pData.hand.map((c, i) => (
+                                                        <div key={i} className="transform hover:-translate-y-2 transition-transform">
+                                                            <Card card={c} />
+                                                        </div>
+                                                    ))}
+                                                    {(!pData.hand || pData.hand.length === 0) && (
+                                                        <div className="text-[10px] text-gray-600">No Cards</div>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                // Voting Display for Other Games
+                                                <div className="flex flex-col items-center justify-center h-16 mb-2 w-full">
+                                                    {pData.vote === 'red' && <div className="w-8 h-8 bg-red-600 border-2 border-white"></div>}
+                                                    {pData.vote === 'black' && <div className="w-8 h-8 bg-black border-2 border-white"></div>}
+                                                    {pData.vote === 'high' && <div className="text-2xl text-green-400">↑</div>}
+                                                    {pData.vote === 'low' && <div className="text-2xl text-red-400">↓</div>}
+                                                    {!pData.vote && <div className="text-[10px] text-gray-500 blink">Thinking...</div>}
+                                                </div>
+                                            )}
+
+                                            {/* Status / Score */}
+                                            <div className="text-center mb-2 h-8">
+                                                {roomData.activeGame === '21' && (
+                                                    <div className="text-sm font-bold text-white">{calculateScore(pData.hand)}</div>
                                                 )}
-                                            </div>
-
-                                            {/* Score & Status */}
-                                            <div className="text-center mb-2">
-                                                <div className="text-sm font-bold text-white">
-                                                    {calculateScore(pData.hand)}
-                                                </div>
-                                                <div className={`text-[10px] uppercase ${pData.status === 'bust' ? 'text-red-500' : 'text-blue-300'}`}>
-                                                    {pData.status}
+                                                <div className={`text-[10px] uppercase font-bold ${
+                                                    pData.status === 'bust' || pData.status === 'lose' ? 'text-red-500' : 
+                                                    pData.status === 'win' ? 'text-green-400' : 'text-blue-300'
+                                                }`}>
+                                                    {pData.status === 'active' ? (pData.vote ? 'READY' : '') : pData.status}
                                                 </div>
                                             </div>
 
-                                            {/* Controls (Only if it's me) */}
+                                            {/* Controls */}
                                             {isMe && (
                                                 <div className="flex flex-col gap-1 w-full">
-                                                    {roomData.gameState === 'playing' && pData.status === 'active' && (
-                                                        <div className="flex gap-1 justify-center">
-                                                            <button onClick={hit} className="bg-green-600 text-white text-[10px] flex-1 py-1 hover:bg-green-500">HIT</button>
-                                                            <button onClick={stand} className="bg-red-600 text-white text-[10px] flex-1 py-1 hover:bg-red-500">STAND</button>
+                                                    {roomData.gameState === 'playing' && (
+                                                        <div className="flex gap-1 justify-center w-full">
+                                                            {roomData.activeGame === '21' && pData.status === 'active' && (
+                                                                <>
+                                                                    <button onClick={() => playerAction('hit')} className="bg-green-600 text-white text-[10px] flex-1 py-2 hover:bg-green-500">HIT</button>
+                                                                    <button onClick={() => playerAction('stand')} className="bg-red-600 text-white text-[10px] flex-1 py-2 hover:bg-red-500">STAND</button>
+                                                                </>
+                                                            )}
+                                                            {roomData.activeGame === 'redblack' && (
+                                                                <>
+                                                                    <button onClick={() => playerAction('vote', 'red')} className={`bg-red-600 text-white text-[10px] flex-1 py-2 ${pData.vote === 'red' ? 'border-2 border-white' : ''}`}>RED</button>
+                                                                    <button onClick={() => playerAction('vote', 'black')} className={`bg-black text-white text-[10px] flex-1 py-2 ${pData.vote === 'black' ? 'border-2 border-white' : ''}`}>BLK</button>
+                                                                </>
+                                                            )}
+                                                            {roomData.activeGame === 'highlow' && (
+                                                                <>
+                                                                    <button onClick={() => playerAction('vote', 'high')} className={`bg-green-600 text-white text-[10px] flex-1 py-2 ${pData.vote === 'high' ? 'border-2 border-white' : ''}`}>HIGH</button>
+                                                                    <button onClick={() => playerAction('vote', 'low')} className={`bg-red-600 text-white text-[10px] flex-1 py-2 ${pData.vote === 'low' ? 'border-2 border-white' : ''}`}>LOW</button>
+                                                                </>
+                                                            )}
                                                         </div>
                                                     )}
                                                     <button onClick={standUp} className="text-[10px] text-gray-500 hover:text-white mt-1">Leave Seat</button>
