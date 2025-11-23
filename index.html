@@ -47,7 +47,10 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-// Using your project ID as the default app ID for data storage paths
+
+// --- App ID Handling ---
+// If running in the preview environment, use the provided ID to ensure database isolation.
+// If running on GitHub Pages/Localhost, default to your specific project ID 'highnoon-66ee0'.
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'highnoon-66ee0';
 
 // --- Constants & Utils ---
@@ -118,22 +121,22 @@ const App = () => {
   useEffect(() => {
     const initAuth = async () => {
       try {
-        // Attempt to use the environment token if available
+        // 1. Check if running in the preview environment with a provided token
         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
           await signInWithCustomToken(auth, __initial_auth_token);
         } else {
-          // If no token is provided by the environment, go straight to anonymous
+          // 2. Standard behavior for GitHub Pages / Localhost
+          // NOTE: Ensure 'your-username.github.io' is added to Firebase Console -> Auth -> Settings -> Authorized Domains
+          console.log("Initializing Standalone Mode (GitHub Pages/Local)...");
           await signInAnonymously(auth);
         }
       } catch (err) {
-        // If the environment token fails (likely due to project mismatch since we are using a custom config),
-        // fall back gracefully to anonymous auth for your specific project.
-        console.warn("Custom token auth failed (expected if using custom Firebase config), falling back to anonymous:", err);
+        console.warn("Auth error, attempting fallback:", err);
         try {
           await signInAnonymously(auth);
         } catch (anonErr) {
-          console.error("Anonymous auth also failed:", anonErr);
-          setError("Authentication failed. Please check if Anonymous Auth is enabled in Firebase Console.");
+          console.error("Anonymous auth failed. Check Authorized Domains in Firebase Console.", anonErr);
+          setError("Auth Failed: Add this domain to Firebase Console -> Auth -> Authorized Domains");
         }
       }
     };
