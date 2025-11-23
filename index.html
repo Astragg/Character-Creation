@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pixel 21 - Multiplayer</title>
+    <title>Pixel 21 - Virtual Tabletop</title>
     
     <!-- React & ReactDOM -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
@@ -38,7 +38,6 @@
         window.auth = getAuth(app);
         window.db = getFirestore(app);
         
-        // Expose Firestore functions to window for React to use
         window.doc = doc;
         window.onSnapshot = onSnapshot;
         window.setDoc = setDoc;
@@ -52,88 +51,100 @@
     <style>
         body {
             font-family: 'Press Start 2P', cursive;
-            background-color: #2c3e50;
+            background-color: #1a1a1a;
             color: #ecf0f1;
+            background-image: radial-gradient(#2c3e50 15%, transparent 16%), radial-gradient(#2c3e50 15%, transparent 16%);
+            background-size: 20px 20px;
+            background-position: 0 0, 10px 10px;
         }
         
         /* Custom Scrollbar */
-        ::-webkit-scrollbar { width: 10px; }
-        ::-webkit-scrollbar-track { background: #2c3e50; }
-        ::-webkit-scrollbar-thumb { background: #e74c3c; border: 2px solid #2c3e50; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1a1a1a; }
+        ::-webkit-scrollbar-thumb { background: #f1c40f; border-radius: 4px; }
 
-        /* Pixel Borders Utility */
-        .pixel-box {
-            box-shadow: 
-                -4px 0 0 0 white, 
-                4px 0 0 0 white, 
-                0 -4px 0 0 white, 
-                0 4px 0 0 white;
-            margin: 4px;
-        }
-        .pixel-box-gold {
-            box-shadow: 
-                -4px 0 0 0 #f1c40f, 
-                4px 0 0 0 #f1c40f, 
-                0 -4px 0 0 #f1c40f, 
-                0 4px 0 0 #f1c40f;
-        }
-        .pixel-box-red {
-            box-shadow: 
-                -4px 0 0 0 #c0392b, 
-                4px 0 0 0 #c0392b, 
-                0 -4px 0 0 #c0392b, 
-                0 4px 0 0 #c0392b;
-        }
-        .pixel-box-green {
-            box-shadow: 
-                -4px 0 0 0 #27ae60, 
-                4px 0 0 0 #27ae60, 
-                0 -4px 0 0 #27ae60, 
-                0 4px 0 0 #27ae60;
+        /* Pixel Borders & Shadows */
+        .pixel-panel {
+            background: #2c3e50;
+            border: 4px solid #34495e;
+            box-shadow: 4px 4px 0px #000;
         }
 
         .pixel-btn {
             border: none;
             cursor: pointer;
             position: relative;
-            transition: transform 0.1s;
+            transition: all 0.1s;
+            text-shadow: 2px 2px 0px rgba(0,0,0,0.5);
+            box-shadow: inset -4px -4px 0px rgba(0,0,0,0.3);
         }
         .pixel-btn:active {
             transform: translateY(2px);
+            box-shadow: inset -2px -2px 0px rgba(0,0,0,0.3);
+        }
+        .pixel-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
         }
 
         /* Card Styles */
         .card {
             background: white;
             color: black;
-            width: 48px;
-            height: 64px;
+            width: 56px;
+            height: 76px;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            border-radius: 4px;
+            border-radius: 6px;
             border: 2px solid #000;
+            box-shadow: 2px 2px 0px rgba(0,0,0,0.4);
             position: relative;
+            transition: transform 0.2s;
         }
+        .card:hover { transform: translateY(-4px); }
         .card.red { color: #e74c3c; }
         .card.black { color: #2c3e50; }
-        
-        .gold-text {
-            color: #f1c40f;
-            text-shadow: 1px 1px 0 #b7950b;
+
+        /* Animations */
+        @keyframes floatUp {
+            0% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-40px); }
         }
+        .float-text {
+            animation: floatUp 2s forwards;
+            position: absolute;
+            z-index: 20;
+            font-size: 14px;
+            color: #f1c40f;
+            text-shadow: 2px 2px 0 #000;
+            pointer-events: none;
+        }
+        
+        @keyframes pulse-gold {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        .animate-pulse-gold {
+            animation: pulse-gold 0.5s ease-in-out;
+        }
+
+        /* Utilities */
+        .text-shadow { text-shadow: 2px 2px 0 #000; }
+        .bg-felt { background-color: #27ae60; }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
     <script type="text/babel">
-        // --- CONSTANTS & HELPERS ---
+        // --- LOGIC HELPERS ---
         const SUITS = ['♠', '♥', '♣', '♦'];
         const VALUES = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
         
-        // Generate a new 52 card deck
         const createDeck = () => {
             let deck = [];
             for (let s of SUITS) {
@@ -141,33 +152,22 @@
                     deck.push({ suit: s, value: v, id: Math.random().toString(36).substr(2, 9) });
                 }
             }
-            return deck.sort(() => Math.random() - 0.5); // Simple shuffle
+            return deck.sort(() => Math.random() - 0.5);
         };
 
         const calculateScore = (hand) => {
             if (!hand || hand.length === 0) return 0;
             let score = 0;
             let aces = 0;
-
             hand.forEach(card => {
-                if (['J', 'Q', 'K'].includes(card.value)) {
-                    score += 10;
-                } else if (card.value === 'A') {
-                    aces += 1;
-                    score += 11;
-                } else {
-                    score += parseInt(card.value);
-                }
+                if (['J', 'Q', 'K'].includes(card.value)) score += 10;
+                else if (card.value === 'A') { aces += 1; score += 11; }
+                else score += parseInt(card.value);
             });
-
-            while (score > 21 && aces > 0) {
-                score -= 10;
-                aces -= 1;
-            }
+            while (score > 21 && aces > 0) { score -= 10; aces -= 1; }
             return score;
         };
 
-        // For High/Low: 2=2, ... J=11, Q=12, K=13, A=14
         const getCardRank = (card) => {
             if (!card) return 0;
             if (card.value === 'A') return 14;
@@ -175,91 +175,95 @@
             if (card.value === 'Q') return 12;
             if (card.value === 'J') return 11;
             return parseInt(card.value);
-        }
+        };
 
         // --- COMPONENTS ---
 
         const Card = ({ card, hidden }) => {
             if (hidden) {
                 return (
-                    <div className="card bg-red-800 border-white">
-                        <div className="text-xs text-white">?</div>
+                    <div className="card bg-red-900 border-white">
+                        <div className="text-xl text-red-200">?</div>
                     </div>
                 );
             }
             const isRed = card.suit === '♥' || card.suit === '♦';
             return (
                 <div className={`card ${isRed ? 'red' : 'black'}`}>
-                    <div className="text-xs font-bold">{card.value}</div>
-                    <div className="text-lg">{card.suit}</div>
+                    <div className="text-sm font-bold">{card.value}</div>
+                    <div className="text-2xl">{card.suit}</div>
                 </div>
             );
         };
 
-        const Modal = ({ children, onClose }) => (
-            <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50">
-                <div className="bg-gray-800 p-8 pixel-box relative max-w-sm w-full text-center">
+        const Modal = ({ title, children, onClose }) => (
+            <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 backdrop-blur-sm">
+                <div className="pixel-panel p-6 max-w-md w-full relative bg-gray-800">
+                    <div className="flex justify-between items-center mb-6 border-b-2 border-gray-600 pb-2">
+                        <h2 className="text-yellow-400 text-lg text-shadow">{title}</h2>
+                        <button onClick={onClose} className="text-red-400 hover:text-white">X</button>
+                    </div>
                     {children}
-                    <button 
-                        onClick={onClose}
-                        className="mt-6 text-red-400 hover:text-red-300 text-xs uppercase"
-                    >
-                        [Close]
-                    </button>
                 </div>
             </div>
         );
 
+        const Chip = ({ amount, onClick, selected }) => (
+            <button 
+                onClick={onClick}
+                className={`w-12 h-12 rounded-full border-4 flex items-center justify-center text-[10px] font-bold shadow-lg transition-transform hover:-translate-y-1 ${
+                    selected ? 'border-white scale-110' : 'border-dashed border-gray-400'
+                } ${
+                    amount === 10 ? 'bg-blue-600 text-white' :
+                    amount === 50 ? 'bg-red-600 text-white' :
+                    amount === 100 ? 'bg-black text-yellow-400' :
+                    'bg-yellow-500 text-black'
+                }`}
+            >
+                {amount === 'ALL' ? 'ALL' : amount}
+            </button>
+        );
+
         function App() {
+            // State
             const [user, setUser] = React.useState(null);
             const [roomName, setRoomName] = React.useState("");
             const [roomData, setRoomData] = React.useState(null);
-            const [dealerPinInput, setDealerPinInput] = React.useState("");
             const [enteredPin, setEnteredPin] = React.useState("");
             const [loading, setLoading] = React.useState(true);
+            
+            // Modals
             const [showPinModal, setShowPinModal] = React.useState(false);
+            const [showBankModal, setShowBankModal] = React.useState(false);
+            const [depositAmount, setDepositAmount] = React.useState(100);
+            
+            // UI Feedback
             const [error, setError] = React.useState("");
+            const [floatingText, setFloatingText] = React.useState(null); // { text, x, y }
 
-            // --- FIREBASE INIT ---
+            // --- FIREBASE SYNC ---
             React.useEffect(() => {
-                const initAuth = async () => {
-                    await window.signInAnonymously(window.auth);
-                };
+                const initAuth = async () => { await window.signInAnonymously(window.auth); };
                 initAuth();
-
-                const unsubscribe = window.onAuthStateChanged(window.auth, (u) => {
+                return window.onAuthStateChanged(window.auth, (u) => {
                     setUser(u);
                     setLoading(false);
                 });
-                return () => unsubscribe();
             }, []);
 
-            // --- ROOM SYNC ---
             React.useEffect(() => {
                 if (!user || !roomName) return;
-
                 const appId = "default-app-id";
-                // Even path segments: artifacts > {appId} > public > data > rooms > {roomName}
                 const roomRef = window.doc(window.db, 'artifacts', appId, 'public', 'data', 'rooms', `room_${roomName}`);
-
-                const unsub = window.onSnapshot(roomRef, (snap) => {
-                    if (snap.exists()) {
-                        setRoomData(snap.data());
-                    } else {
-                        setRoomData(null);
-                    }
-                }, (err) => console.error("Sync error:", err));
-
-                return () => unsub();
+                return window.onSnapshot(roomRef, (snap) => setRoomData(snap.exists() ? snap.data() : null));
             }, [user, roomName]);
 
-            // --- ACTIONS ---
+            // --- CORE ACTIONS ---
 
-            const joinRoom = (e) => {
-                e.preventDefault();
-                const name = e.target.room.value.trim().toLowerCase();
-                if (!name) return;
-                setRoomName(name);
+            const updateRoom = async (data) => {
+                const appId = "default-app-id";
+                const roomRef = window.doc(window.db, 'artifacts', appId, 'public', 'data', 'rooms', `room_${roomName}`);
+                await window.updateDoc(roomRef, data);
             };
 
             const createRoom = async (e) => {
@@ -275,39 +279,15 @@
                     roomId: name,
                     dealerPin: pin,
                     dealerId: null,
-                    activeGame: '21', // '21', 'highlow', 'redblack', 'mimic'
-                    gameState: 'waiting', 
+                    activeGame: '21',
+                    gameState: 'waiting',
                     deck: createDeck(),
-                    turnIndex: -1, 
                     dealerHand: [],
-                    players: {}, 
+                    players: {},
+                    lastResult: "", // For game log
                     createdAt: Date.now()
                 });
                 setRoomName(name);
-            };
-
-            const leaveRoom = () => {
-                setRoomName("");
-                setRoomData(null);
-                setEnteredPin("");
-            };
-
-            // --- GAME ACTIONS (Firestore Writes) ---
-
-            const updateRoom = async (data) => {
-                const appId = "default-app-id";
-                const roomRef = window.doc(window.db, 'artifacts', appId, 'public', 'data', 'rooms', `room_${roomName}`);
-                await window.updateDoc(roomRef, data);
-            };
-
-            const sitAsDealer = async () => {
-                if (enteredPin !== roomData.dealerPin) {
-                    setError("Wrong PIN!");
-                    setTimeout(() => setError(""), 2000);
-                    return;
-                }
-                setShowPinModal(false);
-                await updateRoom({ dealerId: user.uid });
             };
 
             const sitAsPlayer = async (seatIndex) => {
@@ -315,525 +295,508 @@
                 newPlayers[user.uid] = {
                     name: `P${seatIndex + 1}`,
                     hand: [],
-                    status: 'active', // active, stand, bust, win, lose
+                    status: 'active',
                     seatIndex: seatIndex,
                     vote: null,
-                    gold: 100, // D&D Currency
-                    bet: 10 // Default bet
+                    gold: 100,
+                    bet: 10,
+                    lastWin: 0
                 };
                 await updateRoom({ players: newPlayers });
             };
 
-            const standUp = async () => {
-                if (roomData.dealerId === user.uid) {
-                    await updateRoom({ dealerId: null, dealerHand: [], gameState: 'waiting' });
-                } else {
-                    const newPlayers = { ...roomData.players };
-                    delete newPlayers[user.uid];
+            const topUpGold = async () => {
+                if (!isSeated) return;
+                const newPlayers = { ...roomData.players };
+                const amount = parseInt(depositAmount);
+                if (amount > 0) {
+                    newPlayers[user.uid].gold += amount;
                     await updateRoom({ players: newPlayers });
+                    setShowBankModal(false);
+                    triggerFloat(`+${amount} GP`, 50, 50); // Generic position
                 }
             };
 
-            // --- DEALER GM ACTIONS ---
-
-            const resetGame = async () => {
-                const newPlayers = { ...roomData.players };
-                Object.keys(newPlayers).forEach(key => {
-                    newPlayers[key].hand = [];
-                    newPlayers[key].status = 'active';
-                    newPlayers[key].vote = null;
-                });
-
-                await updateRoom({
-                    gameState: 'waiting',
-                    deck: createDeck(),
-                    dealerHand: [],
-                    players: newPlayers,
-                    turnIndex: -1
-                });
-            };
+            // --- GAME LOGIC ---
 
             const startRound = async () => {
-                if (Object.keys(roomData.players).length === 0) return;
+                let deck = [...roomData.deck];
+                if (deck.length < 15) deck = createDeck();
+                
+                const players = { ...roomData.players };
+                let dealerHand = [];
+                const game = roomData.activeGame;
 
-                let currentDeck = [...roomData.deck];
-                if (currentDeck.length < 15) currentDeck = createDeck();
+                // Reset Player States
+                Object.keys(players).forEach(uid => {
+                    players[uid].status = 'active';
+                    players[uid].lastWin = 0;
+                    if (game === '21') {
+                        players[uid].hand = [deck.pop(), deck.pop()];
+                        players[uid].vote = null;
+                    } else if (game === 'mimic') {
+                        players[uid].hand = [deck.pop()];
+                        players[uid].vote = null;
+                    } else {
+                        // Red/Black & High/Low: Clear hands, reset votes
+                        players[uid].hand = [];
+                        players[uid].vote = null; 
+                    }
+                });
 
-                const newPlayers = { ...roomData.players };
-                const playerIds = Object.keys(newPlayers);
-                let newDealerHand = [];
-
-                if (roomData.activeGame === '21') {
-                    // 21: Deal 2 cards to players, 1 to dealer
-                    playerIds.forEach(pid => {
-                        newPlayers[pid].hand = [currentDeck.pop(), currentDeck.pop()];
-                        newPlayers[pid].status = 'active';
-                        newPlayers[pid].vote = null;
-                    });
-                    newDealerHand = [currentDeck.pop()];
-                } else if (roomData.activeGame === 'redblack') {
-                    // Red/Black: No cards for players, just reset status
-                    playerIds.forEach(pid => {
-                        newPlayers[pid].hand = []; 
-                        newPlayers[pid].status = 'active';
-                        newPlayers[pid].vote = null;
-                    });
-                    newDealerHand = []; 
-                } else if (roomData.activeGame === 'highlow') {
-                    // High/Low: Dealer starts with 1 card
-                    playerIds.forEach(pid => {
-                        newPlayers[pid].hand = [];
-                        newPlayers[pid].status = 'active';
-                        newPlayers[pid].vote = null;
-                    });
-                    newDealerHand = [currentDeck.pop()];
-                } else if (roomData.activeGame === 'mimic') {
-                    // Mimic: Everyone gets 1 card
-                    playerIds.forEach(pid => {
-                        newPlayers[pid].hand = [currentDeck.pop()];
-                        newPlayers[pid].status = 'active';
-                        newPlayers[pid].vote = null;
-                    });
-                    newDealerHand = [currentDeck.pop()]; // This is the "Chest" card
-                }
+                // Dealer Setup
+                if (game === '21') dealerHand = [deck.pop()]; 
+                else if (game === 'highlow') dealerHand = [deck.pop()]; // Base card
+                else if (game === 'mimic') dealerHand = [deck.pop()]; // Chest card
+                else dealerHand = []; // Red/Black draws later
 
                 await updateRoom({
                     gameState: 'playing',
-                    deck: currentDeck,
-                    players: newPlayers,
-                    dealerHand: newDealerHand,
-                    turnIndex: 0
+                    deck,
+                    players,
+                    dealerHand,
+                    lastResult: "BETS OPEN"
                 });
             };
 
             const dealerDraw = async () => {
-                let currentDeck = [...roomData.deck];
-                const newCard = currentDeck.pop();
-                const newHand = [...roomData.dealerHand, newCard];
-                
-                await updateRoom({
-                    dealerHand: newHand,
-                    deck: currentDeck
-                });
+                let deck = [...roomData.deck];
+                const newCard = deck.pop();
+                const dealerHand = [...roomData.dealerHand, newCard];
+                await updateRoom({ dealerHand, deck });
             };
 
             const resolveRound = async () => {
-                const newPlayers = { ...roomData.players };
+                const players = { ...roomData.players };
                 const dealerHand = roomData.dealerHand;
-                const dealerScore = calculateScore(dealerHand);
-                const dealerBust = dealerScore > 21;
+                const game = roomData.activeGame;
                 
-                Object.keys(newPlayers).forEach(pid => {
-                    const p = newPlayers[pid];
-                    const bet = p.bet || 10;
+                let resultText = "ROUND ENDED";
+
+                // 21 Resolution
+                if (game === '21') {
+                    const dScore = calculateScore(dealerHand);
+                    const dBust = dScore > 21;
                     
-                    if (roomData.activeGame === '21') {
-                        const playerScore = calculateScore(p.hand);
+                    Object.keys(players).forEach(uid => {
+                        const p = players[uid];
+                        const pScore = calculateScore(p.hand);
                         
                         if (p.status === 'bust') {
-                            // Already lost, deduct
-                            p.gold -= bet;
                             p.status = 'lose';
-                        } else if (dealerBust) {
-                            // Dealer bust, player wins (unless they busted, handled above)
-                            p.gold += bet;
+                            p.gold -= p.bet;
+                        } else if (dBust || pScore > dScore) {
+                            const winAmount = pScore === 21 && p.hand.length === 2 ? p.bet * 1.5 : p.bet;
                             p.status = 'win';
+                            p.gold += Math.floor(winAmount);
+                            p.lastWin = Math.floor(winAmount);
+                        } else if (pScore < dScore) {
+                            p.status = 'lose';
+                            p.gold -= p.bet;
                         } else {
-                            // Compare scores
-                            if (playerScore > dealerScore) {
-                                p.gold += bet;
-                                p.status = 'win';
-                            } else if (playerScore < dealerScore) {
-                                p.gold -= bet;
-                                p.status = 'lose';
-                            } else {
-                                p.status = 'push'; // Tie, money back (no change)
+                            p.status = 'push';
+                        }
+                    });
+                    resultText = dBust ? "DEALER BUST!" : `DEALER HAS ${dScore}`;
+                }
+
+                // Red/Black & High/Low Resolution
+                else if (game === 'redblack' || game === 'highlow') {
+                    // Logic: Uses the LAST card drawn by dealer to resolve
+                    const targetCard = dealerHand[dealerHand.length - 1];
+                    if (!targetCard) return;
+
+                    Object.keys(players).forEach(uid => {
+                        const p = players[uid];
+                        let won = false;
+                        let push = false;
+
+                        if (game === 'redblack') {
+                            const isRed = ['♥','♦'].includes(targetCard.suit);
+                            if (p.vote === 'red' && isRed) won = true;
+                            else if (p.vote === 'black' && !isRed) won = true;
+                        } 
+                        else if (game === 'highlow') {
+                            // Compare last card vs 2nd to last card
+                            const prevCard = dealerHand[dealerHand.length - 2];
+                            if (prevCard) {
+                                const currR = getCardRank(targetCard);
+                                const prevR = getCardRank(prevCard);
+                                if (p.vote === 'high' && currR > prevR) won = true;
+                                else if (p.vote === 'low' && currR < prevR) won = true;
+                                else if (currR === prevR) push = true;
                             }
                         }
-                    } else if (roomData.activeGame === 'redblack') {
-                        // Logic mostly handled in real-time, just finalizing gold here if needed
-                        // But let's assume we pay out NOW based on status set during draw
-                        const lastCard = dealerHand[dealerHand.length - 1];
-                        if (!lastCard) return;
-                        
-                        const isRed = lastCard.suit === '♥' || lastCard.suit === '♦';
-                        
-                        if (!p.vote) {
-                             // Didnt vote, no change
-                        } else if ((p.vote === 'red' && isRed) || (p.vote === 'black' && !isRed)) {
-                            p.gold += bet;
-                            p.status = 'win';
-                        } else {
-                            p.gold -= bet;
-                            p.status = 'lose';
-                        }
-                        p.vote = null; // Reset vote for next card
-                    } else if (roomData.activeGame === 'highlow') {
-                        // High/Low payout logic
-                         if (p.status === 'win') p.gold += bet;
-                         if (p.status === 'lose') p.gold -= bet;
-                         p.status = 'active'; // Reset for next card
-                         p.vote = null;
-                    } else if (roomData.activeGame === 'mimic') {
-                        // Mimic's Chest Logic
-                        const chestCard = dealerHand[0];
-                        const playerCard = p.hand[0];
-                        
-                        if (!chestCard || !playerCard) return;
 
-                        // Mimic Condition: Face card (J, Q, K) = MIMIC ATTACK
-                        if (['J', 'Q', 'K'].includes(playerCard.value)) {
-                            p.status = 'lose';
-                            p.gold -= bet; // Eaten by mimic
-                        } 
-                        // Value Match = JACKPOT
-                        else if (playerCard.value === chestCard.value) {
+                        if (won) {
                             p.status = 'win';
-                            p.gold += (bet * 5); // Huge payout
-                        }
-                        // Suit Match = SAFE OPEN
-                        else if (playerCard.suit === chestCard.suit) {
-                             p.status = 'win';
-                             p.gold += bet;
+                            p.gold += p.bet;
+                            p.lastWin = p.bet;
+                        } else if (push) {
+                            p.status = 'push';
                         } else {
-                            p.status = 'push'; // Empty chest, no loss no gain
+                            p.status = 'lose';
+                            p.gold -= p.bet;
                         }
-                    }
-                });
+                        // Keep vote visible? Yes, helps context.
+                    });
+                }
 
-                await updateRoom({
-                    players: newPlayers,
-                    gameState: roomData.activeGame === '21' || roomData.activeGame === 'mimic' ? 'finished' : 'playing' // 21 ends, others loop
+                // Mimic Resolution
+                else if (game === 'mimic') {
+                    const chest = dealerHand[0];
+                    Object.keys(players).forEach(uid => {
+                        const p = players[uid];
+                        const loot = p.hand[0];
+                        if (loot) {
+                            if (['J','Q','K'].includes(loot.value)) {
+                                p.status = 'lose'; // Mimic
+                                p.gold -= p.bet;
+                            } else if (loot.value === chest.value) {
+                                p.status = 'win'; // Jackpot
+                                p.gold += (p.bet * 5);
+                                p.lastWin = p.bet * 5;
+                            } else if (loot.suit === chest.suit) {
+                                p.status = 'win'; // Safe
+                                p.gold += p.bet;
+                                p.lastWin = p.bet;
+                            } else {
+                                p.status = 'push';
+                            }
+                        }
+                    });
+                    resultText = "CHEST OPENED";
+                }
+
+                await updateRoom({ 
+                    players, 
+                    gameState: 'finished',
+                    lastResult: resultText 
                 });
             };
 
-            // --- PLAYER ACTIONS ---
-
-            const playerAction = async (actionType, payload) => {
-                if (roomData.gameState === 'waiting') {
-                     if (actionType === 'bet') {
-                         const newPlayers = { ...roomData.players };
-                         let newBet = (newPlayers[user.uid].bet || 10) + payload;
-                         if (newBet < 10) newBet = 10;
-                         if (newBet > newPlayers[user.uid].gold) newBet = newPlayers[user.uid].gold;
-                         newPlayers[user.uid].bet = newBet;
-                         await updateRoom({ players: newPlayers });
-                     }
-                     return;
-                }
-
-                if (roomData.gameState !== 'playing') return;
+            const playerAction = async (type, val) => {
+                if (!isSeated) return;
+                const players = { ...roomData.players };
+                const p = players[user.uid];
                 
-                let currentDeck = [...roomData.deck];
-                const newPlayers = { ...roomData.players };
-                const player = newPlayers[user.uid];
-
-                if (actionType === 'vote') {
-                    player.vote = payload; 
-                    // Pre-calc High/Low status for visuals
-                    if (roomData.activeGame === 'highlow') {
-                         const dealerCard = roomData.dealerHand[roomData.dealerHand.length - 1];
-                         // Actual win/loss handled in Resolve, just setting vote here
-                    }
-                } else if (actionType === 'hit') {
-                    const newCard = currentDeck.pop();
-                    player.hand.push(newCard);
-                    if (calculateScore(player.hand) > 21) {
-                        player.status = 'bust';
-                        // 21 Bust Logic: Lose immediately? Or wait for resolve?
-                        // Let's mark bust but deduct money at resolve for consistency
-                    }
-                } else if (actionType === 'stand') {
-                    player.status = 'stand';
+                if (type === 'bet') {
+                    let newBet = val === 'ALL' ? p.gold : p.bet + val;
+                    if (val === 'CLEAR') newBet = 10;
+                    if (newBet > p.gold) newBet = p.gold;
+                    if (newBet < 10) newBet = 10;
+                    p.bet = newBet;
+                } 
+                else if (type === 'vote') p.vote = val;
+                else if (type === 'hit') {
+                    const deck = [...roomData.deck];
+                    p.hand.push(deck.pop());
+                    if (calculateScore(p.hand) > 21) p.status = 'bust';
+                    await updateRoom({ players, deck });
+                    return;
                 }
+                else if (type === 'stand') p.status = 'stand';
 
-                await updateRoom({
-                    players: newPlayers,
-                    deck: currentDeck
-                });
+                await updateRoom({ players });
             };
 
-            // --- RENDERERS ---
+            // --- VIEW HELPERS ---
+            
+            const triggerFloat = (text, x, y) => {
+                setFloatingText({ text, x, y });
+                setTimeout(() => setFloatingText(null), 2000);
+            };
 
-            if (loading) return <div className="h-screen flex items-center justify-center text-green-400">LOADING CASINO...</div>;
+            const isDealer = roomData?.dealerId === user?.uid;
+            const isSeated = roomData?.players && Object.keys(roomData.players).includes(user?.uid);
+            const myPlayer = isSeated ? roomData.players[user.uid] : null;
 
-            // LOBBY VIEW
+            if (loading) return <div className="h-screen flex items-center justify-center text-yellow-400 font-bold bg-gray-900">LOADING CASINO...</div>;
+
+            // LOBBY
             if (!roomName || !roomData) {
                 return (
-                    <div className="min-h-screen flex flex-col items-center justify-center p-4">
-                        <h1 className="text-4xl text-yellow-400 mb-8 text-center" style={{textShadow: '4px 4px #000'}}>PIXEL 21</h1>
-                        
-                        <div className="flex flex-col md:flex-row gap-8 w-full max-w-4xl">
-                            {/* Join Room */}
-                            <div className="bg-blue-900 p-6 pixel-box flex-1">
-                                <h2 className="text-xl mb-4 text-blue-200">JOIN TABLE</h2>
-                                <form onSubmit={joinRoom} className="flex flex-col gap-4">
-                                    <input name="room" placeholder="Table Name" className="p-3 bg-gray-900 border-2 border-blue-500 text-white outline-none" required />
-                                    <button className="bg-blue-600 hover:bg-blue-500 text-white p-3 pixel-btn mt-2 border-b-4 border-blue-800">
-                                        ENTER ROOM
-                                    </button>
-                                </form>
-                            </div>
-
-                            {/* Create Room */}
-                            <div className="bg-green-900 p-6 pixel-box flex-1">
-                                <h2 className="text-xl mb-4 text-green-200">HOST TABLE</h2>
-                                <form onSubmit={createRoom} className="flex flex-col gap-4">
-                                    <input name="room" placeholder="New Table Name" className="p-3 bg-gray-900 border-2 border-green-500 text-white outline-none" required />
-                                    <input name="pin" type="password" placeholder="Dealer PIN (Key)" className="p-3 bg-gray-900 border-2 border-green-500 text-white outline-none" required />
-                                    <div className="text-xs text-green-300 mb-2">* Remember this PIN to be Dealer!</div>
-                                    <button className="bg-green-600 hover:bg-green-500 text-white p-3 pixel-btn mt-2 border-b-4 border-green-800">
-                                        CREATE & ENTER
-                                    </button>
-                                </form>
+                    <div className="min-h-screen flex items-center justify-center p-4 bg-gray-900">
+                        <div className="max-w-4xl w-full">
+                            <h1 className="text-5xl text-yellow-500 mb-12 text-center text-shadow">PIXEL CASINO</h1>
+                            <div className="grid md:grid-cols-2 gap-8">
+                                <div className="pixel-panel p-8 bg-blue-900">
+                                    <h2 className="text-2xl mb-6 text-blue-200">JOIN TABLE</h2>
+                                    <form onSubmit={(e) => { e.preventDefault(); setRoomName(e.target.room.value.toLowerCase()); }} className="flex gap-4">
+                                        <input name="room" placeholder="Room Code" className="flex-1 p-4 bg-gray-800 border-2 border-blue-500 text-white outline-none" required />
+                                        <button className="pixel-btn bg-blue-600 text-white px-6">GO</button>
+                                    </form>
+                                </div>
+                                <div className="pixel-panel p-8 bg-green-900">
+                                    <h2 className="text-2xl mb-6 text-green-200">CREATE TABLE</h2>
+                                    <form onSubmit={createRoom} className="flex flex-col gap-4">
+                                        <input name="room" placeholder="New Room Name" className="p-4 bg-gray-800 border-2 border-green-500 text-white outline-none" required />
+                                        <input name="pin" type="password" placeholder="Dealer PIN" className="p-4 bg-gray-800 border-2 border-green-500 text-white outline-none" required />
+                                        <button className="pixel-btn bg-green-600 text-white p-4">CREATE HOST</button>
+                                    </form>
+                                </div>
                             </div>
                         </div>
                     </div>
                 );
             }
 
-            // GAME ROOM VIEW
-            const isDealer = roomData.dealerId === user.uid;
-            const isSeated = Object.keys(roomData.players).includes(user.uid);
-            
-            // Helper for Game Title
-            const getGameTitle = () => {
-                if (roomData.activeGame === '21') return '21 / BLACKJACK';
-                if (roomData.activeGame === 'redblack') return 'RED OR BLACK';
-                if (roomData.activeGame === 'highlow') return 'HIGHER / LOWER';
-                if (roomData.activeGame === 'mimic') return "MIMIC'S CHEST";
-                return 'UNKNOWN';
-            };
+            // --- MAIN GAME UI ---
 
             return (
-                <div className="min-h-screen flex flex-col p-2 max-w-6xl mx-auto">
-                    {/* Header */}
-                    <div className="flex justify-between items-center mb-4 bg-gray-900 p-2 pixel-box">
-                        <div className="text-xs md:text-sm text-yellow-500 flex flex-col md:flex-row md:gap-4">
-                            <span>TABLE: <span className="text-white">{roomName}</span></span>
-                            <span>GAME: <span className="text-green-400">{getGameTitle()}</span></span>
+                <div className="min-h-screen flex flex-col relative pb-32">
+                    {/* TOP BAR */}
+                    <div className="bg-gray-900 border-b-4 border-gray-700 p-3 flex justify-between items-center z-40 shadow-lg">
+                        <div className="flex items-center gap-4">
+                            <span className="text-yellow-500 text-shadow">ROOM: {roomName}</span>
+                            <span className="bg-gray-800 px-3 py-1 rounded text-xs text-gray-400">
+                                {roomData.activeGame.toUpperCase()}
+                            </span>
                         </div>
-                        <div className="flex gap-4">
-                             <button onClick={() => {
-                                navigator.clipboard.writeText(roomName);
-                                alert("Room Name Copied!");
-                            }} className="text-xs text-blue-300 hover:underline">SHARE</button>
-                            <button onClick={leaveRoom} className="text-xs text-red-400 hover:underline">LEAVE</button>
+                        <div className="flex gap-4 items-center">
+                            {myPlayer && (
+                                <button 
+                                    onClick={() => setShowBankModal(true)}
+                                    className="pixel-btn bg-yellow-600 text-black px-4 py-2 text-xs flex items-center gap-2 border-b-4 border-yellow-800 hover:bg-yellow-500"
+                                >
+                                    <span>💰 {myPlayer.gold} GP</span>
+                                    <span className="bg-black text-yellow-500 px-1 rounded-full text-[10px]">+</span>
+                                </button>
+                            )}
+                            <button onClick={() => { setRoomName(""); setRoomData(null); }} className="text-red-500 text-xs hover:text-white">EXIT</button>
                         </div>
                     </div>
 
-                    {/* DEALER SECTION */}
-                    <div className="flex flex-col items-center mb-8 relative">
-                        <div className="w-full max-w-2xl bg-gray-800 p-4 pixel-box-red flex flex-col items-center min-h-[240px]">
-                            <div className="absolute top-2 left-2 text-xs text-red-500">DEALER (GM)</div>
-                            
-                            {!roomData.dealerId ? (
-                                <button 
-                                    onClick={() => setShowPinModal(true)}
-                                    className="mt-8 bg-gray-700 text-gray-400 p-4 border-2 border-dashed border-gray-500 hover:bg-gray-600 hover:text-white"
-                                >
-                                    [ EMPTY SEAT - CLICK TO GM ]
-                                </button>
-                            ) : (
-                                <div className="w-full flex flex-col items-center">
-                                    {/* Dealer Hand */}
-                                    <div className="flex justify-center gap-2 mb-4 mt-6 flex-wrap">
-                                        {roomData.dealerHand && roomData.dealerHand.length > 0 ? (
-                                            roomData.dealerHand.map((c, i) => <Card key={i} card={c} />)
+                    {/* TABLE AREA */}
+                    <div className="flex-1 p-4 overflow-y-auto bg-felt flex flex-col items-center">
+                        
+                        {/* DEALER AREA */}
+                        <div className="w-full max-w-3xl mb-12 flex flex-col items-center">
+                            <div className={`relative w-full pixel-panel bg-red-900 min-h-[200px] flex flex-col items-center p-6 ${!roomData.dealerId ? 'opacity-50' : ''}`}>
+                                <div className="absolute -top-3 left-4 bg-black px-2 text-xs text-red-500 border border-red-500">DEALER</div>
+                                
+                                {!roomData.dealerId ? (
+                                    <button onClick={() => setShowPinModal(true)} className="mt-12 text-gray-400 hover:text-white border-2 border-dashed border-gray-500 p-4">
+                                        CLICK TO TAKE DEALER SEAT
+                                    </button>
+                                ) : (
+                                    <>
+                                        <div className="flex justify-center gap-2 mb-4">
+                                            {roomData.dealerHand.length > 0 ? (
+                                                roomData.dealerHand.map((c, i) => <Card key={i} card={c} />)
+                                            ) : (
+                                                <div className="w-14 h-20 border-2 border-white/20 rounded flex items-center justify-center text-white/20 text-xs">DECK</div>
+                                            )}
+                                        </div>
+                                        
+                                        <div className="text-red-200 text-sm mb-4 font-bold tracking-widest">{roomData.lastResult}</div>
+
+                                        {/* GM CONTROLS */}
+                                        {isDealer && (
+                                            <div className="bg-black/40 p-3 rounded flex flex-wrap gap-2 justify-center w-full">
+                                                {roomData.gameState === 'waiting' ? (
+                                                    <button onClick={startRound} className="pixel-btn bg-green-600 text-white px-6 py-2">START ROUND</button>
+                                                ) : roomData.gameState === 'playing' ? (
+                                                    <>
+                                                        <button onClick={dealerDraw} className="pixel-btn bg-blue-600 text-white px-4 py-2">DRAW CARD</button>
+                                                        <button onClick={resolveRound} className="pixel-btn bg-yellow-600 text-black px-4 py-2">RESOLVE & PAY</button>
+                                                    </>
+                                                ) : (
+                                                    <button onClick={() => updateRoom({ gameState: 'waiting', dealerHand: [], lastResult: 'NEW ROUND' })} className="pixel-btn bg-green-600 text-white px-6 py-2">NEXT ROUND</button>
+                                                )}
+                                                
+                                                <div className="w-full h-px bg-white/10 my-1"></div>
+                                                
+                                                <button onClick={() => updateRoom({ gameState: 'waiting', dealerHand: [], players: {}, deck: createDeck(), activeGame: '21' })} className="text-[10px] text-gray-400 hover:text-white px-2">SWITCH TO 21</button>
+                                                <button onClick={() => updateRoom({ gameState: 'waiting', dealerHand: [], players: {}, deck: createDeck(), activeGame: 'redblack' })} className="text-[10px] text-gray-400 hover:text-white px-2">SWITCH TO R/B</button>
+                                                <button onClick={() => updateRoom({ gameState: 'waiting', dealerHand: [], players: {}, deck: createDeck(), activeGame: 'highlow' })} className="text-[10px] text-gray-400 hover:text-white px-2">SWITCH TO H/L</button>
+                                                <button onClick={() => updateRoom({ gameState: 'waiting', dealerHand: [], players: {}, deck: createDeck(), activeGame: 'mimic' })} className="text-[10px] text-gray-400 hover:text-white px-2">SWITCH TO MIMIC</button>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* PLAYERS GRID */}
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 w-full max-w-6xl">
+                            {[...Array(10)].map((_, i) => {
+                                const pEntry = Object.entries(roomData.players).find(([_, p]) => p.seatIndex === i);
+                                const pId = pEntry?.[0];
+                                const p = pEntry?.[1];
+                                const isMe = pId === user.uid;
+
+                                return (
+                                    <div key={i} className={`relative min-h-[160px] pixel-panel p-2 flex flex-col items-center justify-between transition-colors ${isMe ? 'bg-gray-700 border-yellow-500' : 'bg-gray-800'} ${p?.status === 'win' ? 'border-green-400 shadow-[0_0_15px_rgba(74,222,128,0.5)]' : ''}`}>
+                                        
+                                        {!p ? (
+                                            <button onClick={() => sitAsPlayer(i)} disabled={isSeated || isDealer} className="w-full h-full flex flex-col items-center justify-center gap-2 text-gray-500 hover:text-white disabled:opacity-30">
+                                                <span className="text-2xl">+</span>
+                                                <span className="text-xs">SIT</span>
+                                            </button>
                                         ) : (
-                                            <div className="w-12 h-16 border-2 border-gray-600 rounded flex items-center justify-center text-gray-600 text-xs">Wait</div>
+                                            <>
+                                                {/* Player Header */}
+                                                <div className="w-full flex justify-between items-start text-[10px] mb-2">
+                                                    <span className={isMe ? "text-yellow-400" : "text-gray-400"}>{p.name}</span>
+                                                    <span className="text-yellow-600">{p.bet} GP</span>
+                                                </div>
+
+                                                {/* Win Popup */}
+                                                {p.lastWin > 0 && roomData.gameState === 'finished' && (
+                                                    <div className="absolute top-0 left-0 w-full h-full bg-black/80 flex flex-col items-center justify-center z-10 float-text">
+                                                        <span className="text-green-400 text-lg font-bold">WIN!</span>
+                                                        <span className="text-yellow-400 text-sm">+{p.lastWin} GP</span>
+                                                    </div>
+                                                )}
+
+                                                {/* Game Content */}
+                                                <div className="flex-1 flex items-center justify-center w-full">
+                                                    {(roomData.activeGame === '21' || roomData.activeGame === 'mimic') ? (
+                                                        <div className="flex -space-x-4">
+                                                            {p.hand.map((c, idx) => (
+                                                                <div key={idx} className="hover:-translate-y-2 transition-transform">
+                                                                    <Card card={c} />
+                                                                </div>
+                                                            ))}
+                                                            {p.hand.length === 0 && <div className="text-[10px] text-gray-600">Empty</div>}
+                                                        </div>
+                                                    ) : (
+                                                        // Vote Icons
+                                                        <div className="flex gap-2">
+                                                            {p.vote === 'red' && <div className="w-8 h-8 bg-red-600 border-2 border-white rounded"></div>}
+                                                            {p.vote === 'black' && <div className="w-8 h-8 bg-black border-2 border-white rounded"></div>}
+                                                            {p.vote === 'high' && <div className="text-2xl text-green-400">↑</div>}
+                                                            {p.vote === 'low' && <div className="text-2xl text-red-400">↓</div>}
+                                                            {!p.vote && roomData.gameState === 'playing' && <div className="animate-pulse text-xs text-gray-500">...</div>}
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Status Footer */}
+                                                <div className={`mt-2 text-xs font-bold px-2 py-1 rounded w-full text-center ${
+                                                    p.status === 'win' ? 'bg-green-600 text-white' :
+                                                    p.status === 'lose' ? 'bg-red-900 text-red-200' :
+                                                    p.status === 'bust' ? 'bg-red-600 text-white' :
+                                                    p.status === 'push' ? 'bg-yellow-600 text-black' :
+                                                    'bg-gray-700 text-gray-400'
+                                                }`}>
+                                                    {p.status.toUpperCase()}
+                                                </div>
+                                            </>
                                         )}
                                     </div>
-                                    
-                                    {/* Dealer Score / Info */}
-                                    <div className="text-center text-sm text-red-300 mb-2">
-                                        {roomData.activeGame === '21' && `Score: ${calculateScore(roomData.dealerHand)}`}
-                                        {roomData.activeGame === 'highlow' && roomData.dealerHand.length > 0 && "Current Card"}
-                                        {roomData.activeGame === 'redblack' && "Dealing..."}
-                                        {roomData.activeGame === 'mimic' && "THE CHEST"}
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* PLAYER CONTROLS (STICKY FOOTER) */}
+                    {myPlayer && (
+                        <div className="fixed bottom-0 left-0 w-full bg-gray-900 border-t-4 border-gray-700 p-4 z-50 shadow-2xl">
+                            <div className="max-w-4xl mx-auto flex flex-col md:flex-row gap-6 items-center justify-between">
+                                
+                                {/* Betting Controls */}
+                                <div className="flex items-center gap-4 bg-gray-800 p-2 rounded pixel-panel">
+                                    <div className="flex flex-col items-center border-r border-gray-600 pr-4">
+                                        <span className="text-[10px] text-gray-400">CURRENT BET</span>
+                                        <span className="text-xl text-yellow-400 font-bold">{myPlayer.bet}</span>
                                     </div>
-                                    
-                                    {/* GM Controls */}
-                                    {isDealer && (
-                                        <div className="bg-black bg-opacity-30 p-2 mt-2 flex flex-wrap gap-2 justify-center w-full">
-                                            <div className="text-xs text-white w-full text-center mb-1">--- GM CONTROLS ---</div>
-                                            
-                                            {roomData.gameState === 'waiting' ? (
-                                                <button onClick={startRound} className="bg-green-600 text-white text-xs px-2 py-2 pixel-btn border-b-2 border-green-800">
-                                                    START ROUND
-                                                </button>
-                                            ) : (
+                                    <div className="flex gap-2">
+                                        <Chip amount={10} onClick={() => playerAction('bet', 10)} />
+                                        <Chip amount={50} onClick={() => playerAction('bet', 50)} />
+                                        <Chip amount={100} onClick={() => playerAction('bet', 100)} />
+                                        <button onClick={() => playerAction('bet', 'CLEAR')} className="text-[10px] text-red-400 hover:text-white px-2">CLR</button>
+                                        <button onClick={() => playerAction('bet', 'ALL')} className="text-[10px] text-yellow-400 hover:text-white px-2">ALL</button>
+                                    </div>
+                                </div>
+
+                                {/* Action Buttons */}
+                                <div className="flex gap-3">
+                                    {roomData.gameState === 'playing' && myPlayer.status === 'active' ? (
+                                        <>
+                                            {roomData.activeGame === '21' && (
                                                 <>
-                                                    <button onClick={dealerDraw} className="bg-blue-600 text-white text-xs px-2 py-2 pixel-btn border-b-2 border-blue-800">
-                                                        DRAW CARD
-                                                    </button>
-                                                    <button onClick={resolveRound} className="bg-yellow-600 text-black text-xs px-2 py-2 pixel-btn border-b-2 border-yellow-800">
-                                                        RESOLVE ROUND
-                                                    </button>
+                                                    <button onClick={() => playerAction('hit')} className="pixel-btn bg-green-500 text-white h-12 w-24 text-sm font-bold border-b-4 border-green-700 hover:bg-green-400">HIT</button>
+                                                    <button onClick={() => playerAction('stand')} className="pixel-btn bg-red-500 text-white h-12 w-24 text-sm font-bold border-b-4 border-red-700 hover:bg-red-400">STAND</button>
                                                 </>
                                             )}
-
-                                            <button onClick={resetGame} className="bg-red-600 text-white text-xs px-2 py-2 pixel-btn border-b-2 border-red-800">
-                                                RESET
-                                            </button>
-
-                                            <button onClick={standUp} className="bg-gray-600 text-white text-xs px-2 py-2 pixel-btn border-b-2 border-gray-800">
-                                                STAND UP
-                                            </button>
-                                            
-                                            <select 
-                                                className="bg-gray-900 text-white text-xs p-2 border border-gray-600"
-                                                value={roomData.activeGame}
-                                                onChange={(e) => updateRoom({ activeGame: e.target.value, gameState: 'waiting', dealerHand: [], players: {}, deck: createDeck() })}
-                                            >
-                                                <option value="21">Game: 21</option>
-                                                <option value="highlow">Game: High/Low</option>
-                                                <option value="redblack">Game: Red/Black</option>
-                                                <option value="mimic">Game: Mimic's Chest</option>
-                                            </select>
+                                            {roomData.activeGame === 'redblack' && (
+                                                <>
+                                                    <button onClick={() => playerAction('vote', 'red')} className={`pixel-btn bg-red-600 text-white h-12 w-24 border-b-4 border-red-800 ${myPlayer.vote === 'red' ? 'ring-2 ring-white' : ''}`}>RED</button>
+                                                    <button onClick={() => playerAction('vote', 'black')} className={`pixel-btn bg-black text-white h-12 w-24 border-b-4 border-gray-800 ${myPlayer.vote === 'black' ? 'ring-2 ring-white' : ''}`}>BLACK</button>
+                                                </>
+                                            )}
+                                            {roomData.activeGame === 'highlow' && (
+                                                <>
+                                                    <button onClick={() => playerAction('vote', 'high')} className={`pixel-btn bg-green-600 text-white h-12 w-24 border-b-4 border-green-800 ${myPlayer.vote === 'high' ? 'ring-2 ring-white' : ''}`}>HIGHER</button>
+                                                    <button onClick={() => playerAction('vote', 'low')} className={`pixel-btn bg-red-600 text-white h-12 w-24 border-b-4 border-red-800 ${myPlayer.vote === 'low' ? 'ring-2 ring-white' : ''}`}>LOWER</button>
+                                                </>
+                                            )}
+                                            {roomData.activeGame === 'mimic' && (
+                                                <div className="text-yellow-400 text-sm animate-pulse">Good luck...</div>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <div className="text-gray-500 text-sm italic">
+                                            {roomData.gameState === 'waiting' ? "PLACE YOUR BETS" : "WAITING FOR NEXT ROUND"}
                                         </div>
                                     )}
                                 </div>
-                            )}
+                            </div>
                         </div>
-                    </div>
+                    )}
 
-                    {/* PLAYERS GRID */}
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                        {[...Array(10)].map((_, index) => {
-                            const playerEntry = Object.entries(roomData.players).find(([uid, data]) => data.seatIndex === index);
-                            const pId = playerEntry ? playerEntry[0] : null;
-                            const pData = playerEntry ? playerEntry[1] : null;
-                            const isMe = pId === user.uid;
-
-                            return (
-                                <div key={index} className={`relative min-h-[220px] p-2 flex flex-col items-center justify-between transition-colors ${isMe ? 'bg-gray-700 pixel-box-green' : 'bg-gray-800 pixel-box'}`}>
-                                    
-                                    <div className="text-[10px] text-gray-500 absolute top-1 left-1">P{index + 1}</div>
-
-                                    {!pData ? (
-                                        <button 
-                                            onClick={() => sitAsPlayer(index)}
-                                            disabled={isSeated || isDealer}
-                                            className={`h-full w-full flex items-center justify-center text-xs text-gray-500 border-2 border-dashed border-gray-600 ${(!isSeated && !isDealer) ? 'hover:bg-gray-700 hover:text-white cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
-                                        >
-                                            SIT
-                                        </button>
-                                    ) : (
-                                        <>
-                                            <div className="text-xs text-green-400 mb-1 truncate w-full text-center">
-                                                {isMe ? "YOU" : "PLAYER"}
-                                            </div>
-                                            
-                                            {/* GOLD DISPLAY */}
-                                            <div className="w-full bg-black bg-opacity-40 p-1 mb-1 text-center border-b border-gray-600 flex justify-between px-2">
-                                                <span className="text-[10px] text-yellow-400">GP</span>
-                                                <span className="text-[10px] text-white">{pData.gold}</span>
-                                            </div>
-
-                                            {/* Game Specific Display */}
-                                            {(roomData.activeGame === '21' || roomData.activeGame === 'mimic') ? (
-                                                <div className="flex -space-x-4 mb-2 h-16 items-center">
-                                                    {pData.hand && pData.hand.map((c, i) => (
-                                                        <div key={i} className="transform hover:-translate-y-2 transition-transform">
-                                                            <Card card={c} />
-                                                        </div>
-                                                    ))}
-                                                    {(!pData.hand || pData.hand.length === 0) && (
-                                                        <div className="text-[10px] text-gray-600">No Cards</div>
-                                                    )}
-                                                </div>
-                                            ) : (
-                                                // Voting Display for Other Games
-                                                <div className="flex flex-col items-center justify-center h-16 mb-2 w-full">
-                                                    {pData.vote === 'red' && <div className="w-8 h-8 bg-red-600 border-2 border-white"></div>}
-                                                    {pData.vote === 'black' && <div className="w-8 h-8 bg-black border-2 border-white"></div>}
-                                                    {pData.vote === 'high' && <div className="text-2xl text-green-400">↑</div>}
-                                                    {pData.vote === 'low' && <div className="text-2xl text-red-400">↓</div>}
-                                                    {!pData.vote && <div className="text-[10px] text-gray-500 blink">Thinking...</div>}
-                                                </div>
-                                            )}
-
-                                            {/* Status / Score */}
-                                            <div className="text-center mb-2 h-8">
-                                                {roomData.activeGame === '21' && (
-                                                    <div className="text-sm font-bold text-white">{calculateScore(pData.hand)}</div>
-                                                )}
-                                                <div className={`text-[10px] uppercase font-bold ${
-                                                    pData.status === 'bust' || pData.status === 'lose' ? 'text-red-500' : 
-                                                    pData.status === 'win' ? 'text-green-400' : 
-                                                    pData.status === 'push' ? 'text-yellow-400' : 'text-blue-300'
-                                                }`}>
-                                                    {pData.status === 'active' ? (pData.vote ? 'READY' : '') : pData.status}
-                                                </div>
-                                                {/* Bet Display */}
-                                                <div className="text-[8px] text-gray-400">Bet: {pData.bet || 10}</div>
-                                            </div>
-
-                                            {/* Controls */}
-                                            {isMe && (
-                                                <div className="flex flex-col gap-1 w-full">
-                                                    {/* Betting Phase */}
-                                                    {roomData.gameState === 'waiting' && (
-                                                        <div className="flex gap-1 justify-center mb-1">
-                                                            <button onClick={() => playerAction('bet', -10)} className="bg-gray-600 text-white text-[10px] px-1">-</button>
-                                                            <div className="text-[10px] pt-1">BET</div>
-                                                            <button onClick={() => playerAction('bet', 10)} className="bg-gray-600 text-white text-[10px] px-1">+</button>
-                                                        </div>
-                                                    )}
-
-                                                    {roomData.gameState === 'playing' && (
-                                                        <div className="flex gap-1 justify-center w-full">
-                                                            {roomData.activeGame === '21' && pData.status === 'active' && (
-                                                                <>
-                                                                    <button onClick={() => playerAction('hit')} className="bg-green-600 text-white text-[10px] flex-1 py-2 hover:bg-green-500">HIT</button>
-                                                                    <button onClick={() => playerAction('stand')} className="bg-red-600 text-white text-[10px] flex-1 py-2 hover:bg-red-500">STAND</button>
-                                                                </>
-                                                            )}
-                                                            {roomData.activeGame === 'redblack' && (
-                                                                <>
-                                                                    <button onClick={() => playerAction('vote', 'red')} className={`bg-red-600 text-white text-[10px] flex-1 py-2 ${pData.vote === 'red' ? 'border-2 border-white' : ''}`}>RED</button>
-                                                                    <button onClick={() => playerAction('vote', 'black')} className={`bg-black text-white text-[10px] flex-1 py-2 ${pData.vote === 'black' ? 'border-2 border-white' : ''}`}>BLK</button>
-                                                                </>
-                                                            )}
-                                                            {roomData.activeGame === 'highlow' && (
-                                                                <>
-                                                                    <button onClick={() => playerAction('vote', 'high')} className={`bg-green-600 text-white text-[10px] flex-1 py-2 ${pData.vote === 'high' ? 'border-2 border-white' : ''}`}>HIGH</button>
-                                                                    <button onClick={() => playerAction('vote', 'low')} className={`bg-red-600 text-white text-[10px] flex-1 py-2 ${pData.vote === 'low' ? 'border-2 border-white' : ''}`}>LOW</button>
-                                                                </>
-                                                            )}
-                                                            {roomData.activeGame === 'mimic' && (
-                                                                <div className="text-[10px] text-yellow-400">Open Chest...</div>
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                    <button onClick={standUp} className="text-[10px] text-gray-500 hover:text-white mt-1">Leave Seat</button>
-                                                </div>
-                                            )}
-                                        </>
-                                    )}
-                                </div>
-                            );
-                        })}
-                    </div>
-                    
-                    {/* Dealer PIN Modal */}
+                    {/* MODALS */}
                     {showPinModal && (
-                        <Modal onClose={() => setShowPinModal(false)}>
-                            <h3 className="text-yellow-400 text-sm mb-4">ENTER DEALER PIN</h3>
+                        <Modal title="DEALER LOGIN" onClose={() => setShowPinModal(false)}>
                             <input 
                                 type="password" 
-                                className="w-full bg-black text-white p-2 text-center border-2 border-gray-600 mb-4 outline-none"
-                                value={enteredPin}
-                                onChange={(e) => setEnteredPin(e.target.value)}
                                 autoFocus
+                                className="w-full bg-black text-white p-3 text-center border-2 border-gray-500 mb-4 text-xl outline-none"
+                                onChange={(e) => setEnteredPin(e.target.value)}
                             />
-                            {error && <div className="text-red-500 text-xs mb-4">{error}</div>}
+                            {error && <div className="text-red-500 text-center mb-4 text-xs">{error}</div>}
                             <button 
-                                onClick={sitAsDealer}
-                                className="w-full bg-red-600 text-white p-2 pixel-btn border-b-4 border-red-800"
+                                onClick={async () => {
+                                    if (enteredPin === roomData.dealerPin) {
+                                        await updateRoom({ dealerId: user.uid });
+                                        setShowPinModal(false);
+                                    } else {
+                                        setError("INVALID PIN");
+                                    }
+                                }}
+                                className="w-full pixel-btn bg-red-600 text-white py-3"
                             >
-                                UNLOCK
+                                ACCESS TABLE
+                            </button>
+                        </Modal>
+                    )}
+
+                    {showBankModal && (
+                        <Modal title="VAULT ACCESS" onClose={() => setShowBankModal(false)}>
+                            <div className="text-center mb-6">
+                                <div className="text-gray-400 text-xs mb-1">CURRENT BALANCE</div>
+                                <div className="text-3xl text-yellow-400 font-bold">{myPlayer.gold} GP</div>
+                            </div>
+                            
+                            <div className="mb-4">
+                                <label className="text-xs text-gray-400 block mb-2">ADD FUNDS (D&D MOCK)</label>
+                                <div className="flex gap-2">
+                                    <button onClick={() => setDepositAmount(100)} className="bg-gray-700 px-3 py-1 text-xs hover:bg-gray-600">+100</button>
+                                    <button onClick={() => setDepositAmount(500)} className="bg-gray-700 px-3 py-1 text-xs hover:bg-gray-600">+500</button>
+                                    <button onClick={() => setDepositAmount(1000)} className="bg-gray-700 px-3 py-1 text-xs hover:bg-gray-600">+1k</button>
+                                </div>
+                                <input 
+                                    type="number" 
+                                    value={depositAmount}
+                                    onChange={(e) => setDepositAmount(e.target.value)}
+                                    className="w-full bg-black text-white p-3 mt-2 border-2 border-gray-600"
+                                />
+                            </div>
+
+                            <button onClick={topUpGold} className="w-full pixel-btn bg-green-600 text-white py-3">
+                                DEPOSIT
                             </button>
                         </Modal>
                     )}
