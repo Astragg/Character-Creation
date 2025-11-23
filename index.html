@@ -1,694 +1,626 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NETRUNNER: BREACH RACE</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --neon-green: #00ff41;
-            --neon-red: #ff0055;
-            --neon-blue: #00eaff;
-            --dark-bg: #050505;
-        }
-        body {
-            font-family: 'Share Tech Mono', monospace;
-            background-color: var(--dark-bg);
-            color: var(--neon-green);
-            overflow: hidden;
-            user-select: none;
-            -webkit-tap-highlight-color: transparent;
-        }
-        
-        /* Scanlines & CRT */
-        .scanline {
-            position: absolute; inset: 0;
-            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.2));
-            background-size: 100% 4px; pointer-events: none; z-index: 50;
-        }
-        .glow { text-shadow: 0 0 5px var(--neon-green); }
-        .glow-red { text-shadow: 0 0 5px var(--neon-red); color: var(--neon-red); }
-        
-        /* Grid Mechanics */
-        .hex-cell { transition: all 0.1s; cursor: pointer; }
-        .hex-cell:active { transform: scale(0.95); }
-        .hex-cell.disabled { opacity: 0.1; pointer-events: none; filter: grayscale(1); }
-        .hex-cell.active-axis {
-            background-color: rgba(0, 255, 65, 0.05);
-            box-shadow: inset 0 0 8px var(--neon-green);
-        }
-        .hex-cell.selected {
-            background-color: var(--neon-green); color: black;
-            box-shadow: 0 0 15px var(--neon-green);
-        }
+import React, { useState, useEffect, useMemo } from 'react';
+import { initializeApp } from 'firebase/app';
+import { 
+  getAuth, 
+  signInAnonymously, 
+  signInWithCustomToken,
+  onAuthStateChanged 
+} from 'firebase/auth';
+import { 
+  getFirestore, 
+  collection, 
+  doc, 
+  setDoc, 
+  onSnapshot, 
+  updateDoc, 
+  arrayUnion,
+  getDoc
+} from 'firebase/firestore';
+import { 
+  Crown, 
+  Users, 
+  LogOut, 
+  Play, 
+  RefreshCw, 
+  Trash2, 
+  Shield, 
+  Hand,
+  ArrowUp,
+  ArrowDown,
+  Spade,
+  Club,
+  Heart,
+  Diamond
+} from 'lucide-react';
 
-        /* Select Dropdown Customization */
-        select {
-            appearance: none;
-            background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%2300FF41%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
-            background-repeat: no-repeat;
-            background-position: right 0.7rem top 50%;
-            background-size: 0.65rem auto;
-        }
+// --- Firebase Configuration & Init ---
+const firebaseConfig = {
+  apiKey: "AIzaSyDCrKQVcGBW4iy7OMAtn4Jcf1ot5CGALBE",
+  authDomain: "highnoon-66ee0.firebaseapp.com",
+  databaseURL: "https://highnoon-66ee0-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "highnoon-66ee0",
+  storageBucket: "highnoon-66ee0.firebasestorage.app",
+  messagingSenderId: "754268761672",
+  appId: "1:754268761672:web:7fbf59d2c403b43356727d"
+};
 
-        /* Scrollbar */
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: #001100; }
-        ::-webkit-scrollbar-thumb { background: var(--neon-green); }
-    </style>
-</head>
-<body class="h-screen w-screen flex flex-col relative">
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+// Using your project ID as the default app ID for data storage paths
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'highnoon-66ee0';
 
-    <div class="scanline"></div>
+// --- Constants & Utils ---
+const SUITS = ['♠', '♥', '♣', '♦'];
+const VALUES = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
 
-    <!-- DECORATION -->
-    <div class="absolute top-0 left-0 p-2 text-[10px] opacity-30 leading-tight pointer-events-none">
-        SYS.ROOT >> 0xEF22<br>MEM_ALLOC: 64TB<br>SECURE_LINK: TRUE
+const generateDeck = () => {
+  let deck = [];
+  SUITS.forEach(suit => {
+    VALUES.forEach(value => {
+      deck.push({ suit, value, id: Math.random().toString(36).substr(2, 9) });
+    });
+  });
+  // Shuffle Fisher-Yates
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
+  return deck;
+};
+
+const calculateScore21 = (hand) => {
+  let score = 0;
+  let aces = 0;
+  hand.forEach(card => {
+    if (['J', 'Q', 'K'].includes(card.value)) score += 10;
+    else if (card.value === 'A') { score += 11; aces += 1; }
+    else score += parseInt(card.value);
+  });
+  while (score > 21 && aces > 0) {
+    score -= 10;
+    aces -= 1;
+  }
+  return score;
+};
+
+const getCardColor = (suit) => (suit === '♥' || suit === '♦' ? 'text-red-500' : 'text-gray-800');
+
+// --- Components ---
+
+const Card = ({ card, hidden = false }) => {
+  if (hidden) {
+    return (
+      <div className="w-10 h-14 sm:w-12 sm:h-16 bg-blue-800 border-2 border-white rounded-md shadow flex items-center justify-center bg-opacity-90">
+        <div className="w-8 h-12 border border-blue-600 rounded opacity-50"></div>
+      </div>
+    );
+  }
+  return (
+    <div className="w-10 h-14 sm:w-12 sm:h-16 bg-white rounded-md shadow-lg flex flex-col items-center justify-center border border-gray-300 select-none relative">
+      <span className={`text-sm font-bold ${getCardColor(card.suit)}`}>{card.value}</span>
+      <span className={`text-lg leading-none ${getCardColor(card.suit)}`}>{card.suit}</span>
     </div>
+  );
+};
 
-    <div id="app" class="relative z-10 w-full h-full flex flex-col">
-        
-        <!-- 1. LOGIN -->
-        <div id="view-login" class="absolute inset-0 flex flex-col items-center justify-center bg-black z-50">
-            <div class="border border-[var(--neon-green)] p-8 max-w-md w-full bg-black shadow-[0_0_20px_rgba(0,255,65,0.2)]">
-                <h1 class="text-4xl mb-2 text-center">NET_RUNNER</h1>
-                <div class="h-px w-full bg-[var(--neon-green)] mb-6"></div>
-                
-                <div class="text-sm mb-2 opacity-70">> IDENTIFY_USER</div>
-                <input type="text" id="username-input" maxlength="8" placeholder="ALIAS" 
-                       class="w-full bg-[#001100] border border-[var(--neon-green)] text-[var(--neon-green)] p-4 text-xl outline-none uppercase placeholder-green-900 font-bold mb-6">
-                
-                <button id="btn-enter" class="w-full bg-[var(--neon-green)] text-black font-bold py-4 hover:bg-white transition-colors text-xl">
-                    > CONNECT
-                </button>
-                <div id="auth-status" class="mt-2 text-xs animate-pulse text-center">Initializing...</div>
+const App = () => {
+  const [user, setUser] = useState(null);
+  const [roomCode, setRoomCode] = useState('');
+  const [gameState, setGameState] = useState(null);
+  const [isJoinMode, setIsJoinMode] = useState(true);
+  const [createPass, setCreatePass] = useState('');
+  const [error, setError] = useState('');
+  const [dealerKeyInput, setDealerKeyInput] = useState('');
+  const [showDealerModal, setShowDealerModal] = useState(false);
+
+  // --- Auth ---
+  useEffect(() => {
+    const initAuth = async () => {
+      try {
+        // Attempt to use the environment token if available
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+          // If no token is provided by the environment, go straight to anonymous
+          await signInAnonymously(auth);
+        }
+      } catch (err) {
+        // If the environment token fails (likely due to project mismatch since we are using a custom config),
+        // fall back gracefully to anonymous auth for your specific project.
+        console.warn("Custom token auth failed (expected if using custom Firebase config), falling back to anonymous:", err);
+        try {
+          await signInAnonymously(auth);
+        } catch (anonErr) {
+          console.error("Anonymous auth also failed:", anonErr);
+          setError("Authentication failed. Please check if Anonymous Auth is enabled in Firebase Console.");
+        }
+      }
+    };
+    initAuth();
+    return onAuthStateChanged(auth, setUser);
+  }, []);
+
+  // --- Room Sync ---
+  useEffect(() => {
+    if (!user || !roomCode) return;
+    // Using appId here to keep paths consistent
+    const roomRef = doc(collection(db, 'artifacts', appId, 'public', 'data', 'rooms'), roomCode);
+    const unsub = onSnapshot(roomRef, (snap) => {
+      if (snap.exists()) {
+        setGameState(snap.data());
+      } else {
+        setGameState(null);
+      }
+    }, (err) => {
+      console.error("Sync error", err);
+      if (err.code === 'permission-denied') {
+        setError("Permission denied. Ensure your Firestore rules allow access.");
+      }
+    });
+    return () => unsub();
+  }, [user, roomCode]);
+
+  // --- Actions ---
+
+  const createRoom = async () => {
+    if (!user) return;
+    const code = Math.random().toString(36).substring(2, 6).toUpperCase();
+    const roomRef = doc(collection(db, 'artifacts', appId, 'public', 'data', 'rooms'), code);
+    
+    const newRoom = {
+      hostId: user.uid,
+      dealerKey: createPass || 'admin', // Default key if empty
+      dealerId: null,
+      gameType: '21', // Default game
+      deck: generateDeck(),
+      players: Array(10).fill(null), // 10 Empty seats
+      logs: [`Room ${code} created.`],
+      status: 'waiting'
+    };
+
+    await setDoc(roomRef, newRoom);
+    setRoomCode(code);
+  };
+
+  const joinRoom = async (code) => {
+    if (!code) return;
+    setRoomCode(code.toUpperCase());
+  };
+
+  const leaveRoom = () => {
+    setRoomCode('');
+    setGameState(null);
+  };
+
+  const claimSeat = async (index) => {
+    if (!gameState || !user) return;
+    // Check if already seated
+    const existingSeat = gameState.players.findIndex(p => p?.id === user.uid);
+    if (existingSeat !== -1) {
+      setError("You are already seated!");
+      setTimeout(() => setError(''), 2000);
+      return;
+    }
+
+    const newPlayers = [...gameState.players];
+    newPlayers[index] = {
+      id: user.uid,
+      name: `Player ${user.uid.slice(0,4)}`,
+      hand: [],
+      chips: 100,
+      bet: 0,
+      status: 'ready' // ready, hit, stand
+    };
+
+    const roomRef = doc(collection(db, 'artifacts', appId, 'public', 'data', 'rooms'), roomCode);
+    await updateDoc(roomRef, { players: newPlayers });
+  };
+
+  const leaveSeat = async (index) => {
+    const newPlayers = [...gameState.players];
+    newPlayers[index] = null;
+    const roomRef = doc(collection(db, 'artifacts', appId, 'public', 'data', 'rooms'), roomCode);
+    await updateDoc(roomRef, { players: newPlayers });
+  };
+
+  const attemptClaimDealer = async () => {
+    if (dealerKeyInput === gameState.dealerKey) {
+      const roomRef = doc(collection(db, 'artifacts', appId, 'public', 'data', 'rooms'), roomCode);
+      await updateDoc(roomRef, { dealerId: user.uid });
+      setShowDealerModal(false);
+    } else {
+      setError("Incorrect Dealer Key");
+      setTimeout(() => setError(''), 2000);
+    }
+  };
+
+  const leaveDealer = async () => {
+    const roomRef = doc(collection(db, 'artifacts', appId, 'public', 'data', 'rooms'), roomCode);
+    await updateDoc(roomRef, { dealerId: null });
+  };
+
+  // --- Dealer / GM Actions ---
+
+  const gmDealCard = async (seatIndex) => {
+    if (!gameState.deck.length) return;
+    const newDeck = [...gameState.deck];
+    const card = newDeck.pop();
+    
+    const newPlayers = [...gameState.players];
+    if (newPlayers[seatIndex]) {
+      newPlayers[seatIndex].hand = [...newPlayers[seatIndex].hand, card];
+      // Reset status if they were asking for a hit
+      if(newPlayers[seatIndex].status === 'hit') newPlayers[seatIndex].status = 'ready';
+    }
+
+    const roomRef = doc(collection(db, 'artifacts', appId, 'public', 'data', 'rooms'), roomCode);
+    await updateDoc(roomRef, { deck: newDeck, players: newPlayers });
+  };
+
+  const gmResetRound = async () => {
+    const newPlayers = gameState.players.map(p => p ? ({ ...p, hand: [], status: 'ready', bet: 0 }) : null);
+    const roomRef = doc(collection(db, 'artifacts', appId, 'public', 'data', 'rooms'), roomCode);
+    await updateDoc(roomRef, { players: newPlayers, logs: arrayUnion("Round Reset") });
+  };
+
+  const gmShuffle = async () => {
+    const roomRef = doc(collection(db, 'artifacts', appId, 'public', 'data', 'rooms'), roomCode);
+    await updateDoc(roomRef, { deck: generateDeck(), logs: arrayUnion("Deck Shuffled") });
+  };
+
+  const gmChangeGame = async (type) => {
+    const roomRef = doc(collection(db, 'artifacts', appId, 'public', 'data', 'rooms'), roomCode);
+    await updateDoc(roomRef, { gameType: type, logs: arrayUnion(`Game changed to ${type}`) });
+  };
+
+  // --- Player Actions ---
+  const playerAction = async (seatIndex, action) => {
+    const newPlayers = [...gameState.players];
+    if (newPlayers[seatIndex]) {
+        newPlayers[seatIndex].status = action;
+    }
+    const roomRef = doc(collection(db, 'artifacts', appId, 'public', 'data', 'rooms'), roomCode);
+    await updateDoc(roomRef, { players: newPlayers });
+  };
+
+
+  // --- Render Helpers ---
+
+  if (!user) return <div className="flex items-center justify-center h-screen bg-green-900 text-white">Connecting to Casino...</div>;
+
+  // LOBBY
+  if (!gameState) {
+    return (
+      <div className="min-h-screen bg-green-900 flex flex-col items-center justify-center p-4 text-white font-sans">
+        <div className="max-w-md w-full bg-green-800 p-8 rounded-xl shadow-2xl border border-green-600">
+          <div className="flex justify-center mb-6">
+            <Club className="w-12 h-12 text-white mr-2" />
+            <h1 className="text-4xl font-bold tracking-wider text-gold-400">GM CASINO</h1>
+          </div>
+          
+          <div className="flex space-x-2 mb-6 bg-green-900 p-1 rounded-lg">
+            <button 
+              onClick={() => setIsJoinMode(true)}
+              className={`flex-1 py-2 rounded-md transition-all ${isJoinMode ? 'bg-yellow-500 text-black font-bold shadow-md' : 'text-gray-400 hover:text-white'}`}
+            >
+              Join Room
+            </button>
+            <button 
+              onClick={() => setIsJoinMode(false)}
+              className={`flex-1 py-2 rounded-md transition-all ${!isJoinMode ? 'bg-yellow-500 text-black font-bold shadow-md' : 'text-gray-400 hover:text-white'}`}
+            >
+              Create Room
+            </button>
+          </div>
+
+          {isJoinMode ? (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-green-200 mb-1">Room Code</label>
+                <input 
+                  type="text" 
+                  value={roomCode}
+                  onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
+                  placeholder="ABCD"
+                  className="w-full bg-green-900 border border-green-600 rounded px-4 py-3 text-center text-2xl tracking-widest focus:outline-none focus:ring-2 focus:ring-yellow-500 uppercase"
+                />
+              </div>
+              <button 
+                onClick={() => joinRoom(roomCode)}
+                className="w-full bg-gradient-to-r from-yellow-500 to-yellow-600 text-black font-bold py-3 rounded hover:from-yellow-400 hover:to-yellow-500 transform transition hover:scale-105"
+              >
+                ENTER CASINO
+              </button>
             </div>
+          ) : (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-green-200 mb-1">Dealer Key (GM Password)</label>
+                <input 
+                  type="text" 
+                  value={createPass}
+                  onChange={(e) => setCreatePass(e.target.value)}
+                  placeholder="Secret Key"
+                  className="w-full bg-green-900 border border-green-600 rounded px-4 py-3 text-center text-lg focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                />
+              </div>
+              <button 
+                onClick={createRoom}
+                className="w-full bg-gradient-to-r from-yellow-500 to-yellow-600 text-black font-bold py-3 rounded hover:from-yellow-400 hover:to-yellow-500 transform transition hover:scale-105"
+              >
+                OPEN TABLE
+              </button>
+            </div>
+          )}
+          {error && <p className="text-red-400 text-center mt-4 text-sm bg-black bg-opacity-20 p-2 rounded">{error}</p>}
+        </div>
+      </div>
+    );
+  }
+
+  // GAME ROOM
+  const isDealer = gameState.dealerId === user.uid;
+  const mySeatIndex = gameState.players.findIndex(p => p?.id === user.uid);
+  const isSeated = mySeatIndex !== -1;
+
+  return (
+    <div className="min-h-screen bg-green-900 text-white flex flex-col overflow-hidden font-sans">
+      {/* Header */}
+      <div className="h-14 bg-green-950 flex items-center justify-between px-4 shadow-md z-10">
+        <div className="flex items-center space-x-4">
+          <span className="font-bold text-yellow-500 text-xl tracking-widest">{gameState.gameType.toUpperCase()}</span>
+          <span className="px-2 py-1 bg-green-800 rounded text-xs font-mono">RM: {roomCode}</span>
+        </div>
+        <div className="flex items-center space-x-2">
+            <div className="text-xs text-gray-400 hidden sm:block">{user.uid.slice(0,6)}</div>
+            <button onClick={leaveRoom} className="p-2 hover:bg-red-900 rounded text-red-400"><LogOut size={18}/></button>
+        </div>
+      </div>
+
+      {/* Main Table Area */}
+      <div className="flex-1 relative overflow-hidden flex flex-col">
+        
+        {/* Dealer Zone (Top Center) */}
+        <div className="flex justify-center pt-4 pb-8 relative z-0">
+          {gameState.dealerId ? (
+             <div className="flex flex-col items-center">
+                <div className="w-16 h-16 rounded-full bg-gray-800 border-4 border-yellow-600 flex items-center justify-center shadow-lg mb-2">
+                    <Shield className="text-yellow-500 w-8 h-8" />
+                </div>
+                <span className="text-yellow-500 font-bold text-sm bg-black bg-opacity-50 px-2 rounded">DEALER</span>
+                
+                {/* Only show Leave Dealer button if YOU are the dealer */}
+                {isDealer && (
+                    <button onClick={leaveDealer} className="mt-1 text-xs text-red-400 hover:underline">Leave Seat</button>
+                )}
+             </div>
+          ) : (
+            <div className="flex flex-col items-center animate-pulse">
+               <button 
+                 onClick={() => setShowDealerModal(true)}
+                 className="w-16 h-16 rounded-full bg-green-800 border-4 border-gray-600 flex items-center justify-center shadow-lg mb-2 hover:bg-green-700 transition"
+               >
+                   <Users className="text-gray-400 w-6 h-6" />
+               </button>
+               <span className="text-gray-400 font-bold text-sm">NO DEALER</span>
+            </div>
+          )}
         </div>
 
-        <!-- 2. LOBBY -->
-        <div id="view-lobby" class="absolute inset-0 bg-black hidden flex flex-col">
-            <header class="p-4 border-b border-green-900 flex justify-between items-center bg-[#001100]">
-                <div class="flex items-center gap-2">
-                    <div class="w-3 h-3 bg-[var(--neon-green)] rounded-full animate-pulse"></div>
-                    <span class="text-xl">PUBLIC_NET</span>
+        {/* Dealer Control Panel (Floating - Only Visible to Dealer) */}
+        {isDealer && (
+            <div className="absolute top-4 right-4 bg-black bg-opacity-80 p-3 rounded-lg border border-gray-700 shadow-xl z-20 w-64">
+                <h3 className="text-xs font-bold text-yellow-500 uppercase mb-2 border-b border-gray-700 pb-1">GM Controls</h3>
+                
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                    <button onClick={gmShuffle} className="bg-blue-900 hover:bg-blue-700 text-xs py-1 px-2 rounded flex items-center justify-center"><RefreshCw size={12} className="mr-1"/> Shuffle</button>
+                    <button onClick={gmResetRound} className="bg-red-900 hover:bg-red-700 text-xs py-1 px-2 rounded flex items-center justify-center"><Trash2 size={12} className="mr-1"/> Clear All</button>
                 </div>
-                <div class="text-right text-sm">
-                    <div id="lobby-user" class="opacity-80">GUEST</div>
-                    <div id="lobby-id" class="text-[10px] opacity-50">ID: NULL</div>
-                </div>
-            </header>
 
-            <div class="flex-1 p-4 overflow-hidden flex flex-col">
-                <div class="flex justify-between items-end mb-2 border-b border-green-900/50 pb-2">
-                    <h2 class="text-lg glow">ACTIVE_NODES</h2>
-                    <button id="btn-refresh" class="text-xs underline hover:text-white">[REFRESH]</button>
-                </div>
-                <div id="game-list" class="flex-1 overflow-y-auto space-y-2 pr-2">
-                    <!-- Games List -->
-                </div>
-            </div>
-
-            <!-- Create Game Section -->
-            <div class="p-4 border-t border-green-900 bg-[#001100]">
-                <div class="mb-2 flex justify-between items-center">
-                    <label class="text-xs opacity-70">SECURITY LEVEL (DIFFICULTY)</label>
-                </div>
-                <div class="flex gap-2 mb-4">
-                    <select id="difficulty-select" class="w-full bg-black border border-[var(--neon-green)] text-[var(--neon-green)] p-2 outline-none">
-                        <option value="easy">ROOKIE (4x4)</option>
-                        <option value="medium" selected>RUNNER (5x5)</option>
-                        <option value="hard">NETGOD (6x6)</option>
+                <div className="mb-2">
+                    <label className="text-xs text-gray-400">Game Mode:</label>
+                    <select 
+                        value={gameState.gameType} 
+                        onChange={(e) => gmChangeGame(e.target.value)}
+                        className="w-full bg-gray-800 text-xs p-1 rounded mt-1 border border-gray-600"
+                    >
+                        <option value="21">Blackjack (21)</option>
+                        <option value="HighLow">Higher / Lower</option>
+                        <option value="RedBlack">Red / Black</option>
                     </select>
                 </div>
-                <button id="btn-create" class="w-full bg-[var(--neon-green)] text-black py-4 font-bold text-lg hover:bg-white transition-colors">
-                    > ESTABLISH_NODE
-                </button>
-            </div>
-        </div>
-
-        <!-- 3. WAITING -->
-        <div id="view-waiting" class="absolute inset-0 bg-black hidden flex flex-col items-center justify-center z-40">
-            <div class="text-center w-full max-w-md p-6 border-y border-green-900 bg-[#050505]">
-                <h2 class="text-2xl mb-4 animate-pulse">AWAITING_LINK</h2>
-                <div class="bg-[#001100] p-4 mb-6 border border-green-800 font-mono">
-                    <div class="text-[10px] opacity-50 mb-1">ACCESS_CODE</div>
-                    <div id="waiting-code" class="text-xl select-all font-bold text-white">---</div>
-                    <div id="waiting-difficulty" class="text-xs mt-2 text-[var(--neon-blue)]">DIFFICULTY: MEDIUM</div>
-                </div>
-                <button id="btn-cancel" class="text-red-500 border border-red-900 px-6 py-2 text-sm hover:bg-red-900/20">
-                    [ABORT]
-                </button>
-            </div>
-        </div>
-
-        <!-- 4. GAME INTERFACE -->
-        <div id="view-game" class="absolute inset-0 bg-black hidden flex flex-col z-30">
-            <!-- HUD -->
-            <div class="flex justify-between items-start p-2 bg-[#001100] border-b border-green-800 h-24">
-                <div class="flex flex-col w-1/3">
-                    <span class="text-[10px] opacity-70">YOU</span>
-                    <div class="flex gap-1 mt-1" id="hud-my-score"></div>
-                </div>
-                <div class="flex flex-col items-center w-1/3">
-                    <div class="text-2xl font-bold text-white" id="hud-round">R:01</div>
-                    <div id="game-status-msg" class="text-[10px] text-[var(--neon-red)] animate-pulse">LOCKED</div>
-                </div>
-                <div class="flex flex-col items-center w-1/3 items-end text-right">
-                    <span class="text-[10px] opacity-70 text-[var(--neon-red)]">RIVAL</span>
-                    <div class="flex gap-1 mt-1 justify-end" id="hud-enemy-score"></div>
-                </div>
-            </div>
-
-            <!-- SEQUENCE -->
-            <div class="p-2 flex flex-col items-center justify-center bg-black border-b border-green-900/50 h-20">
-                <div class="text-[10px] opacity-50 mb-1">TARGET_SEQUENCE</div>
-                <div id="target-sequence" class="flex gap-2 text-xl font-bold"></div>
-            </div>
-
-            <!-- BUFFER -->
-            <div class="p-2 flex gap-2 items-center justify-center h-12 bg-[#050505]">
-                <span class="text-[10px] opacity-50">BUFFER:</span>
-                <div id="buffer-display" class="flex gap-1 text-sm text-white"></div>
-            </div>
-
-            <!-- MATRIX -->
-            <div class="flex-1 p-4 flex items-center justify-center bg-black relative overflow-hidden">
-                <div class="absolute inset-0 pointer-events-none opacity-10 bg-[radial-gradient(circle_at_center,_var(--neon-green)_0%,_transparent_70%)]"></div>
-                <div id="hex-grid" class="grid gap-2 p-2 border border-green-900 bg-[#000500] transition-all duration-500"></div>
-            </div>
-        </div>
-
-        <!-- 5. OVERLAY (ROUND/MATCH OVER) -->
-        <div id="view-overlay" class="absolute inset-0 z-[60] bg-black/95 flex flex-col items-center justify-center hidden">
-            <div class="border-2 border-[var(--neon-green)] p-8 min-w-[300px] max-w-sm w-full text-center relative">
-                <h2 id="overlay-title" class="text-4xl mb-2 glow font-bold">BREACH_SUCCESS</h2>
-                <p id="overlay-sub" class="text-sm opacity-80 mb-8">DATA_UPLOADED</p>
                 
-                <div id="overlay-scores" class="flex justify-center gap-8 text-2xl mb-8">
-                    <div class="text-[var(--neon-green)]">YOU: <span id="os-me">0</span></div>
-                    <div class="text-[var(--neon-red)]">THEM: <span id="os-them">0</span></div>
+                <div className="text-xs text-gray-500 italic text-center mt-2">
+                    Tap "Deal" on players to give cards.
                 </div>
+            </div>
+        )}
 
-                <div id="overlay-timer" class="text-xs animate-pulse text-[var(--neon-blue)] mb-4">NEXT_NODE_IN_3...</div>
-                
-                <button id="btn-quit" class="hidden w-full border border-red-800 text-red-500 py-3 text-sm hover:bg-red-900/20 font-bold">
-                    DISCONNECT FROM SYSTEM
-                </button>
+        {/* Table Felt Text */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-10">
+            <span className="text-9xl font-serif font-bold text-black transform -rotate-12 select-none">
+                {gameState.gameType}
+            </span>
+        </div>
+
+        {/* Player Seats Grid - Flex wrapping for 10 seats */}
+        <div className="flex-1 p-4 overflow-y-auto">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 max-w-6xl mx-auto">
+                {gameState.players.map((player, idx) => {
+                    const isMe = player?.id === user.uid;
+                    
+                    return (
+                        <div key={idx} className={`relative flex flex-col items-center p-2 rounded-xl min-h-[180px] transition-all border-2 ${isMe ? 'bg-green-800 bg-opacity-60 border-yellow-500' : 'bg-green-900 bg-opacity-40 border-transparent'}`}>
+                            
+                            {/* Seat Header / Avatar */}
+                            {!player ? (
+                                <button 
+                                    onClick={() => claimSeat(idx)}
+                                    disabled={isSeated && !isDealer} 
+                                    className="flex flex-col items-center justify-center h-full w-full opacity-50 hover:opacity-100 disabled:opacity-20 disabled:cursor-not-allowed group"
+                                >
+                                    <div className="w-12 h-12 rounded-full border-2 border-dashed border-gray-400 flex items-center justify-center group-hover:border-yellow-400 group-hover:bg-green-800 transition">
+                                        <span className="text-sm font-bold text-gray-300">SIT</span>
+                                    </div>
+                                </button>
+                            ) : (
+                                <>
+                                    {/* Player Info */}
+                                    <div className="w-full flex justify-between items-start mb-2">
+                                        <div className="flex items-center space-x-1">
+                                            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-[10px] flex items-center justify-center font-bold">
+                                                {idx + 1}
+                                            </div>
+                                            <span className="text-xs font-bold truncate max-w-[60px]">{player.name}</span>
+                                        </div>
+                                        
+                                        {/* Dealer Deal Button (Only visible to Dealer) */}
+                                        {isDealer && (
+                                            <button 
+                                                onClick={() => gmDealCard(idx)}
+                                                className="bg-yellow-600 hover:bg-yellow-500 text-black text-[10px] font-bold px-2 py-1 rounded shadow-sm flex items-center"
+                                            >
+                                                <Hand size={10} className="mr-1"/> DEAL
+                                            </button>
+                                        )}
+
+                                        {/* Leave Seat Button (Me or Dealer) */}
+                                        {(isMe || isDealer) && (
+                                            <button onClick={() => leaveSeat(idx)} className="text-gray-500 hover:text-red-400">
+                                                <LogOut size={12}/>
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {/* Cards Area */}
+                                    <div className="flex -space-x-6 mb-2 h-20 items-center justify-center w-full px-2">
+                                        {player.hand && player.hand.length > 0 ? (
+                                            player.hand.map((card, cIdx) => (
+                                                <div key={cIdx} className="transform hover:-translate-y-2 transition-transform duration-200" style={{zIndex: cIdx}}>
+                                                    <Card card={card} />
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <div className="w-10 h-14 rounded border-2 border-dashed border-green-700 opacity-30"></div>
+                                        )}
+                                    </div>
+
+                                    {/* Game Specific Stats */}
+                                    <div className="mt-auto w-full text-center">
+                                        {gameState.gameType === '21' && player.hand.length > 0 && (
+                                            <div className="inline-block px-2 py-0.5 bg-black bg-opacity-50 rounded text-xs font-mono text-yellow-400">
+                                                {calculateScore21(player.hand)}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Status Indicators (Requests) */}
+                                    {player.status !== 'ready' && (
+                                        <div className={`absolute -top-2 -right-2 px-2 py-1 rounded text-[10px] font-bold shadow uppercase animate-bounce ${
+                                            player.status === 'hit' ? 'bg-blue-500 text-white' : 
+                                            player.status === 'stand' ? 'bg-red-500 text-white' : 
+                                            player.status === 'high' ? 'bg-purple-500 text-white' :
+                                            player.status === 'low' ? 'bg-pink-500 text-white' : 
+                                            'bg-gray-500'
+                                        }`}>
+                                            {player.status}
+                                        </div>
+                                    )}
+
+                                    {/* Player Actions (If it is ME) */}
+                                    {isMe && (
+                                        <div className="flex gap-1 mt-2 w-full">
+                                            {gameState.gameType === '21' && (
+                                                <>
+                                                    <button 
+                                                        onClick={() => playerAction(idx, 'hit')}
+                                                        className="flex-1 bg-blue-600 hover:bg-blue-500 text-[10px] py-1 rounded font-bold shadow"
+                                                    >
+                                                        HIT
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => playerAction(idx, 'stand')}
+                                                        className="flex-1 bg-red-600 hover:bg-red-500 text-[10px] py-1 rounded font-bold shadow"
+                                                    >
+                                                        STAY
+                                                    </button>
+                                                </>
+                                            )}
+                                            {gameState.gameType === 'HighLow' && (
+                                                <>
+                                                    <button 
+                                                        onClick={() => playerAction(idx, 'high')}
+                                                        className="flex-1 bg-purple-600 hover:bg-purple-500 text-[10px] py-1 rounded font-bold shadow flex justify-center"
+                                                    >
+                                                        <ArrowUp size={12}/>
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => playerAction(idx, 'low')}
+                                                        className="flex-1 bg-pink-600 hover:bg-pink-500 text-[10px] py-1 rounded font-bold shadow flex justify-center"
+                                                    >
+                                                        <ArrowDown size={12}/>
+                                                    </button>
+                                                </>
+                                            )}
+                                            {gameState.gameType === 'RedBlack' && (
+                                                <>
+                                                    <button 
+                                                        onClick={() => playerAction(idx, 'red')}
+                                                        className="flex-1 bg-red-600 hover:bg-red-500 text-[10px] py-1 rounded font-bold shadow"
+                                                    >
+                                                        RED
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => playerAction(idx, 'black')}
+                                                        className="flex-1 bg-gray-900 hover:bg-gray-800 text-[10px] py-1 rounded font-bold shadow border border-gray-600"
+                                                    >
+                                                        BLK
+                                                    </button>
+                                                </>
+                                            )}
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </div>
+                    );
+                })}
             </div>
         </div>
+      </div>
+
+      {/* Dealer Modal */}
+      {showDealerModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 px-4">
+              <div className="bg-gray-800 p-6 rounded-lg border border-yellow-600 max-w-sm w-full text-center">
+                  <Shield className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
+                  <h2 className="text-xl font-bold text-white mb-2">Dealer Access</h2>
+                  <p className="text-gray-400 text-sm mb-4">Enter the room Key to take the Dealer Seat.</p>
+                  <input 
+                    type="password" 
+                    value={dealerKeyInput}
+                    onChange={e => setDealerKeyInput(e.target.value)}
+                    className="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white text-center mb-4 focus:border-yellow-500 outline-none"
+                  />
+                  <div className="flex gap-2">
+                      <button onClick={() => setShowDealerModal(false)} className="flex-1 py-2 bg-gray-700 rounded hover:bg-gray-600 text-sm font-bold">CANCEL</button>
+                      <button onClick={attemptClaimDealer} className="flex-1 py-2 bg-yellow-600 rounded hover:bg-yellow-500 text-black text-sm font-bold">ENTER</button>
+                  </div>
+                  {error && <p className="text-red-400 text-xs mt-2">{error}</p>}
+              </div>
+          </div>
+      )}
+      
+      {/* Global Error Toast */}
+      {error && !showDealerModal && (
+          <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-red-600 text-white px-6 py-2 rounded-full shadow-xl font-bold z-50 animate-bounce">
+              {error}
+          </div>
+      )}
 
     </div>
+  );
+};
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, updateDoc, onSnapshot, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
-
-        // --- FIREBASE CONFIG ---
-        const firebaseConfig = {
-          apiKey: "AIzaSyDCrKQVcGBW4iy7OMAtn4Jcf1ot5CGALBE",
-          authDomain: "highnoon-66ee0.firebaseapp.com",
-          databaseURL: "https://highnoon-66ee0-default-rtdb.europe-west1.firebasedatabase.app",
-          projectId: "highnoon-66ee0",
-          storageBucket: "highnoon-66ee0.firebasestorage.app",
-          messagingSenderId: "754268761672",
-          appId: "1:754268761672:web:7fbf59d2c403b43356727d"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const GAMES_COLLECTION = "cyber_breach_race_v2"; 
-
-        // --- CONSTANTS ---
-        const DIFFICULTY_SETTINGS = {
-            easy: { gridSize: 4, seqLength: 3, name: "ROOKIE" },
-            medium: { gridSize: 5, seqLength: 4, name: "RUNNER" },
-            hard: { gridSize: 6, seqLength: 6, name: "NETGOD" }
-        };
-        const HEX_CODES = ['BD', '1C', '55', '7A', 'E9', 'FF'];
-
-        // --- STATE ---
-        let currentUser = null;
-        let currentUserName = '';
-        let currentGameId = null;
-        let gameUnsubscribe = null;
-        let myRole = null;
-        let gameState = 'login';
-        
-        // Game Logic
-        let grid = [];
-        let targetSequence = [];
-        let playerBuffer = [];
-        let activeAxis = 'row'; // 'row' or 'col'
-        let activeIndex = 0; 
-        let isLocked = false;
-        let currentDifficulty = 'medium';
-
-        // --- UI REFS ---
-        const ui = {
-            views: {
-                login: document.getElementById('view-login'),
-                lobby: document.getElementById('view-lobby'),
-                waiting: document.getElementById('view-waiting'),
-                game: document.getElementById('view-game'),
-                overlay: document.getElementById('view-overlay')
-            },
-            inputs: {
-                difficulty: document.getElementById('difficulty-select'),
-                username: document.getElementById('username-input')
-            },
-            grid: document.getElementById('hex-grid'),
-            targetSeq: document.getElementById('target-sequence'),
-            buffer: document.getElementById('buffer-display'),
-            hud: {
-                round: document.getElementById('hud-round'),
-                status: document.getElementById('game-status-msg'),
-                myScore: document.getElementById('hud-my-score'),
-                enemyScore: document.getElementById('hud-enemy-score')
-            },
-            overlay: {
-                title: document.getElementById('overlay-title'),
-                sub: document.getElementById('overlay-sub'),
-                timer: document.getElementById('overlay-timer'),
-                quitBtn: document.getElementById('btn-quit'),
-                scoreMe: document.getElementById('os-me'),
-                scoreThem: document.getElementById('os-them')
-            }
-        };
-
-        // --- AUDIO ---
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const playSound = (type) => {
-            if(audioCtx.state === 'suspended') audioCtx.resume();
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            const now = audioCtx.currentTime;
-
-            if(type === 'select') {
-                osc.type = 'square';
-                osc.frequency.setValueAtTime(600, now);
-                osc.frequency.setValueAtTime(1200, now + 0.05);
-                gain.gain.setValueAtTime(0.1, now);
-                gain.gain.linearRampToValueAtTime(0, now + 0.1);
-                osc.start(); osc.stop(now + 0.1);
-            } else if (type === 'error') {
-                osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(100, now);
-                osc.frequency.linearRampToValueAtTime(50, now + 0.3);
-                gain.gain.setValueAtTime(0.2, now);
-                gain.gain.linearRampToValueAtTime(0, now + 0.3);
-                osc.start(); osc.stop(now + 0.3);
-            } else if (type === 'success') {
-                osc.type = 'triangle';
-                osc.frequency.setValueAtTime(880, now);
-                osc.frequency.setValueAtTime(1760, now + 0.1);
-                gain.gain.setValueAtTime(0.1, now);
-                gain.gain.linearRampToValueAtTime(0, now + 0.4);
-                osc.start(); osc.stop(now + 0.4);
-            }
-        };
-
-        // --- AUTH & INIT ---
-        signInAnonymously(auth).catch(console.error);
-        onAuthStateChanged(auth, (user) => {
-            if(user) {
-                currentUser = user;
-                document.getElementById('auth-status').innerText = "LINK_ESTABLISHED";
-                document.getElementById('lobby-id').innerText = `ID: ${user.uid.slice(0,4)}`;
-                if(currentUserName) { switchView('lobby'); refreshLobby(); }
-            }
-        });
-
-        document.getElementById('btn-enter').addEventListener('click', () => {
-            const name = ui.inputs.username.value.trim().toUpperCase();
-            if(!name) return;
-            currentUserName = name;
-            document.getElementById('lobby-user').innerText = name;
-            playSound('select');
-            switchView('lobby');
-            refreshLobby();
-        });
-
-        function switchView(name) {
-            Object.values(ui.views).forEach(v => v.classList.add('hidden'));
-            ui.views[name].classList.remove('hidden');
-            gameState = name;
-        }
-
-        // --- LOBBY LOGIC ---
-        document.getElementById('btn-refresh').addEventListener('click', () => { playSound('select'); refreshLobby(); });
-        document.getElementById('btn-create').addEventListener('click', createGame);
-        document.getElementById('btn-cancel').addEventListener('click', leaveGame);
-        ui.overlay.quitBtn.addEventListener('click', leaveGame);
-
-        async function refreshLobby() {
-            const list = document.getElementById('game-list');
-            list.innerHTML = '<div class="text-xs animate-pulse">SCANNING...</div>';
-            try {
-                const snap = await getDocs(collection(db, GAMES_COLLECTION));
-                list.innerHTML = '';
-                let found = false;
-                snap.forEach(d => {
-                    const data = d.data();
-                    if(data.status === 'waiting') {
-                        found = true;
-                        const diffName = DIFFICULTY_SETTINGS[data.difficulty]?.name || "UNKNOWN";
-                        const div = document.createElement('div');
-                        div.className = 'border border-green-900 p-2 flex justify-between items-center hover:bg-green-900/20 cursor-pointer';
-                        div.innerHTML = `
-                            <div><div class="font-bold text-sm">${data.hostName}</div><div class="text-[10px] opacity-70">${diffName} NODE</div></div>
-                            <div class="text-xs bg-green-900 text-black px-2 py-1 font-bold">BREACH</div>
-                        `;
-                        div.onclick = () => joinGame(d.id);
-                        list.appendChild(div);
-                    }
-                });
-                if(!found) list.innerHTML = '<div class="text-xs opacity-50 p-2">NO_SIGNALS_DETECTED</div>';
-            } catch(e) { console.error(e); }
-        }
-
-        async function createGame() {
-            playSound('select');
-            if(!currentUser) return;
-            
-            const difficulty = ui.inputs.difficulty.value; // 'easy', 'medium', 'hard'
-            const ref = doc(collection(db, GAMES_COLLECTION));
-            
-            await setDoc(ref, {
-                host: currentUser.uid,
-                hostName: currentUserName,
-                status: 'waiting',
-                createdAt: Date.now(),
-                difficulty: difficulty,
-                round: 1,
-                hostScore: 0,
-                joinerScore: 0,
-            });
-            
-            currentGameId = ref.id;
-            myRole = 'host';
-            currentDifficulty = difficulty;
-            document.getElementById('waiting-code').innerText = ref.id.slice(0, 6);
-            document.getElementById('waiting-difficulty').innerText = `DIFFICULTY: ${DIFFICULTY_SETTINGS[difficulty].name}`;
-            
-            switchView('waiting');
-            subscribe(currentGameId);
-        }
-
-        async function joinGame(id) {
-            playSound('select');
-            await updateDoc(doc(db, GAMES_COLLECTION, id), {
-                joiner: currentUser.uid,
-                joinerName: currentUserName,
-                status: 'ready'
-            });
-            currentGameId = id;
-            myRole = 'joiner';
-            subscribe(id);
-        }
-
-        function subscribe(id) {
-            if(gameUnsubscribe) gameUnsubscribe();
-            gameUnsubscribe = onSnapshot(doc(db, GAMES_COLLECTION, id), (snap) => {
-                if(!snap.exists()) { leaveGame(); return; }
-                const data = snap.data();
-                handleGameUpdate(data);
-            });
-        }
-
-        // --- CORE GAME ENGINE ---
-
-        function generatePuzzle(difficulty) {
-            const settings = DIFFICULTY_SETTINGS[difficulty];
-            const size = settings.gridSize;
-            const seqLen = settings.seqLength;
-
-            // 1. Grid
-            const newGrid = [];
-            for(let i=0; i<size*size; i++) newGrid.push(HEX_CODES[Math.floor(Math.random() * HEX_CODES.length)]);
-
-            // 2. Valid Path Generation (Simulate a breach to ensure solvability)
-            let r = 0;
-            let c = Math.floor(Math.random() * size);
-            const sequence = [];
-            
-            // Start Move (Row 0)
-            sequence.push(newGrid[c]); 
-
-            let currR = r;
-            let currC = c;
-            
-            // Move Vertical (pick new Row from curr Column)
-            let nextR = Math.floor(Math.random() * size);
-            while(nextR === currR) nextR = Math.floor(Math.random() * size);
-            sequence.push(newGrid[nextR * size + currC]);
-            currR = nextR;
-
-            // Move Horizontal (pick new Col from curr Row)
-            let nextC = Math.floor(Math.random() * size);
-            while(nextC === currC) nextC = Math.floor(Math.random() * size);
-            sequence.push(newGrid[currR * size + nextC]);
-            currC = nextC;
-
-            // If hard/medium, add more steps
-            if (seqLen > 3) {
-                 nextR = Math.floor(Math.random() * size);
-                 while(nextR === currR) nextR = Math.floor(Math.random() * size);
-                 sequence.push(newGrid[nextR * size + currC]);
-            }
-
-            return { grid: newGrid, sequence: sequence };
-        }
-
-        function handleGameUpdate(data) {
-            if(data.difficulty) currentDifficulty = data.difficulty;
-
-            // Waiting -> Start
-            if(gameState === 'waiting' && data.status === 'ready') {
-                if(myRole === 'host') startRound();
-                return;
-            }
-
-            // Active Round
-            if(data.status === 'active') {
-                // Check if we need to initialize a new round (Grid mismatch or just not in game view)
-                const isNewRound = JSON.stringify(data.sequence) !== JSON.stringify(targetSequence);
-                
-                if(gameState !== 'game' || isNewRound) {
-                    switchView('game');
-                    ui.views.overlay.classList.add('hidden'); // CRITICAL FIX: Hide overlay on new round
-                    initRound(data);
-                }
-            }
-
-            updateHUD(data);
-
-            // Round Over / Match Over
-            if(data.status === 'finished' || data.status === 'match_over') {
-                if(!ui.views.overlay.classList.contains('flex')) { // Only show if not already shown
-                    showResultScreen(data);
-                }
-            }
-        }
-
-        async function startRound() {
-            const puzzle = generatePuzzle(currentDifficulty);
-            const gameRef = doc(db, GAMES_COLLECTION, currentGameId);
-            await updateDoc(gameRef, {
-                status: 'active',
-                grid: puzzle.grid,
-                sequence: puzzle.sequence,
-                roundWinner: null
-            });
-        }
-
-        function initRound(data) {
-            grid = data.grid;
-            targetSequence = data.sequence;
-            playerBuffer = [];
-            activeAxis = 'row'; 
-            activeIndex = 0; 
-            isLocked = false;
-
-            const settings = DIFFICULTY_SETTINGS[currentDifficulty];
-            ui.grid.style.gridTemplateColumns = `repeat(${settings.gridSize}, minmax(0, 1fr))`;
-
-            renderGrid(settings.gridSize);
-            renderTarget();
-            renderBuffer();
-            
-            ui.hud.status.innerText = "BREACH_PROTOCOL_INITIATED";
-            ui.hud.status.className = "text-[10px] text-[var(--neon-green)]";
-        }
-
-        function renderTarget() {
-            ui.targetSeq.innerHTML = targetSequence.map(code => `<span class="bg-green-900/20 px-2 py-1 border border-green-900/50">${code}</span>`).join('');
-        }
-
-        function renderBuffer() {
-            ui.buffer.innerHTML = playerBuffer.map(code => `<span class="text-white font-bold">${code}</span>`).join(' ');
-        }
-
-        function renderGrid(size) {
-            ui.grid.innerHTML = '';
-            grid.forEach((code, i) => {
-                const r = Math.floor(i / size);
-                const c = i % size;
-                const el = document.createElement('div');
-                el.className = `hex-cell w-full aspect-square flex items-center justify-center border border-green-900/30 bg-[#001100] hover:bg-green-900/50 text-lg font-bold`;
-                el.innerText = code;
-                
-                if (activeAxis === 'row' && r === activeIndex) el.classList.add('active-axis');
-                if (activeAxis === 'col' && c === activeIndex) el.classList.add('active-axis');
-                
-                el.onclick = () => handleMove(r, c, code, el);
-                ui.grid.appendChild(el);
-            });
-        }
-
-        async function handleMove(r, c, code, el) {
-            if(isLocked || gameState !== 'game') return;
-
-            let isValid = (activeAxis === 'row' && r === activeIndex) || (activeAxis === 'col' && c === activeIndex);
-            if(!isValid) {
-                playSound('error');
-                return;
-            }
-
-            playSound('select');
-            el.classList.add('selected', 'disabled');
-            playerBuffer.push(code);
-            renderBuffer();
-
-            // Switch Axis
-            if(activeAxis === 'row') { activeAxis = 'col'; activeIndex = c; }
-            else { activeAxis = 'row'; activeIndex = r; }
-            
-            renderGrid(DIFFICULTY_SETTINGS[currentDifficulty].gridSize);
-
-            // Check Sequence
-            const depth = playerBuffer.length;
-            const targetSlice = targetSequence.slice(0, depth);
-            const match = playerBuffer.every((v, i) => v === targetSlice[i]);
-
-            if(!match) {
-                playSound('error');
-                playerBuffer = []; activeAxis = 'row'; activeIndex = 0;
-                renderBuffer(); renderGrid(DIFFICULTY_SETTINGS[currentDifficulty].gridSize);
-                ui.hud.status.innerText = "BUFFER_RESET // INVALID_SEQ";
-                ui.hud.status.className = "text-[var(--neon-red)]";
-                return;
-            }
-
-            if(playerBuffer.length === targetSequence.length) {
-                isLocked = true;
-                playSound('success');
-                try {
-                    await updateDoc(doc(db, GAMES_COLLECTION, currentGameId), {
-                        roundWinner: currentUser.uid,
-                        status: 'finished'
-                    });
-                } catch(e) { console.error(e); }
-            }
-        }
-
-        function updateHUD(data) {
-            ui.hud.round.innerText = `R:0${data.round}`;
-            const hS = data.hostScore || 0;
-            const jS = data.joinerScore || 0;
-            const myS = myRole === 'host' ? hS : jS;
-            const enS = myRole === 'host' ? jS : hS;
-            
-            const pips = (n) => Array(3).fill(0).map((_,i) => `<div class="w-2 h-4 ${i<n ? 'bg-[var(--neon-green)]' : 'bg-green-900/30'}"></div>`).join('');
-            ui.hud.myScore.innerHTML = pips(myS);
-            ui.hud.enemyScore.innerHTML = pips(enS);
-        }
-
-        function showResultScreen(data) {
-            ui.views.overlay.classList.remove('hidden');
-            ui.views.overlay.classList.add('flex');
-            
-            const iWon = data.roundWinner === currentUser.uid;
-            
-            // Match Over Logic (Final Screen)
-            if (data.status === 'match_over') {
-                ui.overlay.title.innerText = data.matchWinner === currentUser.uid ? "SYSTEM_OWNED" : "CONNECTION_LOST";
-                ui.overlay.title.style.color = data.matchWinner === currentUser.uid ? "var(--neon-green)" : "var(--neon-red)";
-                ui.overlay.sub.innerText = data.matchWinner === currentUser.uid ? "YOU ARE THE NETGOD" : "FLATLINED";
-                ui.overlay.timer.classList.add('hidden');
-                ui.overlay.quitBtn.classList.remove('hidden'); // FIX: Show quit button
-            } 
-            // Round Over Logic (Transition)
-            else {
-                ui.overlay.title.innerText = iWon ? "ACCESS_GRANTED" : "LOCKOUT";
-                ui.overlay.title.style.color = iWon ? "var(--neon-green)" : "var(--neon-red)";
-                ui.overlay.sub.innerText = iWon ? "UPLOAD_COMPLETE" : "RIVAL_BREACHED";
-                ui.overlay.timer.classList.remove('hidden');
-                ui.overlay.quitBtn.classList.add('hidden');
-
-                // Host controls progression
-                if(myRole === 'host') {
-                    setTimeout(async () => {
-                        // Calculate Score
-                        let hS = data.hostScore;
-                        let jS = data.joinerScore;
-                        if(data.roundWinner === currentUser.uid) hS++; else jS++;
-
-                        // Match Win Check: First to 3 AND Win by 2
-                        let matchWinner = null;
-                        if (hS >= 3 && (hS - jS) >= 2) matchWinner = currentUser.uid;
-                        else if (jS >= 3 && (jS - hS) >= 2) matchWinner = data.joiner;
-
-                        if (matchWinner) {
-                            await updateDoc(doc(db, GAMES_COLLECTION, currentGameId), {
-                                hostScore: hS, joinerScore: jS,
-                                status: 'match_over',
-                                matchWinner: matchWinner
-                            });
-                        } else {
-                            // Next Round
-                            const puzzle = generatePuzzle(currentDifficulty);
-                            await updateDoc(doc(db, GAMES_COLLECTION, currentGameId), {
-                                hostScore: hS, joinerScore: jS,
-                                round: data.round + 1,
-                                roundWinner: null,
-                                status: 'active',
-                                grid: puzzle.grid,
-                                sequence: puzzle.sequence
-                            });
-                        }
-                    }, 3000);
-                }
-            }
-
-            // Update Score Text on Overlay
-            const hS = data.hostScore;
-            const jS = data.joinerScore;
-            // Add 1 visual point if round just ended but DB not updated yet (for smooth UX)
-            let myDisplayS = myRole === 'host' ? hS : jS;
-            let enDisplayS = myRole === 'host' ? jS : hS;
-            
-            if(data.status === 'finished') {
-                if(iWon) myDisplayS++; else enDisplayS++;
-            }
-
-            ui.overlay.scoreMe.innerText = myDisplayS;
-            ui.overlay.scoreThem.innerText = enDisplayS;
-        }
-
-        async function leaveGame() {
-            if(gameUnsubscribe) gameUnsubscribe();
-            if(currentGameId && myRole === 'host') {
-                try { await deleteDoc(doc(db, GAMES_COLLECTION, currentGameId)); } catch(e){}
-            }
-            window.location.reload();
-        }
-
-    </script>
-</body>
-</html>
+export default App;
