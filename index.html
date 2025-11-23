@@ -216,9 +216,9 @@
             React.useEffect(() => {
                 if (!user || !roomName) return;
 
-                const appId = "default-app-id"; // Using default as per prompt
-                // Using public data path as per instructions
-                const roomRef = window.doc(window.db, 'artifacts', appId, 'public', 'data', `room_${roomName}`);
+                const appId = "default-app-id";
+                // FIXED: Added 'rooms' subcollection to make path even (6 segments)
+                const roomRef = window.doc(window.db, 'artifacts', appId, 'public', 'data', 'rooms', `room_${roomName}`);
 
                 const unsub = window.onSnapshot(roomRef, (snap) => {
                     if (snap.exists()) {
@@ -247,7 +247,8 @@
                 if (!name || !pin) return;
 
                 const appId = "default-app-id";
-                const roomRef = window.doc(window.db, 'artifacts', appId, 'public', 'data', `room_${name}`);
+                // FIXED: Added 'rooms' subcollection
+                const roomRef = window.doc(window.db, 'artifacts', appId, 'public', 'data', 'rooms', `room_${name}`);
                 
                 // Initialize empty room
                 await window.setDoc(roomRef, {
@@ -275,7 +276,8 @@
 
             const updateRoom = async (data) => {
                 const appId = "default-app-id";
-                const roomRef = window.doc(window.db, 'artifacts', appId, 'public', 'data', `room_${roomName}`);
+                // FIXED: Added 'rooms' subcollection
+                const roomRef = window.doc(window.db, 'artifacts', appId, 'public', 'data', 'rooms', `room_${roomName}`);
                 await window.updateDoc(roomRef, data);
             };
 
