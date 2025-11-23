@@ -70,6 +70,13 @@
                 0 4px 0 0 white;
             margin: 4px;
         }
+        .pixel-box-gold {
+            box-shadow: 
+                -4px 0 0 0 #f1c40f, 
+                4px 0 0 0 #f1c40f, 
+                0 -4px 0 0 #f1c40f, 
+                0 4px 0 0 #f1c40f;
+        }
         .pixel-box-red {
             box-shadow: 
                 -4px 0 0 0 #c0392b, 
@@ -111,6 +118,11 @@
         }
         .card.red { color: #e74c3c; }
         .card.black { color: #2c3e50; }
+        
+        .gold-text {
+            color: #f1c40f;
+            text-shadow: 1px 1px 0 #b7950b;
+        }
     </style>
 </head>
 <body>
@@ -263,7 +275,7 @@
                     roomId: name,
                     dealerPin: pin,
                     dealerId: null,
-                    activeGame: '21', // '21', 'highlow', 'redblack'
+                    activeGame: '21', // '21', 'highlow', 'redblack', 'mimic'
                     gameState: 'waiting', 
                     deck: createDeck(),
                     turnIndex: -1, 
@@ -305,7 +317,9 @@
                     hand: [],
                     status: 'active', // active, stand, bust, win, lose
                     seatIndex: seatIndex,
-                    vote: null // 'red', 'black', 'high', 'low'
+                    vote: null,
+                    gold: 100, // D&D Currency
+                    bet: 10 // Default bet
                 };
                 await updateRoom({ players: newPlayers });
             };
@@ -360,11 +374,11 @@
                 } else if (roomData.activeGame === 'redblack') {
                     // Red/Black: No cards for players, just reset status
                     playerIds.forEach(pid => {
-                        newPlayers[pid].hand = []; // Players don't need hands
+                        newPlayers[pid].hand = []; 
                         newPlayers[pid].status = 'active';
                         newPlayers[pid].vote = null;
                     });
-                    newDealerHand = []; // Dealer draws on "Deal"
+                    newDealerHand = []; 
                 } else if (roomData.activeGame === 'highlow') {
                     // High/Low: Dealer starts with 1 card
                     playerIds.forEach(pid => {
@@ -373,6 +387,14 @@
                         newPlayers[pid].vote = null;
                     });
                     newDealerHand = [currentDeck.pop()];
+                } else if (roomData.activeGame === 'mimic') {
+                    // Mimic: Everyone gets 1 card
+                    playerIds.forEach(pid => {
+                        newPlayers[pid].hand = [currentDeck.pop()];
+                        newPlayers[pid].status = 'active';
+                        newPlayers[pid].vote = null;
+                    });
+                    newDealerHand = [currentDeck.pop()]; // This is the "Chest" card
                 }
 
                 await updateRoom({
@@ -384,64 +406,122 @@
                 });
             };
 
-            const dealerDrawAndResolve = async () => {
-                // This handles "Hit Dealer" for 21 AND "Draw" for Red/Black / High/Low
+            const dealerDraw = async () => {
                 let currentDeck = [...roomData.deck];
                 const newCard = currentDeck.pop();
-                const oldHand = [...roomData.dealerHand];
-                const newHand = [...oldHand, newCard];
+                const newHand = [...roomData.dealerHand, newCard];
                 
-                const newPlayers = { ...roomData.players };
-
-                if (roomData.activeGame === 'redblack') {
-                    const isRed = newCard.suit === '♥' || newCard.suit === '♦';
-                    Object.keys(newPlayers).forEach(pid => {
-                        const p = newPlayers[pid];
-                        if (!p.vote) {
-                            p.status = 'active'; // No vote, no result
-                        } else if ((p.vote === 'red' && isRed) || (p.vote === 'black' && !isRed)) {
-                            p.status = 'win';
-                        } else {
-                            p.status = 'lose';
-                        }
-                        // Clear vote for next card immediately? Or keep it? 
-                        // Let's keep vote so they can spam same color if they want.
-                        // But maybe reset status on vote change.
-                    });
-                } else if (roomData.activeGame === 'highlow') {
-                    const prevCard = oldHand[oldHand.length - 1];
-                    const prevRank = getCardRank(prevCard);
-                    const newRank = getCardRank(newCard);
-
-                    Object.keys(newPlayers).forEach(pid => {
-                        const p = newPlayers[pid];
-                        if (!p.vote) {
-                            p.status = 'active';
-                        } else if (p.vote === 'high') {
-                            if (newRank > prevRank) p.status = 'win';
-                            else if (newRank < prevRank) p.status = 'lose';
-                            else p.status = 'push'; // Tie
-                        } else if (p.vote === 'low') {
-                            if (newRank < prevRank) p.status = 'win';
-                            else if (newRank > prevRank) p.status = 'lose';
-                            else p.status = 'push'; // Tie
-                        }
-                    });
-                }
-                
-                // For 21, logic is simpler (just adding card), wins calculated at end usually
-                // But this function is primarily for the Dealer drawing.
-
                 await updateRoom({
                     dealerHand: newHand,
-                    deck: currentDeck,
-                    players: newPlayers
+                    deck: currentDeck
+                });
+            };
+
+            const resolveRound = async () => {
+                const newPlayers = { ...roomData.players };
+                const dealerHand = roomData.dealerHand;
+                const dealerScore = calculateScore(dealerHand);
+                const dealerBust = dealerScore > 21;
+                
+                Object.keys(newPlayers).forEach(pid => {
+                    const p = newPlayers[pid];
+                    const bet = p.bet || 10;
+                    
+                    if (roomData.activeGame === '21') {
+                        const playerScore = calculateScore(p.hand);
+                        
+                        if (p.status === 'bust') {
+                            // Already lost, deduct
+                            p.gold -= bet;
+                            p.status = 'lose';
+                        } else if (dealerBust) {
+                            // Dealer bust, player wins (unless they busted, handled above)
+                            p.gold += bet;
+                            p.status = 'win';
+                        } else {
+                            // Compare scores
+                            if (playerScore > dealerScore) {
+                                p.gold += bet;
+                                p.status = 'win';
+                            } else if (playerScore < dealerScore) {
+                                p.gold -= bet;
+                                p.status = 'lose';
+                            } else {
+                                p.status = 'push'; // Tie, money back (no change)
+                            }
+                        }
+                    } else if (roomData.activeGame === 'redblack') {
+                        // Logic mostly handled in real-time, just finalizing gold here if needed
+                        // But let's assume we pay out NOW based on status set during draw
+                        const lastCard = dealerHand[dealerHand.length - 1];
+                        if (!lastCard) return;
+                        
+                        const isRed = lastCard.suit === '♥' || lastCard.suit === '♦';
+                        
+                        if (!p.vote) {
+                             // Didnt vote, no change
+                        } else if ((p.vote === 'red' && isRed) || (p.vote === 'black' && !isRed)) {
+                            p.gold += bet;
+                            p.status = 'win';
+                        } else {
+                            p.gold -= bet;
+                            p.status = 'lose';
+                        }
+                        p.vote = null; // Reset vote for next card
+                    } else if (roomData.activeGame === 'highlow') {
+                        // High/Low payout logic
+                         if (p.status === 'win') p.gold += bet;
+                         if (p.status === 'lose') p.gold -= bet;
+                         p.status = 'active'; // Reset for next card
+                         p.vote = null;
+                    } else if (roomData.activeGame === 'mimic') {
+                        // Mimic's Chest Logic
+                        const chestCard = dealerHand[0];
+                        const playerCard = p.hand[0];
+                        
+                        if (!chestCard || !playerCard) return;
+
+                        // Mimic Condition: Face card (J, Q, K) = MIMIC ATTACK
+                        if (['J', 'Q', 'K'].includes(playerCard.value)) {
+                            p.status = 'lose';
+                            p.gold -= bet; // Eaten by mimic
+                        } 
+                        // Value Match = JACKPOT
+                        else if (playerCard.value === chestCard.value) {
+                            p.status = 'win';
+                            p.gold += (bet * 5); // Huge payout
+                        }
+                        // Suit Match = SAFE OPEN
+                        else if (playerCard.suit === chestCard.suit) {
+                             p.status = 'win';
+                             p.gold += bet;
+                        } else {
+                            p.status = 'push'; // Empty chest, no loss no gain
+                        }
+                    }
+                });
+
+                await updateRoom({
+                    players: newPlayers,
+                    gameState: roomData.activeGame === '21' || roomData.activeGame === 'mimic' ? 'finished' : 'playing' // 21 ends, others loop
                 });
             };
 
             // --- PLAYER ACTIONS ---
 
             const playerAction = async (actionType, payload) => {
+                if (roomData.gameState === 'waiting') {
+                     if (actionType === 'bet') {
+                         const newPlayers = { ...roomData.players };
+                         let newBet = (newPlayers[user.uid].bet || 10) + payload;
+                         if (newBet < 10) newBet = 10;
+                         if (newBet > newPlayers[user.uid].gold) newBet = newPlayers[user.uid].gold;
+                         newPlayers[user.uid].bet = newBet;
+                         await updateRoom({ players: newPlayers });
+                     }
+                     return;
+                }
+
                 if (roomData.gameState !== 'playing') return;
                 
                 let currentDeck = [...roomData.deck];
@@ -449,12 +529,20 @@
                 const player = newPlayers[user.uid];
 
                 if (actionType === 'vote') {
-                    player.vote = payload; // 'red', 'black', 'high', 'low'
-                    player.status = 'active'; // Reset status when changing vote
+                    player.vote = payload; 
+                    // Pre-calc High/Low status for visuals
+                    if (roomData.activeGame === 'highlow') {
+                         const dealerCard = roomData.dealerHand[roomData.dealerHand.length - 1];
+                         // Actual win/loss handled in Resolve, just setting vote here
+                    }
                 } else if (actionType === 'hit') {
                     const newCard = currentDeck.pop();
                     player.hand.push(newCard);
-                    if (calculateScore(player.hand) > 21) player.status = 'bust';
+                    if (calculateScore(player.hand) > 21) {
+                        player.status = 'bust';
+                        // 21 Bust Logic: Lose immediately? Or wait for resolve?
+                        // Let's mark bust but deduct money at resolve for consistency
+                    }
                 } else if (actionType === 'stand') {
                     player.status = 'stand';
                 }
@@ -513,6 +601,7 @@
                 if (roomData.activeGame === '21') return '21 / BLACKJACK';
                 if (roomData.activeGame === 'redblack') return 'RED OR BLACK';
                 if (roomData.activeGame === 'highlow') return 'HIGHER / LOWER';
+                if (roomData.activeGame === 'mimic') return "MIMIC'S CHEST";
                 return 'UNKNOWN';
             };
 
@@ -535,7 +624,7 @@
 
                     {/* DEALER SECTION */}
                     <div className="flex flex-col items-center mb-8 relative">
-                        <div className="w-full max-w-2xl bg-gray-800 p-4 pixel-box-red flex flex-col items-center min-h-[220px]">
+                        <div className="w-full max-w-2xl bg-gray-800 p-4 pixel-box-red flex flex-col items-center min-h-[240px]">
                             <div className="absolute top-2 left-2 text-xs text-red-500">DEALER (GM)</div>
                             
                             {!roomData.dealerId ? (
@@ -561,6 +650,7 @@
                                         {roomData.activeGame === '21' && `Score: ${calculateScore(roomData.dealerHand)}`}
                                         {roomData.activeGame === 'highlow' && roomData.dealerHand.length > 0 && "Current Card"}
                                         {roomData.activeGame === 'redblack' && "Dealing..."}
+                                        {roomData.activeGame === 'mimic' && "THE CHEST"}
                                     </div>
                                     
                                     {/* GM Controls */}
@@ -573,9 +663,14 @@
                                                     START ROUND
                                                 </button>
                                             ) : (
-                                                <button onClick={dealerDrawAndResolve} className="bg-blue-600 text-white text-xs px-2 py-2 pixel-btn border-b-2 border-blue-800">
-                                                    {roomData.activeGame === '21' ? "HIT DEALER" : "DRAW & RESOLVE"}
-                                                </button>
+                                                <>
+                                                    <button onClick={dealerDraw} className="bg-blue-600 text-white text-xs px-2 py-2 pixel-btn border-b-2 border-blue-800">
+                                                        DRAW CARD
+                                                    </button>
+                                                    <button onClick={resolveRound} className="bg-yellow-600 text-black text-xs px-2 py-2 pixel-btn border-b-2 border-yellow-800">
+                                                        RESOLVE ROUND
+                                                    </button>
+                                                </>
                                             )}
 
                                             <button onClick={resetGame} className="bg-red-600 text-white text-xs px-2 py-2 pixel-btn border-b-2 border-red-800">
@@ -594,6 +689,7 @@
                                                 <option value="21">Game: 21</option>
                                                 <option value="highlow">Game: High/Low</option>
                                                 <option value="redblack">Game: Red/Black</option>
+                                                <option value="mimic">Game: Mimic's Chest</option>
                                             </select>
                                         </div>
                                     )}
@@ -611,7 +707,7 @@
                             const isMe = pId === user.uid;
 
                             return (
-                                <div key={index} className={`relative min-h-[200px] p-2 flex flex-col items-center justify-between transition-colors ${isMe ? 'bg-gray-700 pixel-box-green' : 'bg-gray-800 pixel-box'}`}>
+                                <div key={index} className={`relative min-h-[220px] p-2 flex flex-col items-center justify-between transition-colors ${isMe ? 'bg-gray-700 pixel-box-green' : 'bg-gray-800 pixel-box'}`}>
                                     
                                     <div className="text-[10px] text-gray-500 absolute top-1 left-1">P{index + 1}</div>
 
@@ -628,9 +724,15 @@
                                             <div className="text-xs text-green-400 mb-1 truncate w-full text-center">
                                                 {isMe ? "YOU" : "PLAYER"}
                                             </div>
+                                            
+                                            {/* GOLD DISPLAY */}
+                                            <div className="w-full bg-black bg-opacity-40 p-1 mb-1 text-center border-b border-gray-600 flex justify-between px-2">
+                                                <span className="text-[10px] text-yellow-400">GP</span>
+                                                <span className="text-[10px] text-white">{pData.gold}</span>
+                                            </div>
 
                                             {/* Game Specific Display */}
-                                            {roomData.activeGame === '21' ? (
+                                            {(roomData.activeGame === '21' || roomData.activeGame === 'mimic') ? (
                                                 <div className="flex -space-x-4 mb-2 h-16 items-center">
                                                     {pData.hand && pData.hand.map((c, i) => (
                                                         <div key={i} className="transform hover:-translate-y-2 transition-transform">
@@ -659,15 +761,27 @@
                                                 )}
                                                 <div className={`text-[10px] uppercase font-bold ${
                                                     pData.status === 'bust' || pData.status === 'lose' ? 'text-red-500' : 
-                                                    pData.status === 'win' ? 'text-green-400' : 'text-blue-300'
+                                                    pData.status === 'win' ? 'text-green-400' : 
+                                                    pData.status === 'push' ? 'text-yellow-400' : 'text-blue-300'
                                                 }`}>
                                                     {pData.status === 'active' ? (pData.vote ? 'READY' : '') : pData.status}
                                                 </div>
+                                                {/* Bet Display */}
+                                                <div className="text-[8px] text-gray-400">Bet: {pData.bet || 10}</div>
                                             </div>
 
                                             {/* Controls */}
                                             {isMe && (
                                                 <div className="flex flex-col gap-1 w-full">
+                                                    {/* Betting Phase */}
+                                                    {roomData.gameState === 'waiting' && (
+                                                        <div className="flex gap-1 justify-center mb-1">
+                                                            <button onClick={() => playerAction('bet', -10)} className="bg-gray-600 text-white text-[10px] px-1">-</button>
+                                                            <div className="text-[10px] pt-1">BET</div>
+                                                            <button onClick={() => playerAction('bet', 10)} className="bg-gray-600 text-white text-[10px] px-1">+</button>
+                                                        </div>
+                                                    )}
+
                                                     {roomData.gameState === 'playing' && (
                                                         <div className="flex gap-1 justify-center w-full">
                                                             {roomData.activeGame === '21' && pData.status === 'active' && (
@@ -687,6 +801,9 @@
                                                                     <button onClick={() => playerAction('vote', 'high')} className={`bg-green-600 text-white text-[10px] flex-1 py-2 ${pData.vote === 'high' ? 'border-2 border-white' : ''}`}>HIGH</button>
                                                                     <button onClick={() => playerAction('vote', 'low')} className={`bg-red-600 text-white text-[10px] flex-1 py-2 ${pData.vote === 'low' ? 'border-2 border-white' : ''}`}>LOW</button>
                                                                 </>
+                                                            )}
+                                                            {roomData.activeGame === 'mimic' && (
+                                                                <div className="text-[10px] text-yellow-400">Open Chest...</div>
                                                             )}
                                                         </div>
                                                     )}
