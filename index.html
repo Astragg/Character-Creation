@@ -3,64 +3,290 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NBA G.O.A.T Draft Simulator</title>
-    
-    <!-- Tailwind CSS for Styling -->
+    <title>NBA Draft Battles</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- React & ReactDOM -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    
-    <!-- Babel for JSX -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-    <!-- Lucide Icons (Global Script) -->
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js"></script>
     
     <style>
-        body { font-family: system-ui, -apple-system, sans-serif; }
-        .animate-pulse-slow { animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        @import url('https://fonts.googleapis.com/css2?family=Teko:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Teko', sans-serif;
+            background-color: #0f172a;
+            color: white;
+        }
+        
+        .nba-card {
+            transition: all 0.2s;
+            background: linear-gradient(145deg, #1e293b, #0f172a);
+        }
+        .nba-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+        .nba-card.disabled {
+            opacity: 0.4;
+            pointer-events: none;
+            filter: grayscale(100%);
+        }
+        .nba-card.selected {
+            border: 2px solid #3b82f6;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569; 
+        }
+
+        .shiny-text {
+            background: linear-gradient(to right, #fff, #94a3b8, #fff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            background-size: 200% auto;
+            animation: shine 3s linear infinite;
+        }
+        @keyframes shine {
+            to {
+                background-position: 200% center;
+            }
+        }
     </style>
 </head>
-<body>
-    <div id="root"></div>
+<body class="h-screen flex flex-col overflow-hidden">
 
-    <!-- Import Map for Firebase -->
-    <script type="importmap">
-    {
-      "imports": {
-        "firebase/app": "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js",
-        "firebase/auth": "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js",
-        "firebase/firestore": "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"
-      }
-    }
-    </script>
+    <!-- Modal for Alerts -->
+    <div id="modal" class="fixed inset-0 bg-black bg-opacity-80 z-50 hidden flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-gray-800 p-6 rounded-lg max-w-sm w-full border border-gray-700 shadow-2xl transform transition-all scale-100">
+            <h3 id="modal-title" class="text-2xl font-bold mb-2 text-red-400">Error</h3>
+            <p id="modal-msg" class="text-gray-300 text-lg mb-6">Message goes here</p>
+            <button onclick="closeModal()" class="w-full py-2 bg-red-600 hover:bg-red-700 text-white rounded uppercase tracking-wider font-bold">Close</button>
+        </div>
+    </div>
 
-    <script type="text/babel" data-type="module">
-        import { initializeApp } from 'firebase/app';
-        import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
-        import { getFirestore, collection, doc, setDoc, onSnapshot, getDoc } from 'firebase/firestore';
+    <!-- Header -->
+    <header class="bg-gray-900 border-b border-gray-800 p-4 flex justify-between items-center shrink-0">
+        <div class="flex items-center gap-2">
+            <i class="fas fa-basketball-ball text-orange-500 text-2xl"></i>
+            <h1 class="text-3xl font-bold tracking-widest uppercase shiny-text">Draft Battles</h1>
+        </div>
+        <div id="user-info" class="text-gray-400 text-lg">Connecting...</div>
+    </header>
 
-        // --- Icons Component Wrapper ---
-        // Since we are in raw HTML, we use the lucide global object or simple SVG placeholders
-        const Icon = ({ name, className }) => {
-            // Simple fallback icons using emoji if Lucide isn't bundled
-            const icons = {
-                Trophy: '🏆',
-                Users: '👥',
-                Play: '▶️',
-                RotateCcw: '🔄',
-                Crown: '👑',
-                Shield: '🛡️',
-                Activity: '📈',
-                ChevronRight: '>',
-                BarChart2: '📊'
-            };
-            return <span className={className}>{icons[name] || '?'}</span>;
-        };
+    <!-- App Container -->
+    <main id="app-container" class="flex-1 overflow-hidden relative">
+        
+        <!-- VIEW: LOBBY -->
+        <div id="view-lobby" class="absolute inset-0 flex flex-col items-center justify-center p-4">
+            <div class="max-w-md w-full space-y-8 text-center">
+                <div class="bg-gray-800 p-8 rounded-xl border border-gray-700 shadow-2xl">
+                    <h2 class="text-4xl font-bold mb-6 text-white">Enter The Court</h2>
+                    
+                    <div class="space-y-4">
+                        <button onclick="createRoom()" class="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold text-xl uppercase tracking-widest transition shadow-lg shadow-blue-900/50">
+                            Create New Lobby
+                        </button>
+                        
+                        <div class="relative flex py-2 items-center">
+                            <div class="flex-grow border-t border-gray-600"></div>
+                            <span class="flex-shrink-0 mx-4 text-gray-500 text-lg">OR JOIN</span>
+                            <div class="flex-grow border-t border-gray-600"></div>
+                        </div>
 
-        // --- Firebase Configuration ---
+                        <div class="flex gap-2">
+                            <input type="text" id="room-input" placeholder="Enter Room ID" class="flex-1 bg-gray-900 border border-gray-600 text-white px-4 py-3 rounded-lg focus:outline-none focus:border-blue-500 text-lg uppercase">
+                            <button onclick="joinRoom()" class="bg-green-600 hover:bg-green-500 text-white px-6 py-3 rounded-lg font-bold uppercase tracking-wide">
+                                Join
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="text-gray-500 text-lg">
+                    <p>Challenge a friend to a fantasy draft.</p>
+                    <p>Select modes like "1 Star, 4 Role Players".</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW: LOBBY WAITING -->
+        <div id="view-waiting" class="absolute inset-0 flex flex-col items-center justify-center p-4 hidden bg-gray-900/95 z-10">
+            <div class="bg-gray-800 p-8 rounded-xl border border-gray-700 shadow-2xl text-center max-w-lg w-full">
+                <div class="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-orange-500 mx-auto mb-6"></div>
+                <h2 class="text-3xl font-bold mb-2">Lobby Created</h2>
+                <p class="text-gray-400 text-xl mb-6">Share this ID with your opponent:</p>
+                
+                <div class="flex items-center gap-2 bg-gray-900 p-4 rounded-lg border border-gray-600 mb-6 group cursor-pointer" onclick="copyRoomId()">
+                    <code id="display-room-id" class="text-3xl text-blue-400 font-mono tracking-widest flex-1">...</code>
+                    <i class="fas fa-copy text-gray-500 group-hover:text-white transition"></i>
+                </div>
+
+                <div class="text-left bg-gray-900/50 p-4 rounded mb-6">
+                    <label class="block text-gray-400 mb-2 uppercase tracking-wide">Select Game Mode:</label>
+                    <select id="mode-select" onchange="updateGameMode()" class="w-full bg-gray-800 border border-gray-600 text-white p-2 rounded text-xl">
+                        <option value="classic">Classic (Best 5)</option>
+                        <option value="ringless">1 King & 4 Pawns (Max 1 Ring/Star)</option>
+                    </select>
+                    <p id="mode-desc" class="text-sm text-gray-500 mt-2">Draft any 5 players. Highest total rating wins.</p>
+                </div>
+
+                <p class="text-yellow-500 animate-pulse text-lg uppercase tracking-widest">Waiting for opponent...</p>
+            </div>
+        </div>
+
+        <!-- VIEW: DRAFT BOARD -->
+        <div id="view-draft" class="absolute inset-0 flex flex-col hidden">
+            <!-- Game Status Bar -->
+            <div class="bg-gray-800 border-b border-gray-700 p-2 flex justify-between items-center shrink-0 shadow-lg z-20">
+                <div class="flex items-center gap-4">
+                    <div class="px-3 py-1 bg-gray-700 rounded text-lg">
+                        Mode: <span id="game-mode-display" class="text-blue-400 font-bold">Classic</span>
+                    </div>
+                    <div id="turn-indicator" class="px-4 py-1 bg-orange-600 text-white font-bold rounded text-xl uppercase animate-pulse shadow-lg shadow-orange-900/50">
+                        Loading...
+                    </div>
+                </div>
+                <div class="text-xl font-mono text-gray-400">
+                    Room: <span id="draft-room-id"></span>
+                </div>
+            </div>
+
+            <!-- Main Draft Area -->
+            <div class="flex-1 flex overflow-hidden">
+                <!-- Team 1 (Host) -->
+                <div class="w-1/4 bg-gray-900 border-r border-gray-800 flex flex-col">
+                    <div class="p-3 bg-gray-800 border-b border-gray-700">
+                        <h3 class="text-2xl font-bold text-blue-400 text-center uppercase tracking-widest">Team Host</h3>
+                        <div id="host-score" class="text-center text-gray-400 text-lg">Rating: 0</div>
+                    </div>
+                    <div id="roster-host" class="flex-1 overflow-y-auto p-2 space-y-2">
+                        <!-- Host Slots -->
+                    </div>
+                </div>
+
+                <!-- Player Pool -->
+                <div class="w-2/4 bg-gray-900 flex flex-col">
+                    <div class="p-3 bg-gray-800 border-b border-gray-700 flex gap-2">
+                        <input type="text" id="player-search" placeholder="Search Players..." class="flex-1 bg-gray-900 border border-gray-600 text-white px-3 py-1 rounded text-lg focus:outline-none focus:border-blue-500">
+                        <select id="pos-filter" class="bg-gray-900 border border-gray-600 text-white px-3 py-1 rounded text-lg">
+                            <option value="ALL">All</option>
+                            <option value="G">Guards</option>
+                            <option value="F">Forwards</option>
+                            <option value="C">Centers</option>
+                        </select>
+                    </div>
+                    
+                    <div id="player-pool" class="flex-1 overflow-y-auto p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 content-start">
+                        <!-- Player Cards -->
+                    </div>
+                </div>
+
+                <!-- Team 2 (Guest) -->
+                <div class="w-1/4 bg-gray-900 border-l border-gray-800 flex flex-col">
+                    <div class="p-3 bg-gray-800 border-b border-gray-700">
+                        <h3 class="text-2xl font-bold text-red-400 text-center uppercase tracking-widest">Team Guest</h3>
+                        <div id="guest-score" class="text-center text-gray-400 text-lg">Rating: 0</div>
+                    </div>
+                    <div id="roster-guest" class="flex-1 overflow-y-auto p-2 space-y-2">
+                        <!-- Guest Slots -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW: GAME OVER -->
+        <div id="view-result" class="absolute inset-0 flex flex-col items-center justify-center p-4 hidden bg-black/90 z-30">
+            <div class="bg-gray-800 p-10 rounded-xl border-2 border-yellow-500 shadow-2xl text-center max-w-2xl w-full">
+                <h2 class="text-6xl font-bold mb-4 text-yellow-500 uppercase tracking-widest">Draft Complete</h2>
+                
+                <div class="flex justify-center items-end gap-8 mb-8">
+                    <div class="text-center">
+                        <div class="text-2xl text-blue-400 mb-1">HOST</div>
+                        <div id="final-score-host" class="text-5xl font-bold text-white">0</div>
+                    </div>
+                    <div class="text-4xl text-gray-600 font-bold">VS</div>
+                    <div class="text-center">
+                        <div class="text-2xl text-red-400 mb-1">GUEST</div>
+                        <div id="final-score-guest" class="text-5xl font-bold text-white">0</div>
+                    </div>
+                </div>
+
+                <div id="winner-banner" class="bg-gradient-to-r from-yellow-600 to-yellow-400 text-black font-bold text-3xl py-3 px-6 rounded-lg uppercase tracking-widest transform scale-110 mb-8 shadow-lg shadow-yellow-500/50">
+                    Determining Winner...
+                </div>
+
+                <button onclick="resetGame()" class="bg-gray-700 hover:bg-gray-600 text-white px-8 py-3 rounded text-xl font-bold uppercase">
+                    Back to Lobby
+                </button>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        /**
+         * PLAYER DATA DATABASE
+         * R: Rings, S: Star Status (for Ringless mode), OVR: Rating
+         */
+        const PLAYERS_DB = [
+            { id: 1, name: "Michael Jordan", team: "CHI", pos: "G", r: 6, s: true, ovr: 99 },
+            { id: 2, name: "LeBron James", team: "LAL", pos: "F", r: 4, s: true, ovr: 98 },
+            { id: 3, name: "Shaquille O'Neal", team: "LAL", pos: "C", r: 4, s: true, ovr: 97 },
+            { id: 4, name: "Stephen Curry", team: "GSW", pos: "G", r: 4, s: true, ovr: 97 },
+            { id: 5, name: "Nikola Jokic", team: "DEN", pos: "C", r: 1, s: true, ovr: 97 },
+            { id: 6, name: "Kobe Bryant", team: "LAL", pos: "G", r: 5, s: true, ovr: 98 },
+            { id: 7, name: "Tim Duncan", team: "SAS", pos: "F", r: 5, s: true, ovr: 96 },
+            { id: 8, name: "Kevin Durant", team: "PHX", pos: "F", r: 2, s: true, ovr: 96 },
+            { id: 9, name: "Giannis Antetokounmpo", team: "MIL", pos: "F", r: 1, s: true, ovr: 96 },
+            { id: 10, name: "Hakeem Olajuwon", team: "HOU", pos: "C", r: 2, s: true, ovr: 96 },
+            { id: 11, name: "Allen Iverson", team: "PHI", pos: "G", r: 0, s: true, ovr: 94 },
+            { id: 12, name: "Charles Barkley", team: "PHX", pos: "F", r: 0, s: true, ovr: 93 },
+            { id: 13, name: "Steve Nash", team: "PHX", pos: "G", r: 0, s: true, ovr: 92 },
+            { id: 14, name: "James Harden", team: "LAC", pos: "G", r: 0, s: true, ovr: 91 },
+            { id: 15, name: "Chris Paul", team: "GSW", pos: "G", r: 0, s: true, ovr: 90 },
+            { id: 16, name: "Patrick Ewing", team: "NYK", pos: "C", r: 0, s: true, ovr: 90 },
+            { id: 17, name: "Joel Embiid", team: "PHI", pos: "C", r: 0, s: true, ovr: 95 },
+            { id: 18, name: "Luka Doncic", team: "DAL", pos: "G", r: 0, s: true, ovr: 96 },
+            { id: 19, name: "Jayson Tatum", team: "BOS", pos: "F", r: 1, s: true, ovr: 94 },
+            { id: 20, name: "Kawhi Leonard", team: "LAC", pos: "F", r: 2, s: true, ovr: 94 },
+            { id: 21, name: "Jimmy Butler", team: "MIA", pos: "F", r: 0, s: false, ovr: 91 },
+            { id: 22, name: "Paul George", team: "LAC", pos: "F", r: 0, s: false, ovr: 89 },
+            { id: 23, name: "Damian Lillard", team: "MIL", pos: "G", r: 0, s: true, ovr: 91 },
+            { id: 24, name: "Vince Carter", team: "TOR", pos: "G", r: 0, s: false, ovr: 88 },
+            { id: 25, name: "Tracy McGrady", team: "ORL", pos: "G", r: 0, s: true, ovr: 90 },
+            { id: 26, name: "Derrick Rose", team: "CHI", pos: "G", r: 0, s: false, ovr: 88 },
+            { id: 27, name: "Reggie Miller", team: "IND", pos: "G", r: 0, s: false, ovr: 88 },
+            { id: 28, name: "Karl Malone", team: "UTA", pos: "F", r: 0, s: true, ovr: 94 },
+            { id: 29, name: "John Stockton", team: "UTA", pos: "G", r: 0, s: false, ovr: 91 },
+            { id: 30, name: "Dwight Howard", team: "ORL", pos: "C", r: 1, s: false, ovr: 89 },
+            { id: 31, name: "Carmelo Anthony", team: "NYK", pos: "F", r: 0, s: false, ovr: 89 },
+            { id: 32, name: "Kyrie Irving", team: "DAL", pos: "G", r: 1, s: true, ovr: 92 },
+            { id: 33, name: "Anthony Davis", team: "LAL", pos: "C", r: 1, s: true, ovr: 94 },
+            { id: 34, name: "Russell Westbrook", team: "OKC", pos: "G", r: 0, s: false, ovr: 89 },
+            { id: 35, name: "Klay Thompson", team: "GSW", pos: "G", r: 4, s: false, ovr: 88 },
+            { id: 36, name: "Draymond Green", team: "GSW", pos: "F", r: 4, s: false, ovr: 86 },
+            { id: 37, name: "Manu Ginobili", team: "SAS", pos: "G", r: 4, s: false, ovr: 88 },
+            { id: 38, name: "Tony Parker", team: "SAS", pos: "G", r: 4, s: false, ovr: 89 },
+            { id: 39, name: "Dennis Rodman", team: "CHI", pos: "F", r: 5, s: false, ovr: 88 },
+            { id: 40, name: "Pau Gasol", team: "LAL", pos: "C", r: 2, s: false, ovr: 89 }
+        ];
+
+        // --- FIREBASE SETUP ---
         const firebaseConfig = {
             apiKey: "AIzaSyDCrKQVcGBW4iy7OMAtn4Jcf1ot5CGALBE",
             authDomain: "highnoon-66ee0.firebaseapp.com",
@@ -71,305 +297,434 @@
             appId: "1:754268761672:web:7fbf59d2c403b43356727d"
         };
 
-        // Initialize Firebase
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const appId = 'default-app-id';
+        const app = firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        // Fixed App ID for your specific deployment
+        const appId = 'nba-draft-game';
 
-        // --- Player Database ---
-        const PLAYERS = [
-            // CHAMPIONS POOL
-            { id: 'shaq', name: "Shaquille O'Neal", pos: 'C', type: 'CHAMPION', ratings: { off: 99, def: 88, reb: 99, play: 60, clutch: 85 }, img: "🛡️" },
-            { id: 'hakeem', name: "Hakeem Olajuwon", pos: 'C', type: 'CHAMPION', ratings: { off: 94, def: 99, reb: 95, play: 70, clutch: 90 }, img: "🛡️" },
-            { id: 'lebron', name: "LeBron James", pos: 'SF', type: 'CHAMPION', ratings: { off: 98, def: 92, reb: 85, play: 99, clutch: 92 }, img: "👑" },
-            { id: 'jordan', name: "Michael Jordan", pos: 'SG', type: 'CHAMPION', ratings: { off: 99, def: 95, reb: 70, play: 80, clutch: 99 }, img: "👑" },
-            { id: 'duncan', name: "Tim Duncan", pos: 'PF', type: 'CHAMPION', ratings: { off: 90, def: 96, reb: 92, play: 75, clutch: 88 }, img: "🛡️" },
-            { id: 'kobe', name: "Kobe Bryant", pos: 'SG', type: 'CHAMPION', ratings: { off: 98, def: 90, reb: 60, play: 75, clutch: 98 }, img: "👑" },
-            { id: 'curry', name: "Stephen Curry", pos: 'PG', type: 'CHAMPION', ratings: { off: 99, def: 65, reb: 50, play: 90, clutch: 95 }, img: "🎯" },
-            { id: 'giannis', name: "Giannis Antetokounmpo", pos: 'PF', type: 'CHAMPION', ratings: { off: 95, def: 92, reb: 95, play: 70, clutch: 80 }, img: "💪" },
+        // --- GLOBAL STATE ---
+        let currentUser = null;
+        let currentRoomId = null;
+        let currentRoomData = null;
+        let roomUnsubscribe = null;
+        let myRole = null; // 'host' or 'guest'
 
-            // RINGLESS POOL
-            { id: 'malone', name: "Karl Malone", pos: 'PF', type: 'RINGLESS', ratings: { off: 94, def: 85, reb: 95, play: 65, clutch: 80 }, img: "📬" },
-            { id: 'barkley', name: "Charles Barkley", pos: 'PF', type: 'RINGLESS', ratings: { off: 93, def: 75, reb: 98, play: 75, clutch: 85 }, img: "🍩" },
-            { id: 'iverson', name: "Allen Iverson", pos: 'SG', type: 'RINGLESS', ratings: { off: 96, def: 70, reb: 40, play: 75, clutch: 92 }, img: "⚡" },
-            { id: 'stockton', name: "John Stockton", pos: 'PG', type: 'RINGLESS', ratings: { off: 80, def: 85, reb: 40, play: 99, clutch: 85 }, img: "🖐️" },
-            { id: 'nash', name: "Steve Nash", pos: 'PG', type: 'RINGLESS', ratings: { off: 90, def: 50, reb: 40, play: 99, clutch: 88 }, img: "🎯" },
-            { id: 'harden', name: "James Harden", pos: 'SG', type: 'RINGLESS', ratings: { off: 97, def: 60, reb: 60, play: 92, clutch: 82 }, img: "🧔" },
-            { id: 'ewing', name: "Patrick Ewing", pos: 'C', type: 'RINGLESS', ratings: { off: 88, def: 92, reb: 90, play: 50, clutch: 80 }, img: "🦍" },
-            { id: 'reggie', name: "Reggie Miller", pos: 'SG', type: 'RINGLESS', ratings: { off: 88, def: 60, reb: 40, play: 60, clutch: 98 }, img: "👌" },
-            { id: 'cp3', name: "Chris Paul", pos: 'PG', type: 'RINGLESS', ratings: { off: 88, def: 85, reb: 50, play: 98, clutch: 90 }, img: "🧠" },
-            { id: 'tmac', name: "Tracy McGrady", pos: 'SF', type: 'RINGLESS', ratings: { off: 95, def: 70, reb: 65, play: 75, clutch: 88 }, img: "🚀" },
-            { id: 'wilkins', name: "Dominique Wilkins", pos: 'SF', type: 'RINGLESS', ratings: { off: 92, def: 65, reb: 70, play: 50, clutch: 85 }, img: "🎬" },
-            { id: 'melo', name: "Carmelo Anthony", pos: 'SF', type: 'RINGLESS', ratings: { off: 94, def: 60, reb: 70, play: 55, clutch: 90 }, img: "🍬" },
-            { id: 'westbrook', name: "Russell Westbrook", pos: 'PG', type: 'RINGLESS', ratings: { off: 90, def: 70, reb: 85, play: 90, clutch: 85 }, img: "😤" },
-            { id: 'lillard', name: "Damian Lillard", pos: 'PG', type: 'RINGLESS', ratings: { off: 92, def: 55, reb: 45, play: 80, clutch: 99 }, img: "⌚" },
-            { id: 'baylor', name: "Elgin Baylor", pos: 'SF', type: 'RINGLESS', ratings: { off: 94, def: 75, reb: 90, play: 70, clutch: 85 }, img: "✈️" },
-            { id: 'mutombo', name: "Dikembe Mutombo", pos: 'C', type: 'RINGLESS', ratings: { off: 60, def: 98, reb: 92, play: 40, clutch: 70 }, img: "☝️" },
-            { id: 'hill', name: "Grant Hill", pos: 'SF', type: 'RINGLESS', ratings: { off: 88, def: 75, reb: 75, play: 85, clutch: 80 }, img: "🧊" },
-            { id: 'vince', name: "Vince Carter", pos: 'SG', type: 'RINGLESS', ratings: { off: 90, def: 65, reb: 60, play: 65, clutch: 88 }, img: "🛸" },
-            { id: 'king', name: "Bernard King", pos: 'SF', type: 'RINGLESS', ratings: { off: 93, def: 60, reb: 60, play: 55, clutch: 85 }, img: "👑" },
-            { id: 'maravich', name: "Pete Maravich", pos: 'SG', type: 'RINGLESS', ratings: { off: 88, def: 50, reb: 45, play: 90, clutch: 85 }, img: "🔫" },
-            { id: 'stoudemire', name: "Amare Stoudemire", pos: 'PF', type: 'RINGLESS', ratings: { off: 92, def: 65, reb: 85, play: 50, clutch: 80 }, img: "👓" }
-        ];
-
-        function NBADraftSim() {
-            const [user, setUser] = React.useState(null);
-            const [gameMode, setGameMode] = React.useState('draft'); // draft, sim, results
-            const [teams, setTeams] = React.useState({
-                teamA: { name: 'Team Bobertings', players: [] },
-                teamB: { name: 'Team Jokstars', players: [] }
-            });
-            const [turn, setTurn] = React.useState('teamA');
-            const [draftPool, setDraftPool] = React.useState(PLAYERS);
-            const [simResults, setSimResults] = React.useState([]);
-            const [currentSimGame, setCurrentSimGame] = React.useState(0);
-            const [simLog, setSimLog] = React.useState([]);
-
-            // --- Authentication ---
-            React.useEffect(() => {
-                const initAuth = async () => {
-                    try {
-                        await signInAnonymously(auth);
-                        console.log("Signed in anonymously");
-                    } catch (e) {
-                        console.error("Auth failed:", e);
-                    }
-                };
-                initAuth();
-                const unsubscribe = onAuthStateChanged(auth, setUser);
-                return () => unsubscribe();
-            }, []);
-
-            // --- Draft Logic ---
-            const handleDraftPick = (player) => {
-                const currentTeamPlayers = teams[turn].players;
-                const hasChampion = currentTeamPlayers.some(p => p.type === 'CHAMPION');
-
-                if (!hasChampion && player.type !== 'CHAMPION') {
-                    alert("You must draft a CHAMPION first!");
-                    return;
-                }
-                if (hasChampion && player.type === 'CHAMPION') {
-                    alert("You already have a Champion! Draft from the Ringless pool.");
-                    return;
-                }
-                if (currentTeamPlayers.length >= 6) {
-                    alert("Roster full!");
-                    return;
-                }
-
-                const newTeams = { ...teams };
-                newTeams[turn].players.push(player);
-                setTeams(newTeams);
-
-                setDraftPool(draftPool.filter(p => p.id !== player.id));
-
-                if (newTeams.teamA.players.length === 1 && newTeams.teamB.players.length === 0) {
-                    setTurn('teamB');
-                } else if (newTeams.teamA.players.length === 1 && newTeams.teamB.players.length === 1) {
-                    setTurn('teamB');
-                } else {
-                    setTurn(turn === 'teamA' ? 'teamB' : 'teamA');
-                }
-
-                if (newTeams.teamA.players.length === 6 && newTeams.teamB.players.length === 6) {
-                    setGameMode('sim');
-                }
-            };
-
-            // --- Simulation Logic ---
-            const calculateTeamStats = (teamPlayers) => {
-                return teamPlayers.reduce((acc, p) => {
-                    acc.off += p.ratings.off;
-                    acc.def += p.ratings.def;
-                    acc.reb += p.ratings.reb;
-                    acc.clutch += p.ratings.clutch;
-                    return acc;
-                }, { off: 0, def: 0, reb: 0, clutch: 0 });
-            };
-
-            const simulateGame = () => {
-                if (currentSimGame >= 7) return;
-
-                const statsA = calculateTeamStats(teams.teamA.players);
-                const statsB = calculateTeamStats(teams.teamB.players);
-                const varianceA = Math.floor(Math.random() * 20) - 10;
-                const varianceB = Math.floor(Math.random() * 20) - 10;
-
-                let scoreA = 80 + (statsA.off * 0.1) + (statsA.clutch * 0.05) - (statsB.def * 0.05) + varianceA;
-                let scoreB = 80 + (statsB.off * 0.1) + (statsB.clutch * 0.05) - (statsA.def * 0.05) + varianceB;
-
-                if (statsA.reb > statsB.reb + 20) scoreA += 4;
-                if (statsB.reb > statsA.reb + 20) scoreB += 4;
-
-                scoreA = Math.round(scoreA);
-                scoreB = Math.round(scoreB);
-                if (scoreA === scoreB) scoreA += 2;
-
-                const winner = scoreA > scoreB ? 'teamA' : 'teamB';
-                const winningTeam = winner === 'teamA' ? teams.teamA : teams.teamB;
-                const mvpPlayer = winningTeam.players.reduce((prev, current) => 
-                    (prev.ratings.off + Math.random() * prev.ratings.clutch) > (current.ratings.off + Math.random() * current.ratings.clutch) ? prev : current
-                );
-
-                const newResult = {
-                    game: currentSimGame + 1,
-                    scoreA,
-                    scoreB,
-                    winner,
-                    mvp: mvpPlayer.name
-                };
-
-                setSimResults([...simResults, newResult]);
-                setCurrentSimGame(currentSimGame + 1);
-            };
-
-            const resetGame = () => {
-                setTeams({ teamA: { name: 'Team Bobertings', players: [] }, teamB: { name: 'Team Jokstars', players: [] } });
-                setDraftPool(PLAYERS);
-                setGameMode('draft');
-                setSimResults([]);
-                setCurrentSimGame(0);
-                setTurn('teamA');
-            };
-
-            // --- Components ---
-            const PlayerCard = ({ player, onClick }) => (
-                <div onClick={() => onClick(player)} className={`cursor-pointer border-2 rounded-lg p-3 flex flex-col items-center justify-center transition-all hover:scale-105 ${player.type === 'CHAMPION' ? 'border-yellow-400 bg-yellow-50' : 'border-gray-300 bg-white'} hover:border-blue-500 shadow-sm`}>
-                    <div className="text-2xl mb-2">{player.img}</div>
-                    <div className="font-bold text-sm text-center text-slate-800">{player.name}</div>
-                    <div className="text-xs text-gray-500">{player.pos}</div>
-                    <div className={`text-xs px-2 py-0.5 rounded-full mt-1 ${player.type === 'CHAMPION' ? 'bg-yellow-200 text-yellow-800' : 'bg-gray-200 text-gray-800'}`}>
-                        {player.type === 'CHAMPION' ? '🏆 Champ' : '💍 Ringless'}
-                    </div>
-                </div>
-            );
-
-            const TeamRoster = ({ team }) => (
-                <div className="bg-slate-800 text-white p-4 rounded-xl shadow-lg min-h-[200px]">
-                    <h3 className="font-bold text-lg mb-3 border-b border-slate-600 pb-2 flex justify-between">
-                        {team.name}
-                        <span className="text-xs bg-slate-600 px-2 py-1 rounded">{team.players.length}/6</span>
-                    </h3>
-                    <div className="space-y-2">
-                        {team.players.map((p, i) => (
-                            <div key={i} className="flex items-center justify-between bg-slate-700 p-2 rounded">
-                                <span className="flex items-center gap-2">
-                                    <span>{p.img}</span>
-                                    <span className="font-medium text-sm">{p.name}</span>
-                                </span>
-                                <span className="text-xs font-bold text-slate-400">{p.pos}</span>
-                            </div>
-                        ))}
-                        {Array.from({ length: Math.max(0, 6 - team.players.length) }).map((_, i) => (
-                            <div key={`empty-${i}`} className="border-2 border-dashed border-slate-600 p-2 rounded text-center text-xs text-slate-500">
-                                Empty Slot
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            );
-
-            // --- Main Render ---
-            if (gameMode === 'draft') {
-                return (
-                    <div className="min-h-screen bg-slate-100 p-4">
-                        <div className="max-w-6xl mx-auto">
-                            <header className="flex justify-between items-center mb-6">
-                                <h1 className="text-3xl font-black text-slate-800 flex items-center gap-2">
-                                    <Icon name="Trophy" className="text-yellow-500" /> NBA G.O.A.T Draft
-                                </h1>
-                                <div className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold shadow-md animate-pulse">
-                                    Current Pick: {teams[turn].name}
-                                </div>
-                            </header>
-                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                                <div className="lg:col-span-3"><TeamRoster team={teams.teamA} /></div>
-                                <div className="lg:col-span-6">
-                                    <div className="bg-white p-4 rounded-xl shadow-lg">
-                                        <div className="mb-6">
-                                            <h3 className="text-xs font-bold text-yellow-600 uppercase mb-2">Champions (Draft First)</h3>
-                                            <div className="grid grid-cols-3 gap-2">
-                                                {draftPool.filter(p => p.type === 'CHAMPION').map(p => <PlayerCard key={p.id} player={p} onClick={handleDraftPick} />)}
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <h3 className="text-xs font-bold text-slate-500 uppercase mb-2">Legends (Ringless)</h3>
-                                            <div className="grid grid-cols-3 gap-2">
-                                                {draftPool.filter(p => p.type === 'RINGLESS').map(p => <PlayerCard key={p.id} player={p} onClick={handleDraftPick} />)}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="lg:col-span-3"><TeamRoster team={teams.teamB} /></div>
-                            </div>
-                        </div>
-                    </div>
-                );
+        // --- AUTH & INIT ---
+        async function initApp() {
+            try {
+                // Ensure "Anonymous" sign-in is enabled in your Firebase Console -> Authentication -> Sign-in method
+                await auth.signInAnonymously();
+            } catch (e) {
+                console.error("Auth failed", e);
+                showError("Authentication failed. Check console. Did you enable Anonymous Auth in Firebase?");
             }
-
-            const teamAWins = simResults.filter(r => r.winner === 'teamA').length;
-            const teamBWins = simResults.filter(r => r.winner === 'teamB').length;
-            const seriesOver = teamAWins === 4 || teamBWins === 4;
-
-            return (
-                <div className="min-h-screen bg-slate-900 text-white p-6 flex flex-col items-center">
-                    <div className="max-w-4xl w-full">
-                        <header className="text-center mb-10">
-                            <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-red-500">FINALS SIMULATION</h1>
-                            <div className="flex justify-center items-center gap-10 mt-6">
-                                <div className="text-center">
-                                    <h2 className="text-2xl font-bold">{teams.teamA.name}</h2>
-                                    <div className="text-6xl font-mono font-bold text-blue-400">{teamAWins}</div>
-                                </div>
-                                <div className="text-xl text-gray-500 font-bold">VS</div>
-                                <div className="text-center">
-                                    <h2 className="text-2xl font-bold">{teams.teamB.name}</h2>
-                                    <div className="text-6xl font-mono font-bold text-red-400">{teamBWins}</div>
-                                </div>
-                            </div>
-                        </header>
-
-                        <div className="flex flex-col justify-center items-center gap-4 mb-8">
-                            {!seriesOver ? (
-                                <button onClick={simulateGame} className="flex items-center gap-2 bg-green-600 hover:bg-green-500 text-white px-8 py-4 rounded-full font-bold text-xl shadow-lg transition-all hover:scale-105">
-                                    <Icon name="Play" /> SIMULATE GAME {currentSimGame + 1}
-                                </button>
-                            ) : (
-                                <div className="text-center animate-bounce">
-                                    <h2 className="text-3xl font-bold text-yellow-400 mb-4">
-                                        {teamAWins > teamBWins ? teams.teamA.name : teams.teamB.name} WINS!
-                                    </h2>
-                                    <button onClick={resetGame} className="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 px-6 py-2 rounded-lg mx-auto">
-                                        <Icon name="RotateCcw" /> Restart Draft
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="bg-black/30 rounded-xl p-6 min-h-[200px]">
-                            <h3 className="font-bold text-gray-400 mb-4 flex items-center gap-2"><Icon name="Activity" /> Series Log</h3>
-                            <div className="space-y-3">
-                                {simResults.map((res, idx) => (
-                                    <div key={idx} className="flex items-center gap-4 p-3 bg-slate-800 rounded border-l-4 border-blue-500">
-                                        <div className="font-mono font-bold text-lg text-gray-500">G{res.game}</div>
-                                        <div className="flex-1">
-                                            <div className="flex justify-between font-bold"><span>{teams.teamA.name}</span><span>{res.scoreA}</span></div>
-                                            <div className="flex justify-between text-gray-400"><span>{teams.teamB.name}</span><span>{res.scoreB}</span></div>
-                                        </div>
-                                        <div className="text-xs bg-slate-900 px-2 py-1 rounded text-yellow-500">MVP: {res.mvp}</div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            );
         }
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<NBADraftSim />);
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                currentUser = user;
+                document.getElementById('user-info').textContent = `User: ${user.uid.slice(0,4)}...`;
+            }
+        });
+
+        // --- ROOM LOGIC ---
+
+        // Helper for DB refs
+        const getRoomRef = (rid) => db.collection('artifacts').doc(appId).collection('public').doc('data').collection('nba_rooms').doc(rid);
+
+        async function createRoom() {
+            if (!currentUser) return;
+            
+            const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
+            const roomRef = getRoomRef(roomId);
+
+            const initialData = {
+                hostId: currentUser.uid,
+                guestId: null,
+                status: 'waiting', // waiting, drafting, finished
+                mode: 'classic',
+                turnIndex: 0,
+                turnOwner: 'host', // 'host' or 'guest'
+                teamHost: [],
+                teamGuest: [],
+                takenPlayers: [],
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            try {
+                await roomRef.set(initialData);
+                currentRoomId = roomId;
+                myRole = 'host';
+                enterLobby(roomId);
+            } catch (e) {
+                showError("Could not create room.");
+            }
+        }
+
+        async function joinRoom() {
+            if (!currentUser) return;
+            const input = document.getElementById('room-input');
+            const roomId = input.value.trim().toUpperCase();
+            
+            if (roomId.length < 2) {
+                showError("Invalid Room ID");
+                return;
+            }
+
+            const roomRef = getRoomRef(roomId);
+            
+            try {
+                const doc = await roomRef.get();
+                if (!doc.exists) {
+                    showError("Room not found");
+                    return;
+                }
+                const data = doc.data();
+
+                if (data.status !== 'waiting' && data.guestId !== currentUser.uid) {
+                    showError("Game already started or full");
+                    return;
+                }
+
+                // If not already guest, join as guest
+                if (data.hostId !== currentUser.uid && !data.guestId) {
+                    await roomRef.update({
+                        guestId: currentUser.uid,
+                        status: 'drafting' // Start immediately upon join
+                    });
+                    myRole = 'guest';
+                } else if (data.hostId === currentUser.uid) {
+                    myRole = 'host';
+                } else if (data.guestId === currentUser.uid) {
+                    myRole = 'guest';
+                } else {
+                    showError("Room is full");
+                    return;
+                }
+
+                currentRoomId = roomId;
+                enterLobby(roomId);
+
+            } catch (e) {
+                console.error(e);
+                showError("Error joining room");
+            }
+        }
+
+        function enterLobby(roomId) {
+            document.getElementById('view-lobby').classList.add('hidden');
+            
+            // Subscribe to room updates
+            if (roomUnsubscribe) roomUnsubscribe();
+            
+            roomUnsubscribe = getRoomRef(roomId).onSnapshot((doc) => {
+                if (!doc.exists) {
+                    showError("Room deleted");
+                    location.reload();
+                    return;
+                }
+                
+                const data = doc.data();
+                currentRoomData = data;
+                
+                // Route to correct view
+                if (data.status === 'waiting') {
+                    document.getElementById('view-waiting').classList.remove('hidden');
+                    document.getElementById('display-room-id').textContent = roomId;
+                    document.getElementById('draft-room-id').textContent = roomId;
+                    
+                    // Host can change mode
+                    const modeSel = document.getElementById('mode-select');
+                    if (myRole === 'host') {
+                        modeSel.disabled = false;
+                        modeSel.value = data.mode;
+                    } else {
+                        modeSel.disabled = true;
+                        modeSel.value = data.mode;
+                    }
+                    updateModeDesc(data.mode);
+
+                } else if (data.status === 'drafting') {
+                    document.getElementById('view-waiting').classList.add('hidden');
+                    document.getElementById('view-draft').classList.remove('hidden');
+                    document.getElementById('view-result').classList.add('hidden');
+                    renderDraftBoard(data);
+                } else if (data.status === 'finished') {
+                    document.getElementById('view-draft').classList.remove('hidden'); // Keep board visible behind
+                    document.getElementById('view-result').classList.remove('hidden');
+                    renderResult(data);
+                }
+            }, (error) => {
+                console.error("Listener failed", error);
+            });
+        }
+
+        // --- GAME LOGIC ---
+
+        async function updateGameMode() {
+            if (!currentRoomId || myRole !== 'host') return;
+            const mode = document.getElementById('mode-select').value;
+            await getRoomRef(currentRoomId).update({ mode: mode });
+        }
+
+        function updateModeDesc(mode) {
+            const desc = document.getElementById('mode-desc');
+            const display = document.getElementById('game-mode-display');
+            if (mode === 'classic') {
+                desc.textContent = "Draft any 5 players. Highest total rating wins.";
+                display.textContent = "Classic";
+            } else {
+                desc.textContent = "Draft 5 players. ONLY 1 can be a Champion/Star. The other 4 must have 0 rings.";
+                display.textContent = "Ringless Challenge";
+            }
+        }
+
+        function copyRoomId() {
+            const id = document.getElementById('display-room-id').textContent;
+            navigator.clipboard.writeText(id).then(() => {
+                // simple feedback
+                const el = document.getElementById('display-room-id');
+                const orig = el.style.color;
+                el.style.color = '#4ade80';
+                setTimeout(() => el.style.color = '', 500);
+            });
+        }
+
+        function renderDraftBoard(data) {
+            // Update turn indicator
+            const turnEl = document.getElementById('turn-indicator');
+            const isMyTurn = data.turnOwner === myRole;
+            
+            if (isMyTurn) {
+                turnEl.textContent = "YOUR PICK";
+                turnEl.className = "px-4 py-1 bg-green-500 text-white font-bold rounded text-xl uppercase animate-pulse shadow-lg shadow-green-900/50";
+            } else {
+                turnEl.textContent = data.turnOwner === 'host' ? "Host's Turn" : "Guest's Turn";
+                turnEl.className = "px-4 py-1 bg-gray-600 text-gray-300 font-bold rounded text-xl uppercase";
+            }
+
+            document.getElementById('game-mode-display').textContent = data.mode === 'classic' ? 'Classic' : 'Ringless';
+
+            // Render Rosters
+            renderRoster('host', data.teamHost);
+            renderRoster('guest', data.teamGuest);
+            
+            // Calculate Scores (Live)
+            document.getElementById('host-score').textContent = `Rating: ${calculateScore(data.teamHost)}`;
+            document.getElementById('guest-score').textContent = `Rating: ${calculateScore(data.teamGuest)}`;
+
+            // Render Pool
+            renderPool(data);
+        }
+
+        function calculateScore(teamIds) {
+            return teamIds.reduce((acc, pid) => {
+                const p = PLAYERS_DB.find(pl => pl.id === pid);
+                return acc + (p ? p.ovr : 0);
+            }, 0);
+        }
+
+        function renderRoster(role, teamIds) {
+            const container = document.getElementById(`roster-${role}`);
+            container.innerHTML = '';
+            
+            // 5 slots
+            for (let i = 0; i < 5; i++) {
+                const pid = teamIds[i];
+                const slot = document.createElement('div');
+                slot.className = "bg-gray-800 border border-gray-700 p-2 rounded flex items-center gap-2 h-16 relative overflow-hidden";
+                
+                if (pid) {
+                    const p = PLAYERS_DB.find(pl => pl.id === pid);
+                    slot.innerHTML = `
+                        <div class="font-bold text-2xl w-8 text-center text-gray-500">${p.pos}</div>
+                        <div class="flex-1">
+                            <div class="text-white font-bold leading-none uppercase truncate">${p.name}</div>
+                            <div class="text-xs text-gray-400 flex gap-2">
+                                <span>OVR: ${p.ovr}</span>
+                                <span class="${p.r > 0 ? 'text-yellow-500' : 'text-gray-600'}"><i class="fas fa-trophy"></i> ${p.r}</span>
+                            </div>
+                        </div>
+                    `;
+                    // Highlight stars in Ringless mode
+                    if (currentRoomData.mode === 'ringless' && (p.r > 0 || p.s)) {
+                        slot.classList.add('border-yellow-500', 'bg-yellow-900/20');
+                    }
+                } else {
+                    slot.innerHTML = `<div class="w-full text-center text-gray-600 text-sm uppercase tracking-widest">Empty Slot</div>`;
+                }
+                container.appendChild(slot);
+            }
+        }
+
+        function renderPool(data) {
+            const container = document.getElementById('player-pool');
+            const search = document.getElementById('player-search').value.toLowerCase();
+            const filter = document.getElementById('pos-filter').value;
+            
+            container.innerHTML = '';
+
+            PLAYERS_DB.forEach(p => {
+                // Filter Logic
+                if (data.takenPlayers.includes(p.id)) return; // Don't show taken
+                if (!p.name.toLowerCase().includes(search)) return;
+                if (filter !== 'ALL' && p.pos !== filter) return;
+
+                const card = document.createElement('div');
+                
+                // Logic to disable card if move is invalid
+                let isValid = true;
+                let reason = "";
+
+                // Not your turn?
+                if (data.turnOwner !== myRole) {
+                    isValid = false;
+                } 
+                // Ringless Mode Validation
+                else if (data.mode === 'ringless') {
+                    const myTeam = myRole === 'host' ? data.teamHost : data.teamGuest;
+                    const myPlayers = myTeam.map(id => PLAYERS_DB.find(x => x.id === id));
+                    const hasStar = myPlayers.some(pl => pl.r > 0 || pl.s);
+                    
+                    // If I already have a star, I cannot pick another player with Rings > 0 or Star status
+                    if (hasStar && (p.r > 0 || p.s)) {
+                        isValid = false;
+                        reason = "Limit: 1 Star";
+                    }
+                }
+
+                card.className = `nba-card p-3 rounded border border-gray-700 relative cursor-pointer group ${!isValid ? 'disabled' : ''}`;
+                card.onclick = () => { if(isValid) draftPlayer(p.id); };
+
+                card.innerHTML = `
+                    <div class="flex justify-between items-start mb-1">
+                        <span class="bg-gray-700 text-xs px-1 rounded">${p.team}</span>
+                        <span class="text-yellow-400 font-bold text-lg">${p.ovr}</span>
+                    </div>
+                    <div class="font-bold text-xl uppercase leading-tight mb-1 truncate">${p.name}</div>
+                    <div class="flex justify-between items-end text-sm text-gray-400">
+                        <span>${p.pos}</span>
+                        <span class="${p.r > 0 ? 'text-yellow-500' : 'text-gray-600'}"><i class="fas fa-trophy"></i> ${p.r}</span>
+                    </div>
+                    ${!isValid && reason ? `<div class="absolute inset-0 bg-black/60 flex items-center justify-center text-red-400 font-bold uppercase text-sm">${reason}</div>` : ''}
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // --- DRAFT ACTION ---
+
+        async function draftPlayer(playerId) {
+            if (!currentRoomData || currentRoomData.turnOwner !== myRole) return;
+            
+            // Transaction-like update logic
+            // In a real app, use Firestore transactions. Here we just read/write for simplicity in 1 file
+            // but we add checks.
+            
+            const ref = getRoomRef(currentRoomId);
+            
+            try {
+                // Optimistic UI update could go here
+                
+                await db.runTransaction(async (transaction) => {
+                    const doc = await transaction.get(ref);
+                    if (!doc.exists) throw "Room does not exist!";
+                    
+                    const data = doc.data();
+                    if (data.turnOwner !== myRole) throw "Not your turn!";
+                    if (data.takenPlayers.includes(playerId)) throw "Player taken!";
+
+                    // Snake Draft Logic
+                    // Turn Sequence: H, G, G, H, H, G...
+                    // 0 (H), 1 (G), 2 (G), 3 (H), 4 (H), 5 (G)...
+                    // Logic: 
+                    // Set next turn owner based on current index
+                    const nextIndex = data.turnIndex + 1;
+                    let nextOwner = 'host';
+                    
+                    // Simple pattern: H, G, H, G... (Alternating is easier for users to understand than Snake usually)
+                    // But Prompt said: "team 1 picks, team 2 picks, team 1 again". That's alternating.
+                    // Let's stick to strict alternating 1-2-1-2.
+                    nextOwner = (data.turnOwner === 'host') ? 'guest' : 'host';
+
+                    const newHostTeam = [...data.teamHost];
+                    const newGuestTeam = [...data.teamGuest];
+
+                    if (myRole === 'host') newHostTeam.push(playerId);
+                    else newGuestTeam.push(playerId);
+
+                    const newTaken = [...data.takenPlayers, playerId];
+
+                    let newStatus = 'drafting';
+                    // Check if full (5 players each = 10 total)
+                    if (newTaken.length >= 10) {
+                        newStatus = 'finished';
+                    }
+
+                    transaction.update(ref, {
+                        teamHost: newHostTeam,
+                        teamGuest: newGuestTeam,
+                        takenPlayers: newTaken,
+                        turnIndex: nextIndex,
+                        turnOwner: nextOwner,
+                        status: newStatus
+                    });
+                });
+
+            } catch (e) {
+                console.error("Draft error:", e);
+                // showError("Draft failed: " + e);
+            }
+        }
+
+        // --- RESULTS ---
+
+        function renderResult(data) {
+            const hScore = calculateScore(data.teamHost);
+            const gScore = calculateScore(data.teamGuest);
+
+            document.getElementById('final-score-host').textContent = hScore;
+            document.getElementById('final-score-guest').textContent = gScore;
+
+            const banner = document.getElementById('winner-banner');
+            if (hScore > gScore) {
+                banner.textContent = "HOST WINS!";
+                banner.className = "bg-blue-600 text-white font-bold text-3xl py-3 px-6 rounded-lg uppercase tracking-widest transform scale-110 mb-8 shadow-lg";
+            } else if (gScore > hScore) {
+                banner.textContent = "GUEST WINS!";
+                banner.className = "bg-red-600 text-white font-bold text-3xl py-3 px-6 rounded-lg uppercase tracking-widest transform scale-110 mb-8 shadow-lg";
+            } else {
+                banner.textContent = "IT'S A TIE!";
+                banner.className = "bg-gray-600 text-white font-bold text-3xl py-3 px-6 rounded-lg uppercase tracking-widest transform scale-110 mb-8 shadow-lg";
+            }
+        }
+
+        function resetGame() {
+            location.reload();
+        }
+
+        // --- UTILS ---
+        function showError(msg) {
+            document.getElementById('modal-msg').textContent = msg;
+            document.getElementById('modal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('modal').classList.add('hidden');
+        }
+
+        // Search listener
+        document.getElementById('player-search').addEventListener('input', () => {
+            if (currentRoomData) renderPool(currentRoomData);
+        });
+        document.getElementById('pos-filter').addEventListener('change', () => {
+            if (currentRoomData) renderPool(currentRoomData);
+        });
+
+        // Initialize
+        window.onload = initApp;
+
     </script>
 </body>
 </html>
