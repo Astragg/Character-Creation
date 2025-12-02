@@ -3,55 +3,71 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NBA Draft Battles</title>
+    <title>NBA Draft Battles: SimCast Edition</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <!-- Firebase SDKs (Compat versions for simple HTML usage) -->
+    <!-- Firebase SDKs (Compat) -->
     <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
+    <!-- Interact.js for Drag and Drop -->
+    <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
     
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Teko:wght@300;400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Teko:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;700&display=swap');
         
         body {
             font-family: 'Teko', sans-serif;
             background-color: #0f172a;
             color: white;
         }
+        .font-mono { font-family: 'Roboto Mono', monospace; }
         
+        /* Card Styles */
         .nba-card {
             transition: all 0.2s;
             background: linear-gradient(145deg, #1e293b, #0f172a);
+            user-select: none;
+            touch-action: none; 
         }
         .nba-card:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            border-color: #60a5fa;
         }
         .nba-card.disabled {
             opacity: 0.4;
             pointer-events: none;
             filter: grayscale(100%);
         }
-        .nba-card.selected {
-            border: 2px solid #3b82f6;
+        .nba-card.drafted-host { border: 2px solid #3b82f6; opacity: 0.6; }
+        .nba-card.drafted-guest { border: 2px solid #ef4444; opacity: 0.6; }
+
+        /* Draggable Styles */
+        .draggable-source {
+            cursor: grab;
+            touch-action: none;
+        }
+        .draggable-source:active {
+            cursor: grabbing;
+        }
+        .drag-active {
+            opacity: 0.5;
+        }
+        .drop-target {
+            background-color: rgba(59, 130, 246, 0.2);
+            border: 2px dashed #60a5fa;
+        }
+        .drop-target-hover {
+            background-color: rgba(59, 130, 246, 0.4);
+            border: 2px solid #60a5fa;
+            transform: scale(1.02);
         }
 
         /* Scrollbar */
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #0f172a; 
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #334155; 
-            border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #475569; 
-        }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
 
         .shiny-text {
             background: linear-gradient(to right, #fff, #94a3b8, #fff);
@@ -61,232 +77,342 @@
             background-size: 200% auto;
             animation: shine 3s linear infinite;
         }
-        @keyframes shine {
-            to {
-                background-position: 200% center;
-            }
-        }
+        @keyframes shine { to { background-position: 200% center; } }
+        
+        .stat-bar-container { background: #334155; height: 4px; width: 100%; border-radius: 2px; overflow: hidden; }
+        .stat-bar-fill { height: 100%; background: #fbbf24; }
     </style>
 </head>
 <body class="h-screen flex flex-col overflow-hidden">
 
-    <!-- Modal for Alerts -->
-    <div id="modal" class="fixed inset-0 bg-black bg-opacity-80 z-50 hidden flex items-center justify-center backdrop-blur-sm">
-        <div class="bg-gray-800 p-6 rounded-lg max-w-sm w-full border border-gray-700 shadow-2xl transform transition-all scale-100">
-            <h3 id="modal-title" class="text-2xl font-bold mb-2 text-red-400">Error</h3>
-            <p id="modal-msg" class="text-gray-300 text-lg mb-6">Message goes here</p>
-            <button onclick="closeModal()" class="w-full py-2 bg-red-600 hover:bg-red-700 text-white rounded uppercase tracking-wider font-bold">Close</button>
+    <!-- Modal -->
+    <div id="modal" class="fixed inset-0 bg-black/90 z-50 hidden flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-gray-800 p-6 rounded-lg max-w-sm w-full border border-gray-700 shadow-2xl">
+            <h3 id="modal-title" class="text-2xl font-bold mb-2 text-red-400">Notice</h3>
+            <p id="modal-msg" class="text-gray-300 text-lg mb-6">Message</p>
+            <button onclick="closeModal()" class="w-full py-2 bg-gray-700 hover:bg-gray-600 text-white rounded uppercase font-bold">Close</button>
         </div>
     </div>
 
     <!-- Header -->
-    <header class="bg-gray-900 border-b border-gray-800 p-4 flex justify-between items-center shrink-0">
+    <header class="bg-gray-900 border-b border-gray-800 p-3 flex justify-between items-center shrink-0 z-20">
         <div class="flex items-center gap-2">
-            <i class="fas fa-basketball-ball text-orange-500 text-2xl"></i>
-            <h1 class="text-3xl font-bold tracking-widest uppercase shiny-text">Draft Battles</h1>
+            <i class="fas fa-basketball-ball text-orange-500 text-2xl animate-bounce"></i>
+            <h1 class="text-2xl md:text-3xl font-bold tracking-widest uppercase shiny-text">SimCast Draft</h1>
         </div>
-        <div id="user-info" class="text-gray-400 text-lg">Connecting...</div>
+        <div id="status-bar" class="hidden md:flex gap-4 text-gray-400 text-lg">
+            <span>Room: <span id="header-room-id" class="text-white font-mono">---</span></span>
+            <span>User: <span id="header-user-id" class="text-white font-mono">---</span></span>
+        </div>
     </header>
 
-    <!-- App Container -->
-    <main id="app-container" class="flex-1 overflow-hidden relative">
-        
-        <!-- VIEW: LOBBY -->
-        <div id="view-lobby" class="absolute inset-0 flex flex-col items-center justify-center p-4">
-            <div class="max-w-md w-full space-y-8 text-center">
-                <div class="bg-gray-800 p-8 rounded-xl border border-gray-700 shadow-2xl">
-                    <h2 class="text-4xl font-bold mb-6 text-white">Enter The Court</h2>
-                    
-                    <div class="space-y-4">
-                        <button onclick="createRoom()" class="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold text-xl uppercase tracking-widest transition shadow-lg shadow-blue-900/50">
-                            Create New Lobby
-                        </button>
-                        
-                        <div class="relative flex py-2 items-center">
-                            <div class="flex-grow border-t border-gray-600"></div>
-                            <span class="flex-shrink-0 mx-4 text-gray-500 text-lg">OR JOIN</span>
-                            <div class="flex-grow border-t border-gray-600"></div>
-                        </div>
+    <!-- Main Content -->
+    <main class="flex-1 overflow-hidden relative">
 
-                        <div class="flex gap-2">
-                            <input type="text" id="room-input" placeholder="Enter Room ID" class="flex-1 bg-gray-900 border border-gray-600 text-white px-4 py-3 rounded-lg focus:outline-none focus:border-blue-500 text-lg uppercase">
-                            <button onclick="joinRoom()" class="bg-green-600 hover:bg-green-500 text-white px-6 py-3 rounded-lg font-bold uppercase tracking-wide">
-                                Join
-                            </button>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="text-gray-500 text-lg">
-                    <p>Challenge a friend to a fantasy draft.</p>
-                    <p>Select modes like "1 Star, 4 Role Players".</p>
+        <!-- 1. LOBBY -->
+        <div id="view-lobby" class="absolute inset-0 flex flex-col items-center justify-center p-4 z-10 bg-[#0f172a]">
+            <div class="max-w-md w-full bg-gray-800 p-8 rounded-xl border border-gray-700 shadow-2xl text-center">
+                <h2 class="text-4xl font-bold mb-8 text-white">Start Game</h2>
+                <button onclick="createRoom()" class="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold text-2xl uppercase mb-6 shadow-lg shadow-blue-900/50 transition">
+                    Create Lobby
+                </button>
+                <div class="flex gap-2">
+                    <input type="text" id="room-input" placeholder="ROOM CODE" class="flex-1 bg-gray-900 border border-gray-600 text-white px-4 py-3 rounded-lg text-xl uppercase font-mono text-center tracking-widest">
+                    <button onclick="joinRoom()" class="bg-green-600 hover:bg-green-500 text-white px-6 py-3 rounded-lg font-bold text-xl uppercase">JOIN</button>
                 </div>
             </div>
         </div>
 
-        <!-- VIEW: LOBBY WAITING -->
-        <div id="view-waiting" class="absolute inset-0 flex flex-col items-center justify-center p-4 hidden bg-gray-900/95 z-10">
-            <div class="bg-gray-800 p-8 rounded-xl border border-gray-700 shadow-2xl text-center max-w-lg w-full">
-                <div class="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-orange-500 mx-auto mb-6"></div>
-                <h2 class="text-3xl font-bold mb-2">Lobby Created</h2>
-                <p class="text-gray-400 text-xl mb-6">Share this ID with your opponent:</p>
-                
-                <div class="flex items-center gap-2 bg-gray-900 p-4 rounded-lg border border-gray-600 mb-6 group cursor-pointer" onclick="copyRoomId()">
-                    <code id="display-room-id" class="text-3xl text-blue-400 font-mono tracking-widest flex-1">...</code>
-                    <i class="fas fa-copy text-gray-500 group-hover:text-white transition"></i>
+        <!-- 2. WAITING ROOM -->
+        <div id="view-waiting" class="absolute inset-0 flex flex-col items-center justify-center p-4 hidden bg-gray-900 z-10">
+            <div class="bg-gray-800 p-8 rounded-xl border border-gray-700 text-center max-w-lg w-full">
+                <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-500 mx-auto mb-4"></div>
+                <h2 class="text-3xl font-bold mb-2">Waiting for Player 2...</h2>
+                <div class="bg-black/50 p-4 rounded-lg mb-6 cursor-pointer hover:bg-black/70 transition" onclick="copyRoomId()">
+                    <div class="text-gray-400 text-sm uppercase">Room Code</div>
+                    <div id="display-room-id" class="text-5xl font-mono text-blue-400 tracking-widest">ABCD</div>
                 </div>
-
-                <div class="text-left bg-gray-900/50 p-4 rounded mb-6">
-                    <label class="block text-gray-400 mb-2 uppercase tracking-wide">Select Game Mode:</label>
+                
+                <div class="text-left bg-gray-700/30 p-4 rounded mb-4">
+                    <label class="block text-gray-400 mb-2 uppercase tracking-wide">Select Mode:</label>
                     <select id="mode-select" onchange="updateGameMode()" class="w-full bg-gray-800 border border-gray-600 text-white p-2 rounded text-xl">
-                        <option value="classic">Classic (Best 5)</option>
-                        <option value="ringless">1 King & 4 Pawns (Max 1 Ring/Star)</option>
+                        <option value="classic">Classic (Draft Best 5)</option>
+                        <option value="ringless">Ringless (Max 1 Star/Ring)</option>
                     </select>
-                    <p id="mode-desc" class="text-sm text-gray-500 mt-2">Draft any 5 players. Highest total rating wins.</p>
                 </div>
-
-                <p class="text-yellow-500 animate-pulse text-lg uppercase tracking-widest">Waiting for opponent...</p>
             </div>
         </div>
 
-        <!-- VIEW: DRAFT BOARD -->
-        <div id="view-draft" class="absolute inset-0 flex flex-col hidden">
-            <!-- Game Status Bar -->
-            <div class="bg-gray-800 border-b border-gray-700 p-2 flex justify-between items-center shrink-0 shadow-lg z-20">
-                <div class="flex items-center gap-4">
-                    <div class="px-3 py-1 bg-gray-700 rounded text-lg">
-                        Mode: <span id="game-mode-display" class="text-blue-400 font-bold">Classic</span>
-                    </div>
-                    <div id="turn-indicator" class="px-4 py-1 bg-orange-600 text-white font-bold rounded text-xl uppercase animate-pulse shadow-lg shadow-orange-900/50">
-                        Loading...
-                    </div>
-                </div>
-                <div class="text-xl font-mono text-gray-400">
-                    Room: <span id="draft-room-id"></span>
+        <!-- 3. DRAFT BOARD -->
+        <div id="view-draft" class="absolute inset-0 flex flex-col hidden bg-gray-900">
+            <!-- Turn Indicator -->
+            <div class="bg-gray-800 p-2 border-b border-gray-700 flex justify-center items-center gap-4 shrink-0 shadow-md z-20">
+                <div id="turn-banner" class="px-6 py-2 rounded text-2xl font-bold uppercase tracking-widest bg-gray-700 text-gray-400 transition-all duration-300">
+                    Initializing...
                 </div>
             </div>
 
-            <!-- Main Draft Area -->
+            <!-- Draft Content -->
             <div class="flex-1 flex overflow-hidden">
-                <!-- Team 1 (Host) -->
-                <div class="w-1/4 bg-gray-900 border-r border-gray-800 flex flex-col">
-                    <div class="p-3 bg-gray-800 border-b border-gray-700">
-                        <h3 class="text-2xl font-bold text-blue-400 text-center uppercase tracking-widest">Team Host</h3>
-                        <div id="host-score" class="text-center text-gray-400 text-lg">Rating: 0</div>
+                <!-- Host Roster -->
+                <div class="w-1/5 md:w-1/4 bg-gray-900 border-r border-gray-800 flex flex-col">
+                    <div class="p-2 bg-blue-900/20 border-b border-blue-900/50 text-center">
+                        <h3 class="text-xl font-bold text-blue-400 uppercase">Host Team</h3>
+                        <div id="host-count" class="text-sm text-gray-400">0/5 Players</div>
                     </div>
-                    <div id="roster-host" class="flex-1 overflow-y-auto p-2 space-y-2">
-                        <!-- Host Slots -->
-                    </div>
+                    <div id="roster-host" class="flex-1 overflow-y-auto p-2 space-y-2"></div>
                 </div>
 
                 <!-- Player Pool -->
-                <div class="w-2/4 bg-gray-900 flex flex-col">
-                    <div class="p-3 bg-gray-800 border-b border-gray-700 flex gap-2">
-                        <input type="text" id="player-search" placeholder="Search Players..." class="flex-1 bg-gray-900 border border-gray-600 text-white px-3 py-1 rounded text-lg focus:outline-none focus:border-blue-500">
-                        <select id="pos-filter" class="bg-gray-900 border border-gray-600 text-white px-3 py-1 rounded text-lg">
+                <div class="flex-1 bg-[#0f172a] flex flex-col relative">
+                    <!-- Filters -->
+                    <div class="p-2 bg-gray-800 border-b border-gray-700 flex gap-2 shrink-0">
+                        <input type="text" id="player-search" placeholder="Search..." class="flex-1 bg-gray-900 border border-gray-600 text-white px-3 py-1 rounded text-lg">
+                        <select id="pos-filter" class="bg-gray-900 border border-gray-600 text-white px-3 py-1 rounded text-lg w-24">
                             <option value="ALL">All</option>
-                            <option value="G">Guards</option>
-                            <option value="F">Forwards</option>
-                            <option value="C">Centers</option>
+                            <option value="G">G</option>
+                            <option value="F">F</option>
+                            <option value="C">C</option>
                         </select>
                     </div>
-                    
-                    <div id="player-pool" class="flex-1 overflow-y-auto p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 content-start">
-                        <!-- Player Cards -->
-                    </div>
+                    <!-- Cards Grid -->
+                    <div id="player-pool" class="flex-1 overflow-y-auto p-3 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 content-start"></div>
                 </div>
 
-                <!-- Team 2 (Guest) -->
-                <div class="w-1/4 bg-gray-900 border-l border-gray-800 flex flex-col">
-                    <div class="p-3 bg-gray-800 border-b border-gray-700">
-                        <h3 class="text-2xl font-bold text-red-400 text-center uppercase tracking-widest">Team Guest</h3>
-                        <div id="guest-score" class="text-center text-gray-400 text-lg">Rating: 0</div>
+                <!-- Guest Roster -->
+                <div class="w-1/5 md:w-1/4 bg-gray-900 border-l border-gray-800 flex flex-col">
+                    <div class="p-2 bg-red-900/20 border-b border-red-900/50 text-center">
+                        <h3 class="text-xl font-bold text-red-400 uppercase">Guest Team</h3>
+                        <div id="guest-count" class="text-sm text-gray-400">0/5 Players</div>
                     </div>
-                    <div id="roster-guest" class="flex-1 overflow-y-auto p-2 space-y-2">
-                        <!-- Guest Slots -->
-                    </div>
+                    <div id="roster-guest" class="flex-1 overflow-y-auto p-2 space-y-2"></div>
                 </div>
             </div>
         </div>
 
-        <!-- VIEW: GAME OVER -->
-        <div id="view-result" class="absolute inset-0 flex flex-col items-center justify-center p-4 hidden bg-black/90 z-30">
-            <div class="bg-gray-800 p-10 rounded-xl border-2 border-yellow-500 shadow-2xl text-center max-w-2xl w-full">
-                <h2 class="text-6xl font-bold mb-4 text-yellow-500 uppercase tracking-widest">Draft Complete</h2>
-                
-                <div class="flex justify-center items-end gap-8 mb-8">
-                    <div class="text-center">
-                        <div class="text-2xl text-blue-400 mb-1">HOST</div>
-                        <div id="final-score-host" class="text-5xl font-bold text-white">0</div>
-                    </div>
-                    <div class="text-4xl text-gray-600 font-bold">VS</div>
-                    <div class="text-center">
-                        <div class="text-2xl text-red-400 mb-1">GUEST</div>
-                        <div id="final-score-guest" class="text-5xl font-bold text-white">0</div>
+        <!-- 4. LINEUP EDITOR (Drag & Drop) -->
+        <div id="view-lineup" class="absolute inset-0 flex flex-col hidden bg-gray-900 z-20">
+            <div class="p-4 text-center bg-gray-800 border-b border-gray-700 shrink-0">
+                <h2 class="text-3xl font-bold text-yellow-500 uppercase tracking-widest">Set Your Lineup</h2>
+                <p class="text-gray-400">Drag players to positions. Matchups matter for the simulation!</p>
+                <div id="waiting-lineup-msg" class="hidden text-green-400 font-bold mt-2 animate-pulse">Waiting for opponent to finish...</div>
+            </div>
+
+            <div class="flex-1 flex flex-col md:flex-row p-4 gap-4 overflow-hidden">
+                <!-- Bench (Source) -->
+                <div class="flex-1 bg-gray-800 rounded-xl border border-gray-700 flex flex-col overflow-hidden">
+                    <div class="p-3 bg-gray-700 font-bold text-center uppercase">Bench (Drag From Here)</div>
+                    <div id="lineup-bench" class="flex-1 p-4 space-y-3 overflow-y-auto">
+                        <!-- Draggable Cards appear here -->
                     </div>
                 </div>
 
-                <div id="winner-banner" class="bg-gradient-to-r from-yellow-600 to-yellow-400 text-black font-bold text-3xl py-3 px-6 rounded-lg uppercase tracking-widest transform scale-110 mb-8 shadow-lg shadow-yellow-500/50">
-                    Determining Winner...
+                <!-- Starters (Target) -->
+                <div class="flex-1 bg-gray-800 rounded-xl border border-gray-700 flex flex-col overflow-hidden">
+                    <div class="p-3 bg-gray-700 font-bold text-center uppercase">Starting 5 (Drop Here)</div>
+                    <div class="flex-1 p-4 flex flex-col justify-between gap-2 overflow-y-auto">
+                        <!-- Drop Zones -->
+                        <div class="drop-zone flex items-center gap-3 p-2 bg-gray-900 rounded border border-gray-600 h-20" data-pos="PG">
+                            <div class="w-12 text-center font-bold text-gray-500 text-xl">PG</div>
+                            <div class="flex-1 h-full rounded border-2 border-dashed border-gray-700 flex items-center justify-center text-gray-600 slot-content">Drop PG</div>
+                        </div>
+                        <div class="drop-zone flex items-center gap-3 p-2 bg-gray-900 rounded border border-gray-600 h-20" data-pos="SG">
+                            <div class="w-12 text-center font-bold text-gray-500 text-xl">SG</div>
+                            <div class="flex-1 h-full rounded border-2 border-dashed border-gray-700 flex items-center justify-center text-gray-600 slot-content">Drop SG</div>
+                        </div>
+                        <div class="drop-zone flex items-center gap-3 p-2 bg-gray-900 rounded border border-gray-600 h-20" data-pos="SF">
+                            <div class="w-12 text-center font-bold text-gray-500 text-xl">SF</div>
+                            <div class="flex-1 h-full rounded border-2 border-dashed border-gray-700 flex items-center justify-center text-gray-600 slot-content">Drop SF</div>
+                        </div>
+                        <div class="drop-zone flex items-center gap-3 p-2 bg-gray-900 rounded border border-gray-600 h-20" data-pos="PF">
+                            <div class="w-12 text-center font-bold text-gray-500 text-xl">PF</div>
+                            <div class="flex-1 h-full rounded border-2 border-dashed border-gray-700 flex items-center justify-center text-gray-600 slot-content">Drop PF</div>
+                        </div>
+                        <div class="drop-zone flex items-center gap-3 p-2 bg-gray-900 rounded border border-gray-600 h-20" data-pos="C">
+                            <div class="w-12 text-center font-bold text-gray-500 text-xl">C</div>
+                            <div class="flex-1 h-full rounded border-2 border-dashed border-gray-700 flex items-center justify-center text-gray-600 slot-content">Drop C</div>
+                        </div>
+                    </div>
                 </div>
-
-                <button onclick="resetGame()" class="bg-gray-700 hover:bg-gray-600 text-white px-8 py-3 rounded text-xl font-bold uppercase">
-                    Back to Lobby
+            </div>
+            
+            <div class="p-4 bg-gray-800 border-t border-gray-700 shrink-0">
+                <button onclick="submitLineup()" id="btn-submit-lineup" class="w-full py-3 bg-green-600 hover:bg-green-500 text-white font-bold text-2xl uppercase rounded disabled:opacity-50 disabled:cursor-not-allowed">
+                    Confirm Lineup
                 </button>
+            </div>
+        </div>
+
+        <!-- 5. SIMCAST VIEW -->
+        <div id="view-sim" class="absolute inset-0 flex flex-col hidden bg-black z-30">
+            <!-- Scoreboard -->
+            <div class="bg-gray-900 border-b border-gray-800 p-4 flex justify-between items-center shrink-0 h-24">
+                <div class="w-1/3 text-center">
+                    <div class="text-blue-400 font-bold text-xl uppercase">HOST</div>
+                    <div id="sim-score-host" class="text-5xl font-mono font-bold text-white">0</div>
+                </div>
+                <div class="w-1/3 text-center flex flex-col items-center">
+                    <div id="sim-quarter" class="text-gray-500 font-mono text-xl">Q1</div>
+                    <div id="sim-clock" class="text-yellow-500 font-mono text-3xl font-bold">12:00</div>
+                </div>
+                <div class="w-1/3 text-center">
+                    <div class="text-red-400 font-bold text-xl uppercase">GUEST</div>
+                    <div id="sim-score-guest" class="text-5xl font-mono font-bold text-white">0</div>
+                </div>
+            </div>
+
+            <!-- Play By Play Log -->
+            <div id="sim-log" class="flex-1 bg-black p-4 overflow-y-auto font-mono text-sm md:text-lg space-y-2 border-b border-gray-800">
+                <!-- Logs go here -->
+                <div class="text-gray-500 text-center italic">Simulation starting...</div>
+            </div>
+
+            <!-- Stats Ticker -->
+            <div class="h-48 bg-gray-900 shrink-0 flex flex-col md:flex-row border-t border-gray-700">
+                <div class="flex-1 p-2 border-r border-gray-800 overflow-y-auto">
+                     <table class="w-full text-left text-sm">
+                        <thead><tr class="text-gray-500 border-b border-gray-700"><th class="pb-1">Host</th><th class="pb-1 text-right">PTS</th><th class="pb-1 text-right">REB</th><th class="pb-1 text-right">AST</th></tr></thead>
+                        <tbody id="box-host-mini"></tbody>
+                     </table>
+                </div>
+                <div class="flex-1 p-2 overflow-y-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead><tr class="text-gray-500 border-b border-gray-700"><th class="pb-1">Guest</th><th class="pb-1 text-right">PTS</th><th class="pb-1 text-right">REB</th><th class="pb-1 text-right">AST</th></tr></thead>
+                        <tbody id="box-guest-mini"></tbody>
+                     </table>
+                </div>
+            </div>
+
+            <!-- Start Sim Button (Host Only) -->
+            <div id="sim-controls" class="p-4 bg-gray-800 flex justify-center hidden">
+                <button onclick="startSimulation()" class="px-8 py-2 bg-yellow-600 hover:bg-yellow-500 text-white font-bold text-xl uppercase rounded shadow-lg animate-pulse">
+                    Tip Off
+                </button>
+            </div>
+        </div>
+
+        <!-- 6. FINAL BOX SCORE -->
+        <div id="view-result" class="absolute inset-0 flex flex-col hidden bg-gray-900 z-40 overflow-y-auto">
+            <div class="p-6 text-center shrink-0">
+                <h2 class="text-4xl font-bold text-white mb-2 uppercase">Final Score</h2>
+                <div class="flex justify-center items-center gap-8 mb-6">
+                    <div class="text-5xl font-mono font-bold text-blue-400" id="final-host">0</div>
+                    <div class="text-2xl text-gray-600">vs</div>
+                    <div class="text-5xl font-mono font-bold text-red-400" id="final-guest">0</div>
+                </div>
+                <div id="winner-badge" class="inline-block px-6 py-2 rounded bg-yellow-600 text-black font-bold text-2xl uppercase">Winner</div>
+            </div>
+
+            <div class="flex-1 max-w-4xl mx-auto w-full p-4 space-y-6">
+                <!-- Host Box -->
+                <div class="bg-gray-800 rounded border border-gray-700 p-4">
+                    <h3 class="text-xl text-blue-400 font-bold mb-2 uppercase">Host Stats</h3>
+                    <table class="w-full text-left text-lg">
+                        <thead>
+                            <tr class="text-gray-500 border-b border-gray-600">
+                                <th class="py-2">Player</th>
+                                <th class="py-2 text-right">PTS</th>
+                                <th class="py-2 text-right">REB</th>
+                                <th class="py-2 text-right">AST</th>
+                                <th class="py-2 text-right">FG</th>
+                            </tr>
+                        </thead>
+                        <tbody id="box-host-full"></tbody>
+                    </table>
+                </div>
+
+                <!-- Guest Box -->
+                <div class="bg-gray-800 rounded border border-gray-700 p-4">
+                    <h3 class="text-xl text-red-400 font-bold mb-2 uppercase">Guest Stats</h3>
+                    <table class="w-full text-left text-lg">
+                        <thead>
+                            <tr class="text-gray-500 border-b border-gray-600">
+                                <th class="py-2">Player</th>
+                                <th class="py-2 text-right">PTS</th>
+                                <th class="py-2 text-right">REB</th>
+                                <th class="py-2 text-right">AST</th>
+                                <th class="py-2 text-right">FG</th>
+                            </tr>
+                        </thead>
+                        <tbody id="box-guest-full"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="p-6 text-center pb-12">
+                <button onclick="location.reload()" class="px-8 py-3 bg-gray-700 hover:bg-gray-600 text-white font-bold text-xl uppercase rounded">New Game</button>
             </div>
         </div>
 
     </main>
 
     <script>
-        /**
-         * PLAYER DATA DATABASE
-         * R: Rings, S: Star Status (for Ringless mode), OVR: Rating
-         */
+        // --- DATABASE ---
+        // Stats: OVR (Display), OFF (Scoring), DEF (Stop Chance), REB (Board Chance), PAS (Assist Chance)
         const PLAYERS_DB = [
-            { id: 1, name: "Michael Jordan", team: "CHI", pos: "G", r: 6, s: true, ovr: 99 },
-            { id: 2, name: "LeBron James", team: "LAL", pos: "F", r: 4, s: true, ovr: 98 },
-            { id: 3, name: "Shaquille O'Neal", team: "LAL", pos: "C", r: 4, s: true, ovr: 97 },
-            { id: 4, name: "Stephen Curry", team: "GSW", pos: "G", r: 4, s: true, ovr: 97 },
-            { id: 5, name: "Nikola Jokic", team: "DEN", pos: "C", r: 1, s: true, ovr: 97 },
-            { id: 6, name: "Kobe Bryant", team: "LAL", pos: "G", r: 5, s: true, ovr: 98 },
-            { id: 7, name: "Tim Duncan", team: "SAS", pos: "F", r: 5, s: true, ovr: 96 },
-            { id: 8, name: "Kevin Durant", team: "PHX", pos: "F", r: 2, s: true, ovr: 96 },
-            { id: 9, name: "Giannis Antetokounmpo", team: "MIL", pos: "F", r: 1, s: true, ovr: 96 },
-            { id: 10, name: "Hakeem Olajuwon", team: "HOU", pos: "C", r: 2, s: true, ovr: 96 },
-            { id: 11, name: "Allen Iverson", team: "PHI", pos: "G", r: 0, s: true, ovr: 94 },
-            { id: 12, name: "Charles Barkley", team: "PHX", pos: "F", r: 0, s: true, ovr: 93 },
-            { id: 13, name: "Steve Nash", team: "PHX", pos: "G", r: 0, s: true, ovr: 92 },
-            { id: 14, name: "James Harden", team: "LAC", pos: "G", r: 0, s: true, ovr: 91 },
-            { id: 15, name: "Chris Paul", team: "GSW", pos: "G", r: 0, s: true, ovr: 90 },
-            { id: 16, name: "Patrick Ewing", team: "NYK", pos: "C", r: 0, s: true, ovr: 90 },
-            { id: 17, name: "Joel Embiid", team: "PHI", pos: "C", r: 0, s: true, ovr: 95 },
-            { id: 18, name: "Luka Doncic", team: "DAL", pos: "G", r: 0, s: true, ovr: 96 },
-            { id: 19, name: "Jayson Tatum", team: "BOS", pos: "F", r: 1, s: true, ovr: 94 },
-            { id: 20, name: "Kawhi Leonard", team: "LAC", pos: "F", r: 2, s: true, ovr: 94 },
-            { id: 21, name: "Jimmy Butler", team: "MIA", pos: "F", r: 0, s: false, ovr: 91 },
-            { id: 22, name: "Paul George", team: "LAC", pos: "F", r: 0, s: false, ovr: 89 },
-            { id: 23, name: "Damian Lillard", team: "MIL", pos: "G", r: 0, s: true, ovr: 91 },
-            { id: 24, name: "Vince Carter", team: "TOR", pos: "G", r: 0, s: false, ovr: 88 },
-            { id: 25, name: "Tracy McGrady", team: "ORL", pos: "G", r: 0, s: true, ovr: 90 },
-            { id: 26, name: "Derrick Rose", team: "CHI", pos: "G", r: 0, s: false, ovr: 88 },
-            { id: 27, name: "Reggie Miller", team: "IND", pos: "G", r: 0, s: false, ovr: 88 },
-            { id: 28, name: "Karl Malone", team: "UTA", pos: "F", r: 0, s: true, ovr: 94 },
-            { id: 29, name: "John Stockton", team: "UTA", pos: "G", r: 0, s: false, ovr: 91 },
-            { id: 30, name: "Dwight Howard", team: "ORL", pos: "C", r: 1, s: false, ovr: 89 },
-            { id: 31, name: "Carmelo Anthony", team: "NYK", pos: "F", r: 0, s: false, ovr: 89 },
-            { id: 32, name: "Kyrie Irving", team: "DAL", pos: "G", r: 1, s: true, ovr: 92 },
-            { id: 33, name: "Anthony Davis", team: "LAL", pos: "C", r: 1, s: true, ovr: 94 },
-            { id: 34, name: "Russell Westbrook", team: "OKC", pos: "G", r: 0, s: false, ovr: 89 },
-            { id: 35, name: "Klay Thompson", team: "GSW", pos: "G", r: 4, s: false, ovr: 88 },
-            { id: 36, name: "Draymond Green", team: "GSW", pos: "F", r: 4, s: false, ovr: 86 },
-            { id: 37, name: "Manu Ginobili", team: "SAS", pos: "G", r: 4, s: false, ovr: 88 },
-            { id: 38, name: "Tony Parker", team: "SAS", pos: "G", r: 4, s: false, ovr: 89 },
-            { id: 39, name: "Dennis Rodman", team: "CHI", pos: "F", r: 5, s: false, ovr: 88 },
-            { id: 40, name: "Pau Gasol", team: "LAL", pos: "C", r: 2, s: false, ovr: 89 }
+            // GOAT Tier
+            { id: 1, name: "Michael Jordan", pos: "G", r: 6, ovr: 99, off: 99, def: 99, reb: 60, pas: 65 },
+            { id: 2, name: "LeBron James", pos: "F", r: 4, ovr: 99, off: 97, def: 88, reb: 85, pas: 95 },
+            { id: 3, name: "Kareem Abdul-Jabbar", pos: "C", r: 6, ovr: 99, off: 98, def: 90, reb: 95, pas: 60 },
+            
+            // Centers
+            { id: 4, name: "Shaquille O'Neal", pos: "C", r: 4, ovr: 98, off: 99, def: 85, reb: 98, pas: 50 },
+            { id: 5, name: "Hakeem Olajuwon", pos: "C", r: 2, ovr: 97, off: 95, def: 99, reb: 95, pas: 45 },
+            { id: 6, name: "Wilt Chamberlain", pos: "C", r: 2, ovr: 98, off: 99, def: 90, reb: 99, pas: 55 },
+            { id: 7, name: "Bill Russell", pos: "C", r: 11, ovr: 96, off: 70, def: 99, reb: 99, pas: 60 },
+            { id: 8, name: "Nikola Jokic", pos: "C", r: 1, ovr: 97, off: 96, def: 70, reb: 94, pas: 99 },
+            { id: 9, name: "Joel Embiid", pos: "C", r: 0, ovr: 96, off: 97, def: 90, reb: 92, pas: 60 },
+            { id: 10, name: "David Robinson", pos: "C", r: 2, ovr: 95, off: 85, def: 95, reb: 92, pas: 40 },
+            { id: 11, name: "Patrick Ewing", pos: "C", r: 0, ovr: 93, off: 88, def: 88, reb: 90, pas: 30 },
+            { id: 12, name: "Dwight Howard", pos: "C", r: 1, ovr: 92, off: 80, def: 95, reb: 98, pas: 30 },
+            { id: 13, name: "Dikembe Mutombo", pos: "C", r: 0, ovr: 89, off: 60, def: 98, reb: 95, pas: 20 },
+            { id: 14, name: "Ben Wallace", pos: "C", r: 1, ovr: 89, off: 40, def: 99, reb: 96, pas: 30 },
+            { id: 15, name: "Yao Ming", pos: "C", r: 0, ovr: 91, off: 90, def: 75, reb: 85, pas: 40 },
+            
+            // Forwards
+            { id: 20, name: "Tim Duncan", pos: "F", r: 5, ovr: 97, off: 88, def: 95, reb: 95, pas: 60 },
+            { id: 21, name: "Larry Bird", pos: "F", r: 3, ovr: 97, off: 96, def: 80, reb: 85, pas: 85 },
+            { id: 22, name: "Kevin Durant", pos: "F", r: 2, ovr: 96, off: 99, def: 80, reb: 75, pas: 70 },
+            { id: 23, name: "Giannis Antetokounmpo", pos: "F", r: 1, ovr: 96, off: 94, def: 92, reb: 94, pas: 70 },
+            { id: 24, name: "Kevin Garnett", pos: "F", r: 1, ovr: 95, off: 85, def: 98, reb: 96, pas: 70 },
+            { id: 25, name: "Dirk Nowitzki", pos: "F", r: 1, ovr: 95, off: 95, def: 65, reb: 80, pas: 50 },
+            { id: 26, name: "Karl Malone", pos: "F", r: 0, ovr: 95, off: 94, def: 85, reb: 90, pas: 50 },
+            { id: 27, name: "Charles Barkley", pos: "F", r: 0, ovr: 94, off: 92, def: 70, reb: 96, pas: 60 },
+            { id: 28, name: "Kawhi Leonard", pos: "F", r: 2, ovr: 94, off: 90, def: 98, reb: 70, pas: 50 },
+            { id: 29, name: "Scottie Pippen", pos: "F", r: 6, ovr: 93, off: 80, def: 98, reb: 75, pas: 80 },
+            { id: 30, name: "Dennis Rodman", pos: "F", r: 5, ovr: 89, off: 40, def: 99, reb: 99, pas: 40 },
+            { id: 31, name: "Dominique Wilkins", pos: "F", r: 0, ovr: 91, off: 94, def: 60, reb: 70, pas: 30 },
+            { id: 32, name: "Carmelo Anthony", pos: "F", r: 0, ovr: 91, off: 95, def: 50, reb: 70, pas: 30 },
+            { id: 33, name: "Jayson Tatum", pos: "F", r: 1, ovr: 93, off: 92, def: 85, reb: 75, pas: 60 },
+            { id: 34, name: "Anthony Davis", pos: "F", r: 1, ovr: 94, off: 90, def: 95, reb: 92, pas: 40 },
+            { id: 35, name: "Paul Pierce", pos: "F", r: 1, ovr: 91, off: 90, def: 75, reb: 60, pas: 60 },
+            { id: 36, name: "Draymond Green", pos: "F", r: 4, ovr: 88, off: 60, def: 95, reb: 75, pas: 85 },
+            
+            // Guards
+            { id: 50, name: "Magic Johnson", pos: "G", r: 5, ovr: 98, off: 90, def: 75, reb: 80, pas: 99 },
+            { id: 51, name: "Kobe Bryant", pos: "G", r: 5, ovr: 98, off: 98, def: 95, reb: 60, pas: 70 },
+            { id: 52, name: "Stephen Curry", pos: "G", r: 4, ovr: 97, off: 99, def: 65, reb: 50, pas: 85 },
+            { id: 53, name: "Jerry West", pos: "G", r: 1, ovr: 96, off: 94, def: 85, reb: 50, pas: 85 },
+            { id: 54, name: "Oscar Robertson", pos: "G", r: 1, ovr: 96, off: 90, def: 75, reb: 85, pas: 95 },
+            { id: 55, name: "Dwyane Wade", pos: "G", r: 3, ovr: 95, off: 92, def: 90, reb: 60, pas: 70 },
+            { id: 56, name: "Isiah Thomas", pos: "G", r: 2, ovr: 93, off: 85, def: 75, reb: 40, pas: 90 },
+            { id: 57, name: "Allen Iverson", pos: "G", r: 0, ovr: 94, off: 96, def: 70, reb: 40, pas: 60 },
+            { id: 58, name: "Steve Nash", pos: "G", r: 0, ovr: 93, off: 88, def: 50, reb: 40, pas: 98 },
+            { id: 59, name: "John Stockton", pos: "G", r: 0, ovr: 93, off: 75, def: 80, reb: 40, pas: 99 },
+            { id: 60, name: "James Harden", pos: "G", r: 0, ovr: 94, off: 97, def: 60, reb: 65, pas: 88 },
+            { id: 61, name: "Chris Paul", pos: "G", r: 0, ovr: 93, off: 85, def: 85, reb: 50, pas: 98 },
+            { id: 62, name: "Jason Kidd", pos: "G", r: 1, ovr: 92, off: 70, def: 85, reb: 75, pas: 95 },
+            { id: 63, name: "Gary Payton", pos: "G", r: 1, ovr: 92, off: 80, def: 98, reb: 50, pas: 75 },
+            { id: 64, name: "Russell Westbrook", pos: "G", r: 0, ovr: 91, off: 88, def: 70, reb: 85, pas: 85 },
+            { id: 65, name: "Luka Doncic", pos: "G", r: 0, ovr: 96, off: 97, def: 65, reb: 85, pas: 92 },
+            { id: 66, name: "Tracy McGrady", pos: "G", r: 0, ovr: 92, off: 95, def: 70, reb: 65, pas: 60 },
+            { id: 67, name: "Vince Carter", pos: "G", r: 0, ovr: 90, off: 92, def: 65, reb: 60, pas: 50 },
+            { id: 68, name: "Damian Lillard", pos: "G", r: 0, ovr: 92, off: 94, def: 55, reb: 45, pas: 70 },
+            { id: 69, name: "Reggie Miller", pos: "G", r: 0, ovr: 89, off: 88, def: 60, reb: 30, pas: 40 },
+            { id: 70, name: "Ray Allen", pos: "G", r: 2, ovr: 90, off: 89, def: 70, reb: 45, pas: 50 }
         ];
 
-        // --- FIREBASE SETUP ---
+        // --- FIREBASE CONFIG (USER PROVIDED) ---
         const firebaseConfig = {
             apiKey: "AIzaSyDCrKQVcGBW4iy7OMAtn4Jcf1ot5CGALBE",
             authDomain: "highnoon-66ee0.firebaseapp.com",
@@ -296,435 +422,591 @@
             messagingSenderId: "754268761672",
             appId: "1:754268761672:web:7fbf59d2c403b43356727d"
         };
-
         const app = firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const db = firebase.firestore();
-        // Fixed App ID for your specific deployment
-        const appId = 'nba-draft-game';
+        const appId = 'nba-sim-battles';
 
-        // --- GLOBAL STATE ---
+        // --- STATE ---
         let currentUser = null;
         let currentRoomId = null;
-        let currentRoomData = null;
         let roomUnsubscribe = null;
-        let myRole = null; // 'host' or 'guest'
+        let myRole = null; 
+        let roomData = null;
+        let draftedPlayers = []; // Local helper for drag drop
+        let simInterval = null;
 
-        // --- AUTH & INIT ---
-        async function initApp() {
+        // --- AUTH ---
+        window.onload = async () => {
             try {
-                // Ensure "Anonymous" sign-in is enabled in your Firebase Console -> Authentication -> Sign-in method
                 await auth.signInAnonymously();
-            } catch (e) {
-                console.error("Auth failed", e);
-                showError("Authentication failed. Check console. Did you enable Anonymous Auth in Firebase?");
-            }
-        }
-
-        auth.onAuthStateChanged((user) => {
-            if (user) {
-                currentUser = user;
-                document.getElementById('user-info').textContent = `User: ${user.uid.slice(0,4)}...`;
+            } catch(e) { console.error(e); }
+        };
+        auth.onAuthStateChanged(u => {
+            if(u) {
+                currentUser = u;
+                document.getElementById('header-user-id').textContent = u.uid.slice(0,4);
             }
         });
 
-        // --- ROOM LOGIC ---
-
-        // Helper for DB refs
-        const getRoomRef = (rid) => db.collection('artifacts').doc(appId).collection('public').doc('data').collection('nba_rooms').doc(rid);
+        // --- ROOM MANAGEMENT ---
+        const getRef = (id) => db.collection('artifacts').doc(appId).collection('public').doc('data').collection('rooms').doc(id);
 
         async function createRoom() {
-            if (!currentUser) return;
-            
-            const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
-            const roomRef = getRoomRef(roomId);
-
-            const initialData = {
+            if(!currentUser) return;
+            const rid = Math.random().toString(36).substring(2,6).toUpperCase();
+            await getRef(rid).set({
                 hostId: currentUser.uid,
                 guestId: null,
-                status: 'waiting', // waiting, drafting, finished
+                status: 'waiting', // waiting, drafting, lineups, simulation, finished
                 mode: 'classic',
+                turnOwner: 'host', // host, guest
                 turnIndex: 0,
-                turnOwner: 'host', // 'host' or 'guest'
                 teamHost: [],
                 teamGuest: [],
-                takenPlayers: [],
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            };
-
-            try {
-                await roomRef.set(initialData);
-                currentRoomId = roomId;
-                myRole = 'host';
-                enterLobby(roomId);
-            } catch (e) {
-                showError("Could not create room.");
-            }
+                lineupHost: [null, null, null, null, null], // PG, SG, SF, PF, C
+                lineupGuest: [null, null, null, null, null],
+                taken: [],
+                logs: [],
+                simState: { q: 1, time: 720, scoreH: 0, scoreG: 0, stats: {} } // stats: { pid: {pts, reb, ast, fgm, fga} }
+            });
+            currentRoomId = rid;
+            myRole = 'host';
+            joinGameUI(rid);
         }
 
         async function joinRoom() {
-            if (!currentUser) return;
-            const input = document.getElementById('room-input');
-            const roomId = input.value.trim().toUpperCase();
+            const rid = document.getElementById('room-input').value.toUpperCase();
+            const ref = getRef(rid);
+            const doc = await ref.get();
+            if(!doc.exists) return alert('Room not found');
             
-            if (roomId.length < 2) {
-                showError("Invalid Room ID");
-                return;
-            }
+            const data = doc.data();
+            if(data.hostId !== currentUser.uid && !data.guestId) {
+                await ref.update({ guestId: currentUser.uid, status: 'drafting' });
+                myRole = 'guest';
+            } else if (data.hostId === currentUser.uid) myRole = 'host';
+            else if (data.guestId === currentUser.uid) myRole = 'guest';
+            else return alert('Full');
 
-            const roomRef = getRoomRef(roomId);
-            
-            try {
-                const doc = await roomRef.get();
-                if (!doc.exists) {
-                    showError("Room not found");
-                    return;
-                }
-                const data = doc.data();
-
-                if (data.status !== 'waiting' && data.guestId !== currentUser.uid) {
-                    showError("Game already started or full");
-                    return;
-                }
-
-                // If not already guest, join as guest
-                if (data.hostId !== currentUser.uid && !data.guestId) {
-                    await roomRef.update({
-                        guestId: currentUser.uid,
-                        status: 'drafting' // Start immediately upon join
-                    });
-                    myRole = 'guest';
-                } else if (data.hostId === currentUser.uid) {
-                    myRole = 'host';
-                } else if (data.guestId === currentUser.uid) {
-                    myRole = 'guest';
-                } else {
-                    showError("Room is full");
-                    return;
-                }
-
-                currentRoomId = roomId;
-                enterLobby(roomId);
-
-            } catch (e) {
-                console.error(e);
-                showError("Error joining room");
-            }
+            currentRoomId = rid;
+            joinGameUI(rid);
         }
 
-        function enterLobby(roomId) {
+        function joinGameUI(rid) {
             document.getElementById('view-lobby').classList.add('hidden');
-            
-            // Subscribe to room updates
-            if (roomUnsubscribe) roomUnsubscribe();
-            
-            roomUnsubscribe = getRoomRef(roomId).onSnapshot((doc) => {
-                if (!doc.exists) {
-                    showError("Room deleted");
-                    location.reload();
-                    return;
-                }
-                
-                const data = doc.data();
-                currentRoomData = data;
-                
-                // Route to correct view
-                if (data.status === 'waiting') {
-                    document.getElementById('view-waiting').classList.remove('hidden');
-                    document.getElementById('display-room-id').textContent = roomId;
-                    document.getElementById('draft-room-id').textContent = roomId;
-                    
-                    // Host can change mode
-                    const modeSel = document.getElementById('mode-select');
-                    if (myRole === 'host') {
-                        modeSel.disabled = false;
-                        modeSel.value = data.mode;
-                    } else {
-                        modeSel.disabled = true;
-                        modeSel.value = data.mode;
-                    }
-                    updateModeDesc(data.mode);
+            document.getElementById('header-room-id').textContent = rid;
+            document.getElementById('display-room-id').textContent = rid;
 
-                } else if (data.status === 'drafting') {
-                    document.getElementById('view-waiting').classList.add('hidden');
-                    document.getElementById('view-draft').classList.remove('hidden');
-                    document.getElementById('view-result').classList.add('hidden');
-                    renderDraftBoard(data);
-                } else if (data.status === 'finished') {
-                    document.getElementById('view-draft').classList.remove('hidden'); // Keep board visible behind
-                    document.getElementById('view-result').classList.remove('hidden');
-                    renderResult(data);
-                }
-            }, (error) => {
-                console.error("Listener failed", error);
+            roomUnsubscribe = getRef(rid).onSnapshot(snap => {
+                if(!snap.exists) return;
+                const data = snap.data();
+                roomData = data;
+                renderGame(data);
             });
         }
 
-        // --- GAME LOGIC ---
+        // --- RENDER ROUTER ---
+        function renderGame(data) {
+            // Hide all views first
+            ['view-waiting', 'view-draft', 'view-lineup', 'view-sim', 'view-result'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+            });
 
-        async function updateGameMode() {
-            if (!currentRoomId || myRole !== 'host') return;
-            const mode = document.getElementById('mode-select').value;
-            await getRoomRef(currentRoomId).update({ mode: mode });
-        }
-
-        function updateModeDesc(mode) {
-            const desc = document.getElementById('mode-desc');
-            const display = document.getElementById('game-mode-display');
-            if (mode === 'classic') {
-                desc.textContent = "Draft any 5 players. Highest total rating wins.";
-                display.textContent = "Classic";
-            } else {
-                desc.textContent = "Draft 5 players. ONLY 1 can be a Champion/Star. The other 4 must have 0 rings.";
-                display.textContent = "Ringless Challenge";
+            if(data.status === 'waiting') {
+                document.getElementById('view-waiting').classList.remove('hidden');
+                // Host controls mode
+                document.getElementById('mode-select').disabled = (myRole !== 'host');
+                document.getElementById('mode-select').value = data.mode;
+            } 
+            else if(data.status === 'drafting') {
+                document.getElementById('view-draft').classList.remove('hidden');
+                renderDraft(data);
+            }
+            else if(data.status === 'lineups') {
+                document.getElementById('view-lineup').classList.remove('hidden');
+                renderLineupEditor(data);
+            }
+            else if(data.status === 'simulation') {
+                document.getElementById('view-sim').classList.remove('hidden');
+                renderSim(data);
+            }
+            else if(data.status === 'finished') {
+                document.getElementById('view-result').classList.remove('hidden');
+                renderResult(data);
             }
         }
 
-        function copyRoomId() {
-            const id = document.getElementById('display-room-id').textContent;
-            navigator.clipboard.writeText(id).then(() => {
-                // simple feedback
-                const el = document.getElementById('display-room-id');
-                const orig = el.style.color;
-                el.style.color = '#4ade80';
-                setTimeout(() => el.style.color = '', 500);
-            });
-        }
-
-        function renderDraftBoard(data) {
-            // Update turn indicator
-            const turnEl = document.getElementById('turn-indicator');
+        // --- 1. DRAFT LOGIC ---
+        function renderDraft(data) {
+            // Turn Banner
+            const banner = document.getElementById('turn-banner');
             const isMyTurn = data.turnOwner === myRole;
             
-            if (isMyTurn) {
-                turnEl.textContent = "YOUR PICK";
-                turnEl.className = "px-4 py-1 bg-green-500 text-white font-bold rounded text-xl uppercase animate-pulse shadow-lg shadow-green-900/50";
-            } else {
-                turnEl.textContent = data.turnOwner === 'host' ? "Host's Turn" : "Guest's Turn";
-                turnEl.className = "px-4 py-1 bg-gray-600 text-gray-300 font-bold rounded text-xl uppercase";
-            }
+            banner.textContent = isMyTurn ? "Your Pick!" : `${data.turnOwner === 'host' ? "Host" : "Guest"} Picking...`;
+            banner.className = `px-6 py-2 rounded text-2xl font-bold uppercase tracking-widest transition-all duration-300 ${isMyTurn ? 'bg-green-600 text-white animate-pulse' : 'bg-gray-700 text-gray-400'}`;
 
-            document.getElementById('game-mode-display').textContent = data.mode === 'classic' ? 'Classic' : 'Ringless';
-
-            // Render Rosters
-            renderRoster('host', data.teamHost);
-            renderRoster('guest', data.teamGuest);
-            
-            // Calculate Scores (Live)
-            document.getElementById('host-score').textContent = `Rating: ${calculateScore(data.teamHost)}`;
-            document.getElementById('guest-score').textContent = `Rating: ${calculateScore(data.teamGuest)}`;
-
-            // Render Pool
-            renderPool(data);
-        }
-
-        function calculateScore(teamIds) {
-            return teamIds.reduce((acc, pid) => {
-                const p = PLAYERS_DB.find(pl => pl.id === pid);
-                return acc + (p ? p.ovr : 0);
-            }, 0);
-        }
-
-        function renderRoster(role, teamIds) {
-            const container = document.getElementById(`roster-${role}`);
-            container.innerHTML = '';
-            
-            // 5 slots
-            for (let i = 0; i < 5; i++) {
-                const pid = teamIds[i];
-                const slot = document.createElement('div');
-                slot.className = "bg-gray-800 border border-gray-700 p-2 rounded flex items-center gap-2 h-16 relative overflow-hidden";
-                
-                if (pid) {
-                    const p = PLAYERS_DB.find(pl => pl.id === pid);
-                    slot.innerHTML = `
-                        <div class="font-bold text-2xl w-8 text-center text-gray-500">${p.pos}</div>
-                        <div class="flex-1">
-                            <div class="text-white font-bold leading-none uppercase truncate">${p.name}</div>
-                            <div class="text-xs text-gray-400 flex gap-2">
-                                <span>OVR: ${p.ovr}</span>
-                                <span class="${p.r > 0 ? 'text-yellow-500' : 'text-gray-600'}"><i class="fas fa-trophy"></i> ${p.r}</span>
-                            </div>
+            // Rosters
+            const renderList = (ids, elId) => {
+                const el = document.getElementById(elId);
+                el.innerHTML = '';
+                ids.forEach(pid => {
+                    const p = PLAYERS_DB.find(x => x.id === pid);
+                    el.innerHTML += `
+                        <div class="bg-gray-800 p-2 rounded flex justify-between items-center border border-gray-600">
+                            <span class="font-bold text-gray-400 w-6">${p.pos}</span>
+                            <span class="truncate font-bold">${p.name}</span>
+                            <span class="text-yellow-500 text-sm">${p.ovr}</span>
                         </div>
                     `;
-                    // Highlight stars in Ringless mode
-                    if (currentRoomData.mode === 'ringless' && (p.r > 0 || p.s)) {
-                        slot.classList.add('border-yellow-500', 'bg-yellow-900/20');
-                    }
-                } else {
-                    slot.innerHTML = `<div class="w-full text-center text-gray-600 text-sm uppercase tracking-widest">Empty Slot</div>`;
+                });
+                // Fill empty
+                for(let i=ids.length; i<5; i++) {
+                    el.innerHTML += `<div class="bg-gray-800/50 p-2 rounded border border-dashed border-gray-700 text-gray-600 text-center text-sm">Empty Slot</div>`;
                 }
-                container.appendChild(slot);
-            }
-        }
+            };
 
-        function renderPool(data) {
-            const container = document.getElementById('player-pool');
+            renderList(data.teamHost, 'roster-host');
+            renderList(data.teamGuest, 'roster-guest');
+            document.getElementById('host-count').textContent = `${data.teamHost.length}/5 Players`;
+            document.getElementById('guest-count').textContent = `${data.teamGuest.length}/5 Players`;
+
+            // Pool
+            const pool = document.getElementById('player-pool');
             const search = document.getElementById('player-search').value.toLowerCase();
             const filter = document.getElementById('pos-filter').value;
-            
-            container.innerHTML = '';
+            pool.innerHTML = '';
 
             PLAYERS_DB.forEach(p => {
-                // Filter Logic
-                if (data.takenPlayers.includes(p.id)) return; // Don't show taken
-                if (!p.name.toLowerCase().includes(search)) return;
-                if (filter !== 'ALL' && p.pos !== filter) return;
+                if(data.taken.includes(p.id)) return;
+                if(filter !== 'ALL' && p.pos !== filter) return;
+                if(!p.name.toLowerCase().includes(search)) return;
 
-                const card = document.createElement('div');
+                // Validation
+                let valid = true;
+                if(!isMyTurn) valid = false;
                 
-                // Logic to disable card if move is invalid
-                let isValid = true;
-                let reason = "";
-
-                // Not your turn?
-                if (data.turnOwner !== myRole) {
-                    isValid = false;
-                } 
-                // Ringless Mode Validation
-                else if (data.mode === 'ringless') {
+                // Ringless Check
+                if(valid && data.mode === 'ringless') {
                     const myTeam = myRole === 'host' ? data.teamHost : data.teamGuest;
-                    const myPlayers = myTeam.map(id => PLAYERS_DB.find(x => x.id === id));
-                    const hasStar = myPlayers.some(pl => pl.r > 0 || pl.s);
-                    
-                    // If I already have a star, I cannot pick another player with Rings > 0 or Star status
-                    if (hasStar && (p.r > 0 || p.s)) {
-                        isValid = false;
-                        reason = "Limit: 1 Star";
-                    }
+                    const hasStar = myTeam.some(id => {
+                        const existing = PLAYERS_DB.find(x => x.id === id);
+                        return existing.r > 0; // Simplified logic for example: Rings > 0 is a star
+                    });
+                    if(hasStar && p.r > 0) valid = false;
                 }
 
-                card.className = `nba-card p-3 rounded border border-gray-700 relative cursor-pointer group ${!isValid ? 'disabled' : ''}`;
-                card.onclick = () => { if(isValid) draftPlayer(p.id); };
-
+                const card = document.createElement('div');
+                card.className = `nba-card p-2 rounded border border-gray-700 flex flex-col cursor-pointer ${valid ? '' : 'disabled'}`;
+                card.onclick = () => valid && pickPlayer(p.id);
                 card.innerHTML = `
-                    <div class="flex justify-between items-start mb-1">
-                        <span class="bg-gray-700 text-xs px-1 rounded">${p.team}</span>
-                        <span class="text-yellow-400 font-bold text-lg">${p.ovr}</span>
-                    </div>
-                    <div class="font-bold text-xl uppercase leading-tight mb-1 truncate">${p.name}</div>
-                    <div class="flex justify-between items-end text-sm text-gray-400">
+                    <div class="flex justify-between text-xs text-gray-400 mb-1">
                         <span>${p.pos}</span>
-                        <span class="${p.r > 0 ? 'text-yellow-500' : 'text-gray-600'}"><i class="fas fa-trophy"></i> ${p.r}</span>
+                        <span>${p.r > 0 ? '<i class="fas fa-trophy text-yellow-500"></i> '+p.r : ''}</span>
                     </div>
-                    ${!isValid && reason ? `<div class="absolute inset-0 bg-black/60 flex items-center justify-center text-red-400 font-bold uppercase text-sm">${reason}</div>` : ''}
+                    <div class="font-bold leading-tight truncate mb-1">${p.name}</div>
+                    <div class="mt-auto flex gap-1 h-1">
+                        <div class="h-full bg-blue-500 rounded" style="width:${p.off}%"></div>
+                        <div class="h-full bg-red-500 rounded" style="width:${p.def}%"></div>
+                    </div>
+                    <div class="text-right text-xs text-gray-500 mt-1">OVR ${p.ovr}</div>
                 `;
-                container.appendChild(card);
+                pool.appendChild(card);
             });
         }
 
-        // --- DRAFT ACTION ---
-
-        async function draftPlayer(playerId) {
-            if (!currentRoomData || currentRoomData.turnOwner !== myRole) return;
-            
-            // Transaction-like update logic
-            // In a real app, use Firestore transactions. Here we just read/write for simplicity in 1 file
-            // but we add checks.
-            
-            const ref = getRoomRef(currentRoomId);
-            
-            try {
-                // Optimistic UI update could go here
+        async function pickPlayer(pid) {
+            const ref = getRef(currentRoomId);
+            await db.runTransaction(async (t) => {
+                const doc = await t.get(ref);
+                const d = doc.data();
+                if(d.turnOwner !== myRole) return;
                 
-                await db.runTransaction(async (transaction) => {
-                    const doc = await transaction.get(ref);
-                    if (!doc.exists) throw "Room does not exist!";
+                const nextTurn = d.turnIndex + 1;
+                // Strict Alternating: Host, Guest, Host, Guest
+                // Or snake? Prompt said "1 after another". Let's do straight alternating.
+                const nextOwner = d.turnOwner === 'host' ? 'guest' : 'host';
+                
+                let h = d.teamHost, g = d.teamGuest;
+                if(myRole === 'host') h.push(pid); else g.push(pid);
+                
+                let status = 'drafting';
+                if(h.length === 5 && g.length === 5) status = 'lineups';
+
+                t.update(ref, {
+                    teamHost: h, teamGuest: g,
+                    taken: [...d.taken, pid],
+                    turnIndex: nextTurn,
+                    turnOwner: nextOwner,
+                    status: status
+                });
+            });
+        }
+
+        // --- 2. LINEUP LOGIC (DRAG DROP) ---
+        let interactInit = false;
+
+        function renderLineupEditor(data) {
+            const myTeamIds = myRole === 'host' ? data.teamHost : data.teamGuest;
+            const myLineup = myRole === 'host' ? data.lineupHost : data.lineupGuest;
+
+            // Check if I am done
+            const isFull = myLineup.every(x => x !== null);
+            document.getElementById('btn-submit-lineup').disabled = !isFull;
+            
+            // Check if opponent done
+            const oppLineup = myRole === 'host' ? data.lineupGuest : data.lineupHost;
+            const oppFull = oppLineup.every(x => x !== null);
+            if(isFull && !oppFull) {
+                document.getElementById('waiting-lineup-msg').classList.remove('hidden');
+                document.getElementById('btn-submit-lineup').textContent = "Waiting for Opponent...";
+                document.getElementById('btn-submit-lineup').disabled = true;
+            }
+
+            // Render Bench
+            const benchDiv = document.getElementById('lineup-bench');
+            benchDiv.innerHTML = '';
+            
+            myTeamIds.forEach(pid => {
+                // If player is NOT in the lineup, show on bench
+                if(!myLineup.includes(pid)) {
+                    const p = PLAYERS_DB.find(x => x.id === pid);
+                    const el = document.createElement('div');
+                    el.className = 'bg-gray-700 p-3 rounded flex justify-between items-center draggable-source touch-none select-none';
+                    el.dataset.pid = pid;
+                    el.innerHTML = `<span class="font-bold text-blue-300 w-8">${p.pos}</span><span class="font-bold">${p.name}</span><span class="text-sm bg-black px-2 rounded">${p.ovr}</span>`;
+                    benchDiv.appendChild(el);
+                }
+            });
+
+            // Render Slots
+            const pos = ['PG', 'SG', 'SF', 'PF', 'C'];
+            pos.forEach((pStr, idx) => {
+                const slot = document.querySelector(`.drop-zone[data-pos="${pStr}"] .slot-content`);
+                const pid = myLineup[idx];
+                
+                if(pid) {
+                    const p = PLAYERS_DB.find(x => x.id === pid);
+                    slot.innerHTML = `
+                        <div class="flex-1 flex justify-between items-center w-full px-4 draggable-source cursor-grab" data-pid="${pid}">
+                            <span class="font-bold text-white">${p.name}</span>
+                            <i class="fas fa-times text-red-500 cursor-pointer p-2" onclick="removeFromLineup(${idx})"></i>
+                        </div>
+                    `;
+                    slot.parentElement.classList.add('bg-blue-900/30', 'border-blue-500');
+                    slot.parentElement.classList.remove('border-gray-600');
+                } else {
+                    slot.innerHTML = `Drop ${pStr}`;
+                    slot.parentElement.classList.remove('bg-blue-900/30', 'border-blue-500');
+                    slot.parentElement.classList.add('border-gray-600');
+                }
+            });
+
+            if(!interactInit) initDragDrop();
+        }
+
+        function initDragDrop() {
+            interactInit = true;
+            interact('.draggable-source').draggable({
+                inertia: true,
+                autoScroll: true,
+                listeners: {
+                    move: dragMoveListener,
+                    end(event) {
+                        event.target.style.transform = 'translate(0px, 0px)';
+                        event.target.setAttribute('data-x', 0);
+                        event.target.setAttribute('data-y', 0);
+                        event.target.classList.remove('drag-active');
+                    },
+                    start(event) { event.target.classList.add('drag-active'); }
+                }
+            });
+
+            interact('.drop-zone').dropzone({
+                accept: '.draggable-source',
+                overlap: 0.50,
+                ondropactivate: (event) => event.target.classList.add('drop-target'),
+                ondragenter: (event) => event.target.classList.add('drop-target-hover'),
+                ondragleave: (event) => event.target.classList.remove('drop-target-hover'),
+                ondropdeactivate: (event) => {
+                    event.target.classList.remove('drop-target');
+                    event.target.classList.remove('drop-target-hover');
+                },
+                ondrop: async (event) => {
+                    const pid = parseInt(event.relatedTarget.dataset.pid);
+                    const posStr = event.target.dataset.pos;
+                    const posIdx = ['PG','SG','SF','PF','C'].indexOf(posStr);
                     
-                    const data = doc.data();
-                    if (data.turnOwner !== myRole) throw "Not your turn!";
-                    if (data.takenPlayers.includes(playerId)) throw "Player taken!";
+                    // Update Local Lineup in DB
+                    const ref = getRef(currentRoomId);
+                    await db.runTransaction(async (t) => {
+                        const doc = await t.get(ref);
+                        const d = doc.data();
+                        let arr = myRole === 'host' ? [...d.lineupHost] : [...d.lineupGuest];
+                        
+                        // If player already elsewhere, remove him
+                        const oldIdx = arr.indexOf(pid);
+                        if(oldIdx !== -1) arr[oldIdx] = null;
+                        
+                        // If slot occupied, move occupant to bench (simply overwrite)
+                        arr[posIdx] = pid;
+                        
+                        const update = {};
+                        if(myRole === 'host') update.lineupHost = arr;
+                        else update.lineupGuest = arr;
+                        t.update(ref, update);
+                    });
+                }
+            });
+        }
 
-                    // Snake Draft Logic
-                    // Turn Sequence: H, G, G, H, H, G...
-                    // 0 (H), 1 (G), 2 (G), 3 (H), 4 (H), 5 (G)...
-                    // Logic: 
-                    // Set next turn owner based on current index
-                    const nextIndex = data.turnIndex + 1;
-                    let nextOwner = 'host';
+        function dragMoveListener (event) {
+            var target = event.target
+            var x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx
+            var y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy
+            target.style.transform = 'translate(' + x + 'px, ' + y + 'px)'
+            target.setAttribute('data-x', x)
+            target.setAttribute('data-y', y)
+        }
+
+        async function removeFromLineup(idx) {
+            const ref = getRef(currentRoomId);
+            const doc = await ref.get();
+            let arr = myRole === 'host' ? [...doc.data().lineupHost] : [...doc.data().lineupGuest];
+            arr[idx] = null;
+            if(myRole === 'host') ref.update({ lineupHost: arr });
+            else ref.update({ lineupGuest: arr });
+        }
+
+        async function submitLineup() {
+            // Check if both ready
+            // Wait logic handled in render, just simple check here
+            const ref = getRef(currentRoomId);
+            const doc = await ref.get();
+            const d = doc.data();
+            
+            const hReady = d.lineupHost.every(x=>x);
+            const gReady = d.lineupGuest.every(x=>x);
+            
+            if(hReady && gReady) {
+                // Start Sim
+                if(myRole === 'host') {
+                    // Initialize Stats
+                    let stats = {};
+                    [...d.teamHost, ...d.teamGuest].forEach(pid => {
+                        stats[pid] = { pts: 0, reb: 0, ast: 0, fgm: 0, fga: 0 };
+                    });
+                    ref.update({ status: 'simulation', 'simState.stats': stats });
+                }
+            } else {
+                // Just force re-render to show waiting message
+                renderLineupEditor(d);
+            }
+        }
+
+        // --- 3. SIMULATION LOGIC ---
+
+        function renderSim(data) {
+            // Update Scoreboard
+            document.getElementById('sim-score-host').textContent = data.simState.scoreH;
+            document.getElementById('sim-score-guest').textContent = data.simState.scoreG;
+            document.getElementById('sim-quarter').textContent = "Q" + data.simState.q;
+            
+            // Format Time
+            const min = Math.floor(data.simState.time / 60);
+            const sec = data.simState.time % 60;
+            document.getElementById('sim-clock').textContent = `${min}:${sec<10?'0':''}${sec}`;
+
+            // Update Logs (only append new)
+            const logDiv = document.getElementById('sim-log');
+            // Clear and rebuild is safer for sync, or just stick to simple
+            logDiv.innerHTML = '';
+            data.logs.slice(-20).forEach(l => {
+                const row = document.createElement('div');
+                row.className = l.includes('Host') ? 'text-blue-300' : (l.includes('Guest') ? 'text-red-300' : 'text-gray-400');
+                row.textContent = l;
+                logDiv.appendChild(row);
+            });
+            logDiv.scrollTop = logDiv.scrollHeight;
+
+            // Mini Stats
+            updateMiniBox(data.simState.stats, data.teamHost, 'box-host-mini');
+            updateMiniBox(data.simState.stats, data.teamGuest, 'box-guest-mini');
+
+            // Controls
+            if(myRole === 'host' && data.simState.q <= 4 && data.simState.time > 0) {
+                document.getElementById('sim-controls').classList.remove('hidden');
+                // Auto run if started
+                if(!simInterval) startSimulation(); 
+            } else {
+                document.getElementById('sim-controls').classList.add('hidden');
+            }
+        }
+
+        function updateMiniBox(stats, teamIds, elId) {
+            const el = document.getElementById(elId);
+            el.innerHTML = '';
+            teamIds.forEach(pid => {
+                const s = stats[pid] || {pts:0,reb:0,ast:0};
+                const p = PLAYERS_DB.find(x => x.id === pid);
+                el.innerHTML += `
+                    <tr class="border-b border-gray-800">
+                        <td class="py-1 truncate max-w-[80px]">${p.name.split(' ').pop()}</td>
+                        <td class="text-right text-yellow-500">${s.pts}</td>
+                        <td class="text-right text-gray-400">${s.reb}</td>
+                        <td class="text-right text-gray-400">${s.ast}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        function startSimulation() {
+            if(simInterval) return; // Already running
+            if(myRole !== 'host') return;
+
+            simInterval = setInterval(async () => {
+                const ref = getRef(currentRoomId);
+                const doc = await ref.get();
+                const d = doc.data();
+
+                if(d.status !== 'simulation') { clearInterval(simInterval); return; }
+                if(d.simState.q > 4) { 
+                    clearInterval(simInterval); 
+                    ref.update({ status: 'finished' });
+                    return; 
+                }
+
+                // SIMULATE POSSESSION
+                let state = d.simState;
+                let logs = d.logs;
+                
+                // Tick Clock (Fast)
+                state.time -= 15; // 15 sec per possession loop
+                if(state.time <= 0) {
+                    state.q++;
+                    state.time = 720; // Reset to 12 mins
+                    logs.push(`--- END OF QUARTER ${state.q-1} ---`);
+                }
+
+                // Possession Logic
+                const isHostPoss = Math.random() > 0.5;
+                const attTeam = isHostPoss ? d.lineupHost : d.lineupGuest;
+                const defTeam = isHostPoss ? d.lineupGuest : d.lineupHost;
+                
+                // 1. Pick Shooter (Weighted by OFF rating)
+                // Normalize 0-4 indices
+                const shooters = attTeam.map(pid => PLAYERS_DB.find(x=>x.id===pid));
+                const totalOff = shooters.reduce((a,b) => a + b.off, 0);
+                let r = Math.random() * totalOff;
+                let shooterIdx = 0;
+                for(let i=0; i<shooters.length; i++) {
+                    r -= shooters[i].off;
+                    if(r<=0) { shooterIdx = i; break; }
+                }
+                const shooter = shooters[shooterIdx];
+                const defender = PLAYERS_DB.find(x=>x.id === defTeam[shooterIdx]);
+
+                // 2. Shot Calculation
+                // Base 45% + (Off - Def) * 0.5
+                const hitChance = 45 + (shooter.off - defender.def) * 0.5;
+                const roll = Math.random() * 100;
+                
+                state.stats[shooter.id].fga++;
+
+                if(roll < hitChance) {
+                    // MAKE
+                    const is3 = Math.random() < 0.35; // 35% chance it's a 3
+                    const pts = is3 ? 3 : 2;
+                    state.stats[shooter.id].pts += pts;
+                    state.stats[shooter.id].fgm++;
+                    if(isHostPoss) state.scoreH += pts; else state.scoreG += pts;
                     
-                    // Simple pattern: H, G, H, G... (Alternating is easier for users to understand than Snake usually)
-                    // But Prompt said: "team 1 picks, team 2 picks, team 1 again". That's alternating.
-                    // Let's stick to strict alternating 1-2-1-2.
-                    nextOwner = (data.turnOwner === 'host') ? 'guest' : 'host';
-
-                    const newHostTeam = [...data.teamHost];
-                    const newGuestTeam = [...data.teamGuest];
-
-                    if (myRole === 'host') newHostTeam.push(playerId);
-                    else newGuestTeam.push(playerId);
-
-                    const newTaken = [...data.takenPlayers, playerId];
-
-                    let newStatus = 'drafting';
-                    // Check if full (5 players each = 10 total)
-                    if (newTaken.length >= 10) {
-                        newStatus = 'finished';
+                    // Assist?
+                    const assistRoll = Math.random();
+                    if(assistRoll > 0.4) {
+                        // Pick random teammate
+                        let mates = attTeam.filter(id => id !== shooter.id);
+                        let assisterId = mates[Math.floor(Math.random()*mates.length)];
+                        state.stats[assisterId].ast++;
+                        const assister = PLAYERS_DB.find(x=>x.id===assisterId);
+                        logs.push(`${isHostPoss?'Host':'Guest'}: ${shooter.name} scores (${assister.name} ast)`);
+                    } else {
+                        logs.push(`${isHostPoss?'Host':'Guest'}: ${shooter.name} unassisted bucket`);
                     }
 
-                    transaction.update(ref, {
-                        teamHost: newHostTeam,
-                        teamGuest: newGuestTeam,
-                        takenPlayers: newTaken,
-                        turnIndex: nextIndex,
-                        turnOwner: nextOwner,
-                        status: newStatus
-                    });
-                });
+                } else {
+                    // MISS -> REBOUND
+                    // Simple weight: Sum of all Rebounding stats
+                    const allPlayers = [...attTeam, ...defTeam].map(pid => PLAYERS_DB.find(x=>x.id===pid));
+                    const totalReb = allPlayers.reduce((a,b) => a + b.reb, 0);
+                    let rReb = Math.random() * totalReb;
+                    let rebId = allPlayers[0].id;
+                    for(let p of allPlayers) {
+                        rReb -= p.reb;
+                        if(rReb <= 0) { rebId = p.id; break; }
+                    }
+                    state.stats[rebId].reb++;
+                    const rebP = PLAYERS_DB.find(x=>x.id===rebId);
+                    logs.push(`${shooter.name} misses. Rebound ${rebP.name}`);
+                }
 
-            } catch (e) {
-                console.error("Draft error:", e);
-                // showError("Draft failed: " + e);
-            }
+                // Save
+                ref.update({ simState: state, logs: logs });
+
+            }, 1000); // 1 sec real time = 1 possession
         }
 
-        // --- RESULTS ---
-
+        // --- 4. RESULT ---
         function renderResult(data) {
-            const hScore = calculateScore(data.teamHost);
-            const gScore = calculateScore(data.teamGuest);
-
-            document.getElementById('final-score-host').textContent = hScore;
-            document.getElementById('final-score-guest').textContent = gScore;
-
-            const banner = document.getElementById('winner-banner');
-            if (hScore > gScore) {
-                banner.textContent = "HOST WINS!";
-                banner.className = "bg-blue-600 text-white font-bold text-3xl py-3 px-6 rounded-lg uppercase tracking-widest transform scale-110 mb-8 shadow-lg";
-            } else if (gScore > hScore) {
-                banner.textContent = "GUEST WINS!";
-                banner.className = "bg-red-600 text-white font-bold text-3xl py-3 px-6 rounded-lg uppercase tracking-widest transform scale-110 mb-8 shadow-lg";
+            document.getElementById('final-host').textContent = data.simState.scoreH;
+            document.getElementById('final-guest').textContent = data.simState.scoreG;
+            
+            const badge = document.getElementById('winner-badge');
+            if(data.simState.scoreH > data.simState.scoreG) {
+                badge.textContent = "Host Wins";
+                badge.className = "inline-block px-6 py-2 rounded bg-blue-600 text-white font-bold text-2xl uppercase";
             } else {
-                banner.textContent = "IT'S A TIE!";
-                banner.className = "bg-gray-600 text-white font-bold text-3xl py-3 px-6 rounded-lg uppercase tracking-widest transform scale-110 mb-8 shadow-lg";
+                badge.textContent = "Guest Wins";
+                badge.className = "inline-block px-6 py-2 rounded bg-red-600 text-white font-bold text-2xl uppercase";
             }
+
+            // Fill Full Tables
+            renderFullBox(data.simState.stats, data.teamHost, 'box-host-full');
+            renderFullBox(data.simState.stats, data.teamGuest, 'box-guest-full');
         }
 
-        function resetGame() {
-            location.reload();
+        function renderFullBox(stats, teamIds, elId) {
+            const el = document.getElementById(elId);
+            el.innerHTML = '';
+            teamIds.forEach(pid => {
+                const s = stats[pid];
+                const p = PLAYERS_DB.find(x => x.id === pid);
+                el.innerHTML += `
+                    <tr class="border-b border-gray-700 hover:bg-gray-700">
+                        <td class="py-2 font-bold">${p.name}</td>
+                        <td class="py-2 text-right text-yellow-500 font-bold">${s.pts}</td>
+                        <td class="py-2 text-right text-gray-300">${s.reb}</td>
+                        <td class="py-2 text-right text-gray-300">${s.ast}</td>
+                        <td class="py-2 text-right text-gray-500 text-sm">${s.fgm}/${s.fga}</td>
+                    </tr>
+                `;
+            });
         }
 
-        // --- UTILS ---
-        function showError(msg) {
-            document.getElementById('modal-msg').textContent = msg;
-            document.getElementById('modal').classList.remove('hidden');
+        // Utils
+        async function updateGameMode() {
+            if(!currentRoomId) return;
+            const m = document.getElementById('mode-select').value;
+            await getRef(currentRoomId).update({ mode: m });
+        }
+        
+        function copyRoomId() {
+            const t = document.getElementById('display-room-id').textContent;
+            navigator.clipboard.writeText(t);
+            alert('Copied: ' + t);
         }
 
-        function closeModal() {
-            document.getElementById('modal').classList.add('hidden');
-        }
-
-        // Search listener
-        document.getElementById('player-search').addEventListener('input', () => {
-            if (currentRoomData) renderPool(currentRoomData);
-        });
-        document.getElementById('pos-filter').addEventListener('change', () => {
-            if (currentRoomData) renderPool(currentRoomData);
-        });
-
-        // Initialize
-        window.onload = initApp;
-
+        function closeModal() { document.getElementById('modal').classList.add('hidden'); }
     </script>
 </body>
 </html>
