@@ -15,6 +15,7 @@
     
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Teko:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
         
         body {
             font-family: 'Teko', sans-serif;
@@ -22,6 +23,7 @@
             color: white;
         }
         .font-mono { font-family: 'Roboto Mono', monospace; }
+        .font-pixel { font-family: 'Press Start 2P', cursive; }
         
         /* Card Styles */
         .nba-card {
@@ -79,8 +81,11 @@
         }
         @keyframes shine { to { background-position: 200% center; } }
         
-        .stat-bar-container { background: #334155; height: 4px; width: 100%; border-radius: 2px; overflow: hidden; }
-        .stat-bar-fill { height: 100%; background: #fbbf24; }
+        /* Sim Canvas */
+        #sim-canvas {
+            image-rendering: pixelated; 
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
     </style>
 </head>
 <body class="h-screen flex flex-col overflow-hidden">
@@ -244,48 +249,54 @@
         </div>
 
         <!-- 5. SIMCAST VIEW -->
-        <div id="view-sim" class="absolute inset-0 flex flex-col hidden bg-black z-30">
+        <div id="view-sim" class="absolute inset-0 flex flex-col hidden bg-black z-30 overflow-hidden">
             <!-- Scoreboard -->
-            <div class="bg-gray-900 border-b border-gray-800 p-4 flex justify-between items-center shrink-0 h-24">
+            <div class="bg-gray-900 border-b border-gray-800 p-2 flex justify-between items-center shrink-0 h-20">
                 <div class="w-1/3 text-center">
-                    <div class="text-blue-400 font-bold text-xl uppercase">HOST</div>
-                    <div id="sim-score-host" class="text-5xl font-mono font-bold text-white">0</div>
+                    <div class="text-blue-400 font-bold text-lg uppercase">HOST</div>
+                    <div id="sim-score-host" class="text-4xl font-mono font-bold text-white leading-none">0</div>
                 </div>
                 <div class="w-1/3 text-center flex flex-col items-center">
-                    <div id="sim-quarter" class="text-gray-500 font-mono text-xl">Q1</div>
-                    <div id="sim-clock" class="text-yellow-500 font-mono text-3xl font-bold">12:00</div>
+                    <div id="sim-quarter" class="text-gray-500 font-mono text-lg">Q1</div>
+                    <div id="sim-clock" class="text-yellow-500 font-mono text-2xl font-bold">12:00</div>
                 </div>
                 <div class="w-1/3 text-center">
-                    <div class="text-red-400 font-bold text-xl uppercase">GUEST</div>
-                    <div id="sim-score-guest" class="text-5xl font-mono font-bold text-white">0</div>
+                    <div class="text-red-400 font-bold text-lg uppercase">GUEST</div>
+                    <div id="sim-score-guest" class="text-4xl font-mono font-bold text-white leading-none">0</div>
                 </div>
             </div>
 
-            <!-- Play By Play Log -->
-            <div id="sim-log" class="flex-1 bg-black p-4 overflow-y-auto font-mono text-sm md:text-lg space-y-2 border-b border-gray-800">
-                <!-- Logs go here -->
-                <div class="text-gray-500 text-center italic">Simulation starting...</div>
+            <div class="flex-1 flex flex-col overflow-hidden bg-black relative">
+                <!-- 2D COURT CANVAS -->
+                <div class="relative bg-black flex justify-center items-center p-2 shrink-0">
+                    <canvas id="sim-canvas" width="600" height="200" class="w-full max-w-2xl border-4 border-gray-800 rounded bg-[#d2a679]"></canvas>
+                </div>
+
+                <!-- Play By Play Log -->
+                <div id="sim-log" class="flex-1 bg-gray-900/50 p-4 overflow-y-auto font-mono text-sm md:text-base space-y-1 border-t border-gray-800">
+                    <div class="text-gray-500 text-center italic">Simulation starting...</div>
+                </div>
             </div>
 
             <!-- Stats Ticker -->
-            <div class="h-48 bg-gray-900 shrink-0 flex flex-col md:flex-row border-t border-gray-700">
+            <div class="h-32 bg-gray-900 shrink-0 flex flex-col md:flex-row border-t border-gray-700">
                 <div class="flex-1 p-2 border-r border-gray-800 overflow-y-auto">
-                     <table class="w-full text-left text-sm">
-                        <thead><tr class="text-gray-500 border-b border-gray-700"><th class="pb-1">Host</th><th class="pb-1 text-right">PTS</th><th class="pb-1 text-right">REB</th><th class="pb-1 text-right">AST</th></tr></thead>
+                     <table class="w-full text-left text-xs">
+                        <thead><tr class="text-gray-500 border-b border-gray-700"><th class="pb-1">Host</th><th class="pb-1 text-right">PTS</th><th class="pb-1 text-right">FLS</th></tr></thead>
                         <tbody id="box-host-mini"></tbody>
                      </table>
                 </div>
                 <div class="flex-1 p-2 overflow-y-auto">
-                    <table class="w-full text-left text-sm">
-                        <thead><tr class="text-gray-500 border-b border-gray-700"><th class="pb-1">Guest</th><th class="pb-1 text-right">PTS</th><th class="pb-1 text-right">REB</th><th class="pb-1 text-right">AST</th></tr></thead>
+                    <table class="w-full text-left text-xs">
+                        <thead><tr class="text-gray-500 border-b border-gray-700"><th class="pb-1">Guest</th><th class="pb-1 text-right">PTS</th><th class="pb-1 text-right">FLS</th></tr></thead>
                         <tbody id="box-guest-mini"></tbody>
                      </table>
                 </div>
             </div>
 
             <!-- Start Sim Button (Host Only) -->
-            <div id="sim-controls" class="p-4 bg-gray-800 flex justify-center hidden">
-                <button onclick="startSimulation()" class="px-8 py-2 bg-yellow-600 hover:bg-yellow-500 text-white font-bold text-xl uppercase rounded shadow-lg animate-pulse">
+            <div id="sim-controls" class="absolute bottom-36 left-0 right-0 p-4 flex justify-center hidden pointer-events-none">
+                <button onclick="startSimulation()" class="px-8 py-2 bg-yellow-600 hover:bg-yellow-500 text-white font-bold text-xl uppercase rounded shadow-lg animate-pulse pointer-events-auto">
                     Tip Off
                 </button>
             </div>
@@ -314,7 +325,7 @@
                                 <th class="py-2 text-right">PTS</th>
                                 <th class="py-2 text-right">REB</th>
                                 <th class="py-2 text-right">AST</th>
-                                <th class="py-2 text-right">FG</th>
+                                <th class="py-2 text-right">FLS</th>
                             </tr>
                         </thead>
                         <tbody id="box-host-full"></tbody>
@@ -331,7 +342,7 @@
                                 <th class="py-2 text-right">PTS</th>
                                 <th class="py-2 text-right">REB</th>
                                 <th class="py-2 text-right">AST</th>
-                                <th class="py-2 text-right">FG</th>
+                                <th class="py-2 text-right">FLS</th>
                             </tr>
                         </thead>
                         <tbody id="box-guest-full"></tbody>
@@ -470,7 +481,8 @@
                 lineupGuest: [null, null, null, null, null],
                 taken: [],
                 logs: [],
-                simState: { q: 1, time: 720, scoreH: 0, scoreG: 0, stats: {} } // stats: { pid: {pts, reb, ast, fgm, fga} }
+                // stats: { pid: {pts, reb, ast, fgm, fga, fls} }
+                simState: { q: 1, time: 720, scoreH: 0, scoreG: 0, activeShooter: null, stats: {} } 
             });
             currentRoomId = rid;
             myRole = 'host';
@@ -633,8 +645,7 @@
                 if(d.turnOwner !== myRole) return;
                 
                 const nextTurn = d.turnIndex + 1;
-                // Strict Alternating: Host, Guest, Host, Guest
-                // Or snake? Prompt said "1 after another". Let's do straight alternating.
+                // Strict Alternating
                 const nextOwner = d.turnOwner === 'host' ? 'guest' : 'host';
                 
                 let h = d.teamHost, g = d.teamGuest;
@@ -747,18 +758,15 @@
                     const posStr = event.target.dataset.pos;
                     const posIdx = ['PG','SG','SF','PF','C'].indexOf(posStr);
                     
-                    // Update Local Lineup in DB
                     const ref = getRef(currentRoomId);
                     await db.runTransaction(async (t) => {
                         const doc = await t.get(ref);
                         const d = doc.data();
                         let arr = myRole === 'host' ? [...d.lineupHost] : [...d.lineupGuest];
                         
-                        // If player already elsewhere, remove him
                         const oldIdx = arr.indexOf(pid);
                         if(oldIdx !== -1) arr[oldIdx] = null;
                         
-                        // If slot occupied, move occupant to bench (simply overwrite)
                         arr[posIdx] = pid;
                         
                         const update = {};
@@ -789,8 +797,6 @@
         }
 
         async function submitLineup() {
-            // Check if both ready
-            // Wait logic handled in render, just simple check here
             const ref = getRef(currentRoomId);
             const doc = await ref.get();
             const d = doc.data();
@@ -799,17 +805,15 @@
             const gReady = d.lineupGuest.every(x=>x);
             
             if(hReady && gReady) {
-                // Start Sim
                 if(myRole === 'host') {
                     // Initialize Stats
                     let stats = {};
                     [...d.teamHost, ...d.teamGuest].forEach(pid => {
-                        stats[pid] = { pts: 0, reb: 0, ast: 0, fgm: 0, fga: 0 };
+                        stats[pid] = { pts: 0, reb: 0, ast: 0, fgm: 0, fga: 0, fls: 0 };
                     });
                     ref.update({ status: 'simulation', 'simState.stats': stats });
                 }
             } else {
-                // Just force re-render to show waiting message
                 renderLineupEditor(d);
             }
         }
@@ -822,14 +826,15 @@
             document.getElementById('sim-score-guest').textContent = data.simState.scoreG;
             document.getElementById('sim-quarter').textContent = "Q" + data.simState.q;
             
-            // Format Time
             const min = Math.floor(data.simState.time / 60);
             const sec = data.simState.time % 60;
             document.getElementById('sim-clock').textContent = `${min}:${sec<10?'0':''}${sec}`;
 
-            // Update Logs (only append new)
+            // Draw Court
+            drawCourt(data);
+
+            // Update Logs
             const logDiv = document.getElementById('sim-log');
-            // Clear and rebuild is safer for sync, or just stick to simple
             logDiv.innerHTML = '';
             data.logs.slice(-20).forEach(l => {
                 const row = document.createElement('div');
@@ -846,25 +851,126 @@
             // Controls
             if(myRole === 'host' && data.simState.q <= 4 && data.simState.time > 0) {
                 document.getElementById('sim-controls').classList.remove('hidden');
-                // Auto run if started
                 if(!simInterval) startSimulation(); 
             } else {
                 document.getElementById('sim-controls').classList.add('hidden');
             }
         }
 
+        function drawCourt(data) {
+            const canvas = document.getElementById('sim-canvas');
+            if(!canvas) return;
+            const ctx = canvas.getContext('2d');
+            
+            // Background
+            ctx.fillStyle = '#d2a679';
+            ctx.fillRect(0,0, canvas.width, canvas.height);
+            
+            // Court Lines (Simplified)
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            
+            // Center Court
+            ctx.beginPath();
+            ctx.moveTo(canvas.width/2, 0);
+            ctx.lineTo(canvas.width/2, canvas.height);
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.arc(canvas.width/2, canvas.height/2, 30, 0, Math.PI*2);
+            ctx.stroke();
+            
+            // 3PT Lines (Arc approximation)
+            ctx.beginPath();
+            ctx.arc(0, canvas.height/2, 120, -0.2, Math.PI+0.2, true);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(canvas.width, canvas.height/2, 120, Math.PI-0.2, 0.2, true);
+            ctx.stroke();
+            
+            // Keys
+            ctx.strokeRect(0, canvas.height/2 - 40, 80, 80);
+            ctx.strokeRect(canvas.width - 80, canvas.height/2 - 40, 80, 80);
+
+            // Players
+            // Formation: Standard 5-out style locations
+            // Host (Left), Guest (Right)
+            // Positions: PG(0), SG(1), SF(2), PF(3), C(4)
+            const hostPos = [
+                {x: 140, y: 100}, // PG
+                {x: 100, y: 40},  // SG
+                {x: 100, y: 160}, // SF
+                {x: 40, y: 140},  // PF
+                {x: 40, y: 60}    // C
+            ];
+            
+            const guestPos = [
+                {x: 460, y: 100}, // PG
+                {x: 500, y: 160}, // SG
+                {x: 500, y: 40},  // SF
+                {x: 560, y: 60},  // PF
+                {x: 560, y: 140}  // C
+            ];
+
+            // Render Host
+            data.lineupHost.forEach((pid, idx) => {
+                if(!pid) return;
+                const p = PLAYERS_DB.find(x => x.id === pid);
+                const pos = hostPos[idx];
+                const isActive = data.simState.activeShooter === pid;
+                
+                ctx.beginPath();
+                ctx.fillStyle = '#3b82f6'; // Blue
+                ctx.arc(pos.x, pos.y, 10, 0, Math.PI*2);
+                ctx.fill();
+                if(isActive) {
+                    ctx.strokeStyle = '#ffff00';
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+                }
+                
+                // Text
+                ctx.fillStyle = 'white';
+                ctx.font = '10px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(p.pos, pos.x, pos.y+3);
+            });
+
+            // Render Guest
+            data.lineupGuest.forEach((pid, idx) => {
+                if(!pid) return;
+                const p = PLAYERS_DB.find(x => x.id === pid);
+                const pos = guestPos[idx];
+                const isActive = data.simState.activeShooter === pid;
+                
+                ctx.beginPath();
+                ctx.fillStyle = '#ef4444'; // Red
+                ctx.arc(pos.x, pos.y, 10, 0, Math.PI*2);
+                ctx.fill();
+                if(isActive) {
+                    ctx.strokeStyle = '#ffff00';
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+                }
+
+                ctx.fillStyle = 'white';
+                ctx.font = '10px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(p.pos, pos.x, pos.y+3);
+            });
+        }
+
         function updateMiniBox(stats, teamIds, elId) {
             const el = document.getElementById(elId);
             el.innerHTML = '';
             teamIds.forEach(pid => {
-                const s = stats[pid] || {pts:0,reb:0,ast:0};
+                const s = stats[pid] || {pts:0,reb:0,ast:0,fls:0};
                 const p = PLAYERS_DB.find(x => x.id === pid);
                 el.innerHTML += `
                     <tr class="border-b border-gray-800">
                         <td class="py-1 truncate max-w-[80px]">${p.name.split(' ').pop()}</td>
                         <td class="text-right text-yellow-500">${s.pts}</td>
-                        <td class="text-right text-gray-400">${s.reb}</td>
-                        <td class="text-right text-gray-400">${s.ast}</td>
+                        <td class="text-right text-gray-400">${s.fls}</td>
                     </tr>
                 `;
             });
@@ -874,6 +980,7 @@
             if(simInterval) return; // Already running
             if(myRole !== 'host') return;
 
+            // Faster Interval: 600ms
             simInterval = setInterval(async () => {
                 const ref = getRef(currentRoomId);
                 const doc = await ref.get();
@@ -886,25 +993,23 @@
                     return; 
                 }
 
-                // SIMULATE POSSESSION
                 let state = d.simState;
                 let logs = d.logs;
                 
-                // Tick Clock (Fast)
-                state.time -= 15; // 15 sec per possession loop
+                // Tick Clock
+                state.time -= 15;
                 if(state.time <= 0) {
                     state.q++;
-                    state.time = 720; // Reset to 12 mins
+                    state.time = 720;
                     logs.push(`--- END OF QUARTER ${state.q-1} ---`);
                 }
 
-                // Possession Logic
+                // Possession
                 const isHostPoss = Math.random() > 0.5;
                 const attTeam = isHostPoss ? d.lineupHost : d.lineupGuest;
                 const defTeam = isHostPoss ? d.lineupGuest : d.lineupHost;
                 
-                // 1. Pick Shooter (Weighted by OFF rating)
-                // Normalize 0-4 indices
+                // Pick Shooter
                 const shooters = attTeam.map(pid => PLAYERS_DB.find(x=>x.id===pid));
                 const totalOff = shooters.reduce((a,b) => a + b.off, 0);
                 let r = Math.random() * totalOff;
@@ -916,54 +1021,68 @@
                 const shooter = shooters[shooterIdx];
                 const defender = PLAYERS_DB.find(x=>x.id === defTeam[shooterIdx]);
 
-                // 2. Shot Calculation
-                // Base 45% + (Off - Def) * 0.5
-                const hitChance = 45 + (shooter.off - defender.def) * 0.5;
-                const roll = Math.random() * 100;
-                
-                state.stats[shooter.id].fga++;
+                // Highlight Shooter for Viz
+                state.activeShooter = shooter.id;
 
-                if(roll < hitChance) {
-                    // MAKE
-                    const is3 = Math.random() < 0.35; // 35% chance it's a 3
-                    const pts = is3 ? 3 : 2;
-                    state.stats[shooter.id].pts += pts;
-                    state.stats[shooter.id].fgm++;
-                    if(isHostPoss) state.scoreH += pts; else state.scoreG += pts;
+                // FOUL CHECK
+                const foulChance = 10; // 10% chance per possession
+                const isFoul = Math.random() * 100 < foulChance;
+                
+                if(isFoul) {
+                    state.stats[defender.id].fls++;
+                    logs.push(`Foul on ${defender.name}! ${shooter.name} to the line.`);
                     
-                    // Assist?
-                    const assistRoll = Math.random();
-                    if(assistRoll > 0.4) {
-                        // Pick random teammate
-                        let mates = attTeam.filter(id => id !== shooter.id);
-                        let assisterId = mates[Math.floor(Math.random()*mates.length)];
-                        state.stats[assisterId].ast++;
-                        const assister = PLAYERS_DB.find(x=>x.id===assisterId);
-                        logs.push(`${isHostPoss?'Host':'Guest'}: ${shooter.name} scores (${assister.name} ast)`);
-                    } else {
-                        logs.push(`${isHostPoss?'Host':'Guest'}: ${shooter.name} unassisted bucket`);
-                    }
+                    // 2 Free Throws (Simple 75% chance)
+                    let ftPts = 0;
+                    if(Math.random() < 0.75) ftPts++;
+                    if(Math.random() < 0.75) ftPts++;
+                    
+                    state.stats[shooter.id].pts += ftPts;
+                    if(isHostPoss) state.scoreH += ftPts; else state.scoreG += ftPts;
+                    logs.push(`${shooter.name} makes ${ftPts}/2 Free Throws.`);
 
                 } else {
-                    // MISS -> REBOUND
-                    // Simple weight: Sum of all Rebounding stats
-                    const allPlayers = [...attTeam, ...defTeam].map(pid => PLAYERS_DB.find(x=>x.id===pid));
-                    const totalReb = allPlayers.reduce((a,b) => a + b.reb, 0);
-                    let rReb = Math.random() * totalReb;
-                    let rebId = allPlayers[0].id;
-                    for(let p of allPlayers) {
-                        rReb -= p.reb;
-                        if(rReb <= 0) { rebId = p.id; break; }
+                    // Regular Shot
+                    const hitChance = 45 + (shooter.off - defender.def) * 0.5;
+                    const roll = Math.random() * 100;
+                    state.stats[shooter.id].fga++;
+
+                    if(roll < hitChance) {
+                        const is3 = Math.random() < 0.35;
+                        const pts = is3 ? 3 : 2;
+                        state.stats[shooter.id].pts += pts;
+                        state.stats[shooter.id].fgm++;
+                        if(isHostPoss) state.scoreH += pts; else state.scoreG += pts;
+                        
+                        // Assist?
+                        if(Math.random() > 0.4) {
+                            let mates = attTeam.filter(id => id !== shooter.id);
+                            let assisterId = mates[Math.floor(Math.random()*mates.length)];
+                            state.stats[assisterId].ast++;
+                            const assister = PLAYERS_DB.find(x=>x.id===assisterId);
+                            logs.push(`${isHostPoss?'Host':'Guest'}: ${shooter.name} scores (${assister.name} ast)`);
+                        } else {
+                            logs.push(`${isHostPoss?'Host':'Guest'}: ${shooter.name} unassisted bucket`);
+                        }
+                    } else {
+                        // Rebound
+                        const allPlayers = [...attTeam, ...defTeam].map(pid => PLAYERS_DB.find(x=>x.id===pid));
+                        const totalReb = allPlayers.reduce((a,b) => a + b.reb, 0);
+                        let rReb = Math.random() * totalReb;
+                        let rebId = allPlayers[0].id;
+                        for(let p of allPlayers) {
+                            rReb -= p.reb;
+                            if(rReb <= 0) { rebId = p.id; break; }
+                        }
+                        state.stats[rebId].reb++;
+                        const rebP = PLAYERS_DB.find(x=>x.id===rebId);
+                        logs.push(`${shooter.name} misses. Rebound ${rebP.name}`);
                     }
-                    state.stats[rebId].reb++;
-                    const rebP = PLAYERS_DB.find(x=>x.id===rebId);
-                    logs.push(`${shooter.name} misses. Rebound ${rebP.name}`);
                 }
 
-                // Save
                 ref.update({ simState: state, logs: logs });
 
-            }, 1000); // 1 sec real time = 1 possession
+            }, 600); 
         }
 
         // --- 4. RESULT ---
@@ -997,7 +1116,7 @@
                         <td class="py-2 text-right text-yellow-500 font-bold">${s.pts}</td>
                         <td class="py-2 text-right text-gray-300">${s.reb}</td>
                         <td class="py-2 text-right text-gray-300">${s.ast}</td>
-                        <td class="py-2 text-right text-gray-500 text-sm">${s.fgm}/${s.fga}</td>
+                        <td class="py-2 text-right text-gray-400">${s.fls}</td>
                     </tr>
                 `;
             });
