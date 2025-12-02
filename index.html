@@ -454,7 +454,9 @@
 
         async function createRoom() {
             if(!currentUser) return;
-            const rid = Math.random().toString(36).substring(2,6).toUpperCase();
+            // Generate a more robust ID (ensure no empty string)
+            const rid = (Math.random().toString(36) + '000000').substring(2, 8).toUpperCase();
+            
             await getRef(rid).set({
                 hostId: currentUser.uid,
                 guestId: null,
@@ -476,7 +478,15 @@
         }
 
         async function joinRoom() {
-            const rid = document.getElementById('room-input').value.toUpperCase();
+            // Trim and validate input to prevent "empty path" error
+            const input = document.getElementById('room-input');
+            const rid = input.value.trim().toUpperCase();
+            
+            if (!rid) {
+                alert("Please enter a valid Room Code");
+                return;
+            }
+
             const ref = getRef(rid);
             const doc = await ref.get();
             if(!doc.exists) return alert('Room not found');
@@ -1002,8 +1012,19 @@
         
         function copyRoomId() {
             const t = document.getElementById('display-room-id').textContent;
-            navigator.clipboard.writeText(t);
-            alert('Copied: ' + t);
+            const textArea = document.createElement("textarea");
+            textArea.value = t;
+            textArea.style.position = "fixed";
+            textArea.style.left = "-9999px";
+            document.body.appendChild(textArea);
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                alert('Copied: ' + t);
+            } catch (err) {
+                prompt("Copy this ID:", t);
+            }
+            document.body.removeChild(textArea);
         }
 
         function closeModal() { document.getElementById('modal').classList.add('hidden'); }
