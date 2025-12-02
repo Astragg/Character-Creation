@@ -143,6 +143,8 @@
                     <select id="mode-select" onchange="updateGameMode()" class="w-full bg-gray-800 border border-gray-600 text-white p-2 rounded text-xl">
                         <option value="classic">Classic (Draft Best 5)</option>
                         <option value="ringless">Ringless (Max 1 Star/Ring)</option>
+                        <option value="lockdown">Lockdown (DEF > 85 Only)</option>
+                        <option value="smallball">Small Ball (No Centers)</option>
                     </select>
                 </div>
             </div>
@@ -176,7 +178,8 @@
                         <select id="pos-filter" class="bg-gray-900 border border-gray-600 text-white px-3 py-1 rounded text-lg w-24">
                             <option value="ALL">All</option>
                             <option value="G">G</option>
-                            <option value="F">F</option>
+                            <option value="SF">SF</option>
+                            <option value="PF">PF</option>
                             <option value="C">C</option>
                         </select>
                     </div>
@@ -282,13 +285,13 @@
             <div class="h-32 bg-gray-900 shrink-0 flex flex-col md:flex-row border-t border-gray-700">
                 <div class="flex-1 p-2 border-r border-gray-800 overflow-y-auto">
                      <table class="w-full text-left text-xs">
-                        <thead><tr class="text-gray-500 border-b border-gray-700"><th class="pb-1">Host</th><th class="pb-1 text-right">PTS</th><th class="pb-1 text-right">FLS</th></tr></thead>
+                        <thead><tr class="text-gray-500 border-b border-gray-700"><th class="pb-1">Host</th><th class="pb-1 text-right">PTS</th><th class="pb-1 text-right">FG%</th></tr></thead>
                         <tbody id="box-host-mini"></tbody>
                      </table>
                 </div>
                 <div class="flex-1 p-2 overflow-y-auto">
                     <table class="w-full text-left text-xs">
-                        <thead><tr class="text-gray-500 border-b border-gray-700"><th class="pb-1">Guest</th><th class="pb-1 text-right">PTS</th><th class="pb-1 text-right">FLS</th></tr></thead>
+                        <thead><tr class="text-gray-500 border-b border-gray-700"><th class="pb-1">Guest</th><th class="pb-1 text-right">PTS</th><th class="pb-1 text-right">FG%</th></tr></thead>
                         <tbody id="box-guest-mini"></tbody>
                      </table>
                 </div>
@@ -314,18 +317,20 @@
                 <div id="winner-badge" class="inline-block px-6 py-2 rounded bg-yellow-600 text-black font-bold text-2xl uppercase">Winner</div>
             </div>
 
-            <div class="flex-1 max-w-4xl mx-auto w-full p-4 space-y-6">
+            <div class="flex-1 max-w-5xl mx-auto w-full p-4 space-y-6">
                 <!-- Host Box -->
-                <div class="bg-gray-800 rounded border border-gray-700 p-4">
+                <div class="bg-gray-800 rounded border border-gray-700 p-4 overflow-x-auto">
                     <h3 class="text-xl text-blue-400 font-bold mb-2 uppercase">Host Stats</h3>
-                    <table class="w-full text-left text-lg">
+                    <table class="w-full text-left text-sm md:text-base">
                         <thead>
                             <tr class="text-gray-500 border-b border-gray-600">
                                 <th class="py-2">Player</th>
                                 <th class="py-2 text-right">PTS</th>
                                 <th class="py-2 text-right">REB</th>
                                 <th class="py-2 text-right">AST</th>
-                                <th class="py-2 text-right">FLS</th>
+                                <th class="py-2 text-right">FG</th>
+                                <th class="py-2 text-right">3PT</th>
+                                <th class="py-2 text-right">FT</th>
                             </tr>
                         </thead>
                         <tbody id="box-host-full"></tbody>
@@ -333,16 +338,18 @@
                 </div>
 
                 <!-- Guest Box -->
-                <div class="bg-gray-800 rounded border border-gray-700 p-4">
+                <div class="bg-gray-800 rounded border border-gray-700 p-4 overflow-x-auto">
                     <h3 class="text-xl text-red-400 font-bold mb-2 uppercase">Guest Stats</h3>
-                    <table class="w-full text-left text-lg">
+                    <table class="w-full text-left text-sm md:text-base">
                         <thead>
                             <tr class="text-gray-500 border-b border-gray-600">
                                 <th class="py-2">Player</th>
                                 <th class="py-2 text-right">PTS</th>
                                 <th class="py-2 text-right">REB</th>
                                 <th class="py-2 text-right">AST</th>
-                                <th class="py-2 text-right">FLS</th>
+                                <th class="py-2 text-right">FG</th>
+                                <th class="py-2 text-right">3PT</th>
+                                <th class="py-2 text-right">FT</th>
                             </tr>
                         </thead>
                         <tbody id="box-guest-full"></tbody>
@@ -359,68 +366,83 @@
 
     <script>
         // --- DATABASE ---
-        // Stats: OVR (Display), OFF (Scoring), DEF (Stop Chance), REB (Board Chance), PAS (Assist Chance)
+        // Stats: OVR, OFF, DEF, REB, PAS
         const PLAYERS_DB = [
-            // GOAT Tier
-            { id: 1, name: "Michael Jordan", pos: "G", r: 6, ovr: 99, off: 99, def: 99, reb: 60, pas: 65 },
-            { id: 2, name: "LeBron James", pos: "F", r: 4, ovr: 99, off: 97, def: 88, reb: 85, pas: 95 },
-            { id: 3, name: "Kareem Abdul-Jabbar", pos: "C", r: 6, ovr: 99, off: 98, def: 90, reb: 95, pas: 60 },
+            // C
+            { id: 1, name: "Kareem Abdul-Jabbar", pos: "C", r: 6, ovr: 99, off: 98, def: 90, reb: 95, pas: 60 },
+            { id: 2, name: "Shaquille O'Neal", pos: "C", r: 4, ovr: 98, off: 99, def: 85, reb: 98, pas: 50 },
+            { id: 3, name: "Hakeem Olajuwon", pos: "C", r: 2, ovr: 97, off: 95, def: 99, reb: 95, pas: 45 },
+            { id: 4, name: "Wilt Chamberlain", pos: "C", r: 2, ovr: 98, off: 99, def: 90, reb: 99, pas: 55 },
+            { id: 5, name: "Bill Russell", pos: "C", r: 11, ovr: 96, off: 70, def: 99, reb: 99, pas: 60 },
+            { id: 6, name: "Nikola Jokic", pos: "C", r: 1, ovr: 97, off: 96, def: 70, reb: 94, pas: 99 },
+            { id: 7, name: "Joel Embiid", pos: "C", r: 0, ovr: 96, off: 97, def: 90, reb: 92, pas: 60 },
+            { id: 8, name: "David Robinson", pos: "C", r: 2, ovr: 95, off: 85, def: 95, reb: 92, pas: 40 },
+            { id: 9, name: "Patrick Ewing", pos: "C", r: 0, ovr: 93, off: 88, def: 88, reb: 90, pas: 30 },
+            { id: 10, name: "Dwight Howard", pos: "C", r: 1, ovr: 92, off: 80, def: 95, reb: 98, pas: 30 },
+            { id: 11, name: "Dikembe Mutombo", pos: "C", r: 0, ovr: 89, off: 60, def: 98, reb: 95, pas: 20 },
+            { id: 12, name: "Ben Wallace", pos: "C", r: 1, ovr: 89, off: 40, def: 99, reb: 96, pas: 30 },
+            { id: 13, name: "Yao Ming", pos: "C", r: 0, ovr: 91, off: 90, def: 75, reb: 85, pas: 40 },
+            { id: 14, name: "Alonzo Mourning", pos: "C", r: 1, ovr: 90, off: 85, def: 92, reb: 90, pas: 20 },
+            { id: 15, name: "Rudy Gobert", pos: "C", r: 0, ovr: 88, off: 60, def: 96, reb: 95, pas: 30 },
+            { id: 16, name: "Robert Parish", pos: "C", r: 4, ovr: 90, off: 80, def: 85, reb: 90, pas: 40 },
             
-            // Centers
-            { id: 4, name: "Shaquille O'Neal", pos: "C", r: 4, ovr: 98, off: 99, def: 85, reb: 98, pas: 50 },
-            { id: 5, name: "Hakeem Olajuwon", pos: "C", r: 2, ovr: 97, off: 95, def: 99, reb: 95, pas: 45 },
-            { id: 6, name: "Wilt Chamberlain", pos: "C", r: 2, ovr: 98, off: 99, def: 90, reb: 99, pas: 55 },
-            { id: 7, name: "Bill Russell", pos: "C", r: 11, ovr: 96, off: 70, def: 99, reb: 99, pas: 60 },
-            { id: 8, name: "Nikola Jokic", pos: "C", r: 1, ovr: 97, off: 96, def: 70, reb: 94, pas: 99 },
-            { id: 9, name: "Joel Embiid", pos: "C", r: 0, ovr: 96, off: 97, def: 90, reb: 92, pas: 60 },
-            { id: 10, name: "David Robinson", pos: "C", r: 2, ovr: 95, off: 85, def: 95, reb: 92, pas: 40 },
-            { id: 11, name: "Patrick Ewing", pos: "C", r: 0, ovr: 93, off: 88, def: 88, reb: 90, pas: 30 },
-            { id: 12, name: "Dwight Howard", pos: "C", r: 1, ovr: 92, off: 80, def: 95, reb: 98, pas: 30 },
-            { id: 13, name: "Dikembe Mutombo", pos: "C", r: 0, ovr: 89, off: 60, def: 98, reb: 95, pas: 20 },
-            { id: 14, name: "Ben Wallace", pos: "C", r: 1, ovr: 89, off: 40, def: 99, reb: 96, pas: 30 },
-            { id: 15, name: "Yao Ming", pos: "C", r: 0, ovr: 91, off: 90, def: 75, reb: 85, pas: 40 },
+            // PF
+            { id: 30, name: "Tim Duncan", pos: "PF", r: 5, ovr: 97, off: 88, def: 95, reb: 95, pas: 60 },
+            { id: 31, name: "Giannis Antetokounmpo", pos: "PF", r: 1, ovr: 96, off: 94, def: 92, reb: 94, pas: 70 },
+            { id: 32, name: "Kevin Garnett", pos: "PF", r: 1, ovr: 95, off: 85, def: 98, reb: 96, pas: 70 },
+            { id: 33, name: "Dirk Nowitzki", pos: "PF", r: 1, ovr: 95, off: 95, def: 65, reb: 80, pas: 50 },
+            { id: 34, name: "Karl Malone", pos: "PF", r: 0, ovr: 95, off: 94, def: 85, reb: 90, pas: 50 },
+            { id: 35, name: "Charles Barkley", pos: "PF", r: 0, ovr: 94, off: 92, def: 70, reb: 96, pas: 60 },
+            { id: 36, name: "Dennis Rodman", pos: "PF", r: 5, ovr: 89, off: 40, def: 99, reb: 99, pas: 40 },
+            { id: 37, name: "Anthony Davis", pos: "PF", r: 1, ovr: 94, off: 90, def: 95, reb: 92, pas: 40 },
+            { id: 38, name: "Draymond Green", pos: "PF", r: 4, ovr: 88, off: 60, def: 95, reb: 75, pas: 85 },
+            { id: 39, name: "Chris Bosh", pos: "PF", r: 2, ovr: 90, off: 88, def: 80, reb: 85, pas: 50 },
+            { id: 40, name: "Pau Gasol", pos: "PF", r: 2, ovr: 91, off: 90, def: 80, reb: 88, pas: 70 },
+            { id: 41, name: "Kevin McHale", pos: "PF", r: 3, ovr: 93, off: 92, def: 85, reb: 85, pas: 50 },
+            { id: 42, name: "Zion Williamson", pos: "PF", r: 0, ovr: 89, off: 92, def: 60, reb: 80, pas: 60 },
+            { id: 43, name: "Shawn Kemp", pos: "PF", r: 0, ovr: 89, off: 88, def: 75, reb: 85, pas: 40 },
+
+            // SF
+            { id: 60, name: "LeBron James", pos: "SF", r: 4, ovr: 99, off: 97, def: 88, reb: 85, pas: 95 },
+            { id: 61, name: "Larry Bird", pos: "SF", r: 3, ovr: 97, off: 96, def: 80, reb: 85, pas: 85 },
+            { id: 62, name: "Kevin Durant", pos: "SF", r: 2, ovr: 96, off: 99, def: 80, reb: 75, pas: 70 },
+            { id: 63, name: "Kawhi Leonard", pos: "SF", r: 2, ovr: 94, off: 90, def: 98, reb: 70, pas: 50 },
+            { id: 64, name: "Scottie Pippen", pos: "SF", r: 6, ovr: 93, off: 80, def: 98, reb: 75, pas: 80 },
+            { id: 65, name: "Julius Erving", pos: "SF", r: 1, ovr: 94, off: 95, def: 75, reb: 80, pas: 60 },
+            { id: 66, name: "Dominique Wilkins", pos: "SF", r: 0, ovr: 91, off: 94, def: 60, reb: 70, pas: 30 },
+            { id: 67, name: "Carmelo Anthony", pos: "SF", r: 0, ovr: 91, off: 95, def: 50, reb: 70, pas: 30 },
+            { id: 68, name: "Jayson Tatum", pos: "SF", r: 1, ovr: 93, off: 92, def: 85, reb: 75, pas: 60 },
+            { id: 69, name: "Paul Pierce", pos: "SF", r: 1, ovr: 91, off: 90, def: 75, reb: 60, pas: 60 },
+            { id: 70, name: "James Worthy", pos: "SF", r: 3, ovr: 90, off: 90, def: 70, reb: 70, pas: 50 },
+            { id: 71, name: "Grant Hill", pos: "SF", r: 0, ovr: 90, off: 88, def: 75, reb: 75, pas: 85 },
+            { id: 72, name: "Jimmy Butler", pos: "SF", r: 0, ovr: 91, off: 88, def: 92, reb: 70, pas: 70 },
             
-            // Forwards
-            { id: 20, name: "Tim Duncan", pos: "F", r: 5, ovr: 97, off: 88, def: 95, reb: 95, pas: 60 },
-            { id: 21, name: "Larry Bird", pos: "F", r: 3, ovr: 97, off: 96, def: 80, reb: 85, pas: 85 },
-            { id: 22, name: "Kevin Durant", pos: "F", r: 2, ovr: 96, off: 99, def: 80, reb: 75, pas: 70 },
-            { id: 23, name: "Giannis Antetokounmpo", pos: "F", r: 1, ovr: 96, off: 94, def: 92, reb: 94, pas: 70 },
-            { id: 24, name: "Kevin Garnett", pos: "F", r: 1, ovr: 95, off: 85, def: 98, reb: 96, pas: 70 },
-            { id: 25, name: "Dirk Nowitzki", pos: "F", r: 1, ovr: 95, off: 95, def: 65, reb: 80, pas: 50 },
-            { id: 26, name: "Karl Malone", pos: "F", r: 0, ovr: 95, off: 94, def: 85, reb: 90, pas: 50 },
-            { id: 27, name: "Charles Barkley", pos: "F", r: 0, ovr: 94, off: 92, def: 70, reb: 96, pas: 60 },
-            { id: 28, name: "Kawhi Leonard", pos: "F", r: 2, ovr: 94, off: 90, def: 98, reb: 70, pas: 50 },
-            { id: 29, name: "Scottie Pippen", pos: "F", r: 6, ovr: 93, off: 80, def: 98, reb: 75, pas: 80 },
-            { id: 30, name: "Dennis Rodman", pos: "F", r: 5, ovr: 89, off: 40, def: 99, reb: 99, pas: 40 },
-            { id: 31, name: "Dominique Wilkins", pos: "F", r: 0, ovr: 91, off: 94, def: 60, reb: 70, pas: 30 },
-            { id: 32, name: "Carmelo Anthony", pos: "F", r: 0, ovr: 91, off: 95, def: 50, reb: 70, pas: 30 },
-            { id: 33, name: "Jayson Tatum", pos: "F", r: 1, ovr: 93, off: 92, def: 85, reb: 75, pas: 60 },
-            { id: 34, name: "Anthony Davis", pos: "F", r: 1, ovr: 94, off: 90, def: 95, reb: 92, pas: 40 },
-            { id: 35, name: "Paul Pierce", pos: "F", r: 1, ovr: 91, off: 90, def: 75, reb: 60, pas: 60 },
-            { id: 36, name: "Draymond Green", pos: "F", r: 4, ovr: 88, off: 60, def: 95, reb: 75, pas: 85 },
-            
-            // Guards
-            { id: 50, name: "Magic Johnson", pos: "G", r: 5, ovr: 98, off: 90, def: 75, reb: 80, pas: 99 },
-            { id: 51, name: "Kobe Bryant", pos: "G", r: 5, ovr: 98, off: 98, def: 95, reb: 60, pas: 70 },
-            { id: 52, name: "Stephen Curry", pos: "G", r: 4, ovr: 97, off: 99, def: 65, reb: 50, pas: 85 },
-            { id: 53, name: "Jerry West", pos: "G", r: 1, ovr: 96, off: 94, def: 85, reb: 50, pas: 85 },
-            { id: 54, name: "Oscar Robertson", pos: "G", r: 1, ovr: 96, off: 90, def: 75, reb: 85, pas: 95 },
-            { id: 55, name: "Dwyane Wade", pos: "G", r: 3, ovr: 95, off: 92, def: 90, reb: 60, pas: 70 },
-            { id: 56, name: "Isiah Thomas", pos: "G", r: 2, ovr: 93, off: 85, def: 75, reb: 40, pas: 90 },
-            { id: 57, name: "Allen Iverson", pos: "G", r: 0, ovr: 94, off: 96, def: 70, reb: 40, pas: 60 },
-            { id: 58, name: "Steve Nash", pos: "G", r: 0, ovr: 93, off: 88, def: 50, reb: 40, pas: 98 },
-            { id: 59, name: "John Stockton", pos: "G", r: 0, ovr: 93, off: 75, def: 80, reb: 40, pas: 99 },
-            { id: 60, name: "James Harden", pos: "G", r: 0, ovr: 94, off: 97, def: 60, reb: 65, pas: 88 },
-            { id: 61, name: "Chris Paul", pos: "G", r: 0, ovr: 93, off: 85, def: 85, reb: 50, pas: 98 },
-            { id: 62, name: "Jason Kidd", pos: "G", r: 1, ovr: 92, off: 70, def: 85, reb: 75, pas: 95 },
-            { id: 63, name: "Gary Payton", pos: "G", r: 1, ovr: 92, off: 80, def: 98, reb: 50, pas: 75 },
-            { id: 64, name: "Russell Westbrook", pos: "G", r: 0, ovr: 91, off: 88, def: 70, reb: 85, pas: 85 },
-            { id: 65, name: "Luka Doncic", pos: "G", r: 0, ovr: 96, off: 97, def: 65, reb: 85, pas: 92 },
-            { id: 66, name: "Tracy McGrady", pos: "G", r: 0, ovr: 92, off: 95, def: 70, reb: 65, pas: 60 },
-            { id: 67, name: "Vince Carter", pos: "G", r: 0, ovr: 90, off: 92, def: 65, reb: 60, pas: 50 },
-            { id: 68, name: "Damian Lillard", pos: "G", r: 0, ovr: 92, off: 94, def: 55, reb: 45, pas: 70 },
-            { id: 69, name: "Reggie Miller", pos: "G", r: 0, ovr: 89, off: 88, def: 60, reb: 30, pas: 40 },
-            { id: 70, name: "Ray Allen", pos: "G", r: 2, ovr: 90, off: 89, def: 70, reb: 45, pas: 50 }
+            // G
+            { id: 90, name: "Michael Jordan", pos: "G", r: 6, ovr: 99, off: 99, def: 99, reb: 60, pas: 65 },
+            { id: 91, name: "Magic Johnson", pos: "G", r: 5, ovr: 98, off: 90, def: 75, reb: 80, pas: 99 },
+            { id: 92, name: "Kobe Bryant", pos: "G", r: 5, ovr: 98, off: 98, def: 95, reb: 60, pas: 70 },
+            { id: 93, name: "Stephen Curry", pos: "G", r: 4, ovr: 97, off: 99, def: 65, reb: 50, pas: 85 },
+            { id: 94, name: "Jerry West", pos: "G", r: 1, ovr: 96, off: 94, def: 85, reb: 50, pas: 85 },
+            { id: 95, name: "Oscar Robertson", pos: "G", r: 1, ovr: 96, off: 90, def: 75, reb: 85, pas: 95 },
+            { id: 96, name: "Dwyane Wade", pos: "G", r: 3, ovr: 95, off: 92, def: 90, reb: 60, pas: 70 },
+            { id: 97, name: "Isiah Thomas", pos: "G", r: 2, ovr: 93, off: 85, def: 75, reb: 40, pas: 90 },
+            { id: 98, name: "Allen Iverson", pos: "G", r: 0, ovr: 94, off: 96, def: 70, reb: 40, pas: 60 },
+            { id: 99, name: "Steve Nash", pos: "G", r: 0, ovr: 93, off: 88, def: 50, reb: 40, pas: 98 },
+            { id: 100, name: "John Stockton", pos: "G", r: 0, ovr: 93, off: 75, def: 80, reb: 40, pas: 99 },
+            { id: 101, name: "James Harden", pos: "G", r: 0, ovr: 94, off: 97, def: 60, reb: 65, pas: 88 },
+            { id: 102, name: "Chris Paul", pos: "G", r: 0, ovr: 93, off: 85, def: 85, reb: 50, pas: 98 },
+            { id: 103, name: "Jason Kidd", pos: "G", r: 1, ovr: 92, off: 70, def: 85, reb: 75, pas: 95 },
+            { id: 104, name: "Gary Payton", pos: "G", r: 1, ovr: 92, off: 80, def: 98, reb: 50, pas: 75 },
+            { id: 105, name: "Russell Westbrook", pos: "G", r: 0, ovr: 91, off: 88, def: 70, reb: 85, pas: 85 },
+            { id: 106, name: "Luka Doncic", pos: "G", r: 0, ovr: 96, off: 97, def: 65, reb: 85, pas: 92 },
+            { id: 107, name: "Tracy McGrady", pos: "G", r: 0, ovr: 92, off: 95, def: 70, reb: 65, pas: 60 },
+            { id: 108, name: "Vince Carter", pos: "G", r: 0, ovr: 90, off: 92, def: 65, reb: 60, pas: 50 },
+            { id: 109, name: "Damian Lillard", pos: "G", r: 0, ovr: 92, off: 94, def: 55, reb: 45, pas: 70 },
+            { id: 110, name: "Reggie Miller", pos: "G", r: 0, ovr: 89, off: 88, def: 60, reb: 30, pas: 40 },
+            { id: 111, name: "Ray Allen", pos: "G", r: 2, ovr: 90, off: 89, def: 70, reb: 45, pas: 50 },
+            { id: 112, name: "Klay Thompson", pos: "G", r: 4, ovr: 89, off: 88, def: 85, reb: 40, pas: 40 },
+            { id: 113, name: "Kyrie Irving", pos: "G", r: 1, ovr: 92, off: 95, def: 55, reb: 40, pas: 75 },
+            { id: 114, name: "Ja Morant", pos: "G", r: 0, ovr: 90, off: 92, def: 60, reb: 50, pas: 80 }
         ];
 
         // --- FIREBASE CONFIG (USER PROVIDED) ---
@@ -444,8 +466,8 @@
         let roomUnsubscribe = null;
         let myRole = null; 
         let roomData = null;
-        let draftedPlayers = []; // Local helper for drag drop
         let simInterval = null;
+        let animRequest = null; // Animation Frame
 
         // --- AUTH ---
         window.onload = async () => {
@@ -465,24 +487,28 @@
 
         async function createRoom() {
             if(!currentUser) return;
-            // Generate a more robust ID (ensure no empty string)
             const rid = (Math.random().toString(36) + '000000').substring(2, 8).toUpperCase();
             
             await getRef(rid).set({
                 hostId: currentUser.uid,
                 guestId: null,
-                status: 'waiting', // waiting, drafting, lineups, simulation, finished
+                status: 'waiting', 
                 mode: 'classic',
-                turnOwner: 'host', // host, guest
+                turnOwner: 'host', 
                 turnIndex: 0,
                 teamHost: [],
                 teamGuest: [],
-                lineupHost: [null, null, null, null, null], // PG, SG, SF, PF, C
+                lineupHost: [null, null, null, null, null],
                 lineupGuest: [null, null, null, null, null],
                 taken: [],
                 logs: [],
-                // stats: { pid: {pts, reb, ast, fgm, fga, fls} }
-                simState: { q: 1, time: 720, scoreH: 0, scoreG: 0, activeShooter: null, stats: {} } 
+                // New Stats Tracking: 3PM/A, FTM/A
+                simState: { 
+                    q: 1, time: 720, scoreH: 0, scoreG: 0, 
+                    activeShooter: null, 
+                    ballX: 300, ballY: 100, // For animation sync
+                    stats: {} 
+                } 
             });
             currentRoomId = rid;
             myRole = 'host';
@@ -490,14 +516,9 @@
         }
 
         async function joinRoom() {
-            // Trim and validate input to prevent "empty path" error
             const input = document.getElementById('room-input');
             const rid = input.value.trim().toUpperCase();
-            
-            if (!rid) {
-                alert("Please enter a valid Room Code");
-                return;
-            }
+            if (!rid) return alert("Please enter a valid Room Code");
 
             const ref = getRef(rid);
             const doc = await ref.get();
@@ -530,14 +551,12 @@
 
         // --- RENDER ROUTER ---
         function renderGame(data) {
-            // Hide all views first
             ['view-waiting', 'view-draft', 'view-lineup', 'view-sim', 'view-result'].forEach(id => {
                 document.getElementById(id).classList.add('hidden');
             });
 
             if(data.status === 'waiting') {
                 document.getElementById('view-waiting').classList.remove('hidden');
-                // Host controls mode
                 document.getElementById('mode-select').disabled = (myRole !== 'host');
                 document.getElementById('mode-select').value = data.mode;
             } 
@@ -561,14 +580,11 @@
 
         // --- 1. DRAFT LOGIC ---
         function renderDraft(data) {
-            // Turn Banner
             const banner = document.getElementById('turn-banner');
             const isMyTurn = data.turnOwner === myRole;
-            
             banner.textContent = isMyTurn ? "Your Pick!" : `${data.turnOwner === 'host' ? "Host" : "Guest"} Picking...`;
             banner.className = `px-6 py-2 rounded text-2xl font-bold uppercase tracking-widest transition-all duration-300 ${isMyTurn ? 'bg-green-600 text-white animate-pulse' : 'bg-gray-700 text-gray-400'}`;
 
-            // Rosters
             const renderList = (ids, elId) => {
                 const el = document.getElementById(elId);
                 el.innerHTML = '';
@@ -582,7 +598,6 @@
                         </div>
                     `;
                 });
-                // Fill empty
                 for(let i=ids.length; i<5; i++) {
                     el.innerHTML += `<div class="bg-gray-800/50 p-2 rounded border border-dashed border-gray-700 text-gray-600 text-center text-sm">Empty Slot</div>`;
                 }
@@ -590,10 +605,9 @@
 
             renderList(data.teamHost, 'roster-host');
             renderList(data.teamGuest, 'roster-guest');
-            document.getElementById('host-count').textContent = `${data.teamHost.length}/5 Players`;
-            document.getElementById('guest-count').textContent = `${data.teamGuest.length}/5 Players`;
+            document.getElementById('host-count').textContent = `${data.teamHost.length}/5`;
+            document.getElementById('guest-count').textContent = `${data.teamGuest.length}/5`;
 
-            // Pool
             const pool = document.getElementById('player-pool');
             const search = document.getElementById('player-search').value.toLowerCase();
             const filter = document.getElementById('pos-filter').value;
@@ -604,18 +618,22 @@
                 if(filter !== 'ALL' && p.pos !== filter) return;
                 if(!p.name.toLowerCase().includes(search)) return;
 
-                // Validation
                 let valid = true;
                 if(!isMyTurn) valid = false;
                 
-                // Ringless Check
-                if(valid && data.mode === 'ringless') {
-                    const myTeam = myRole === 'host' ? data.teamHost : data.teamGuest;
-                    const hasStar = myTeam.some(id => {
-                        const existing = PLAYERS_DB.find(x => x.id === id);
-                        return existing.r > 0; // Simplified logic for example: Rings > 0 is a star
-                    });
-                    if(hasStar && p.r > 0) valid = false;
+                // Modes Logic
+                if(valid) {
+                    if (data.mode === 'ringless') {
+                        const myTeam = myRole === 'host' ? data.teamHost : data.teamGuest;
+                        const hasStar = myTeam.some(id => PLAYERS_DB.find(x => x.id === id).r > 0);
+                        if(hasStar && p.r > 0) valid = false;
+                    }
+                    else if (data.mode === 'lockdown') {
+                        if(p.def < 85) valid = false;
+                    }
+                    else if (data.mode === 'smallball') {
+                        if(p.pos === 'C') valid = false;
+                    }
                 }
 
                 const card = document.createElement('div');
@@ -645,7 +663,6 @@
                 if(d.turnOwner !== myRole) return;
                 
                 const nextTurn = d.turnIndex + 1;
-                // Strict Alternating
                 const nextOwner = d.turnOwner === 'host' ? 'guest' : 'host';
                 
                 let h = d.teamHost, g = d.teamGuest;
@@ -664,18 +681,16 @@
             });
         }
 
-        // --- 2. LINEUP LOGIC (DRAG DROP) ---
+        // --- 2. LINEUP LOGIC ---
         let interactInit = false;
 
         function renderLineupEditor(data) {
             const myTeamIds = myRole === 'host' ? data.teamHost : data.teamGuest;
             const myLineup = myRole === 'host' ? data.lineupHost : data.lineupGuest;
 
-            // Check if I am done
             const isFull = myLineup.every(x => x !== null);
             document.getElementById('btn-submit-lineup').disabled = !isFull;
             
-            // Check if opponent done
             const oppLineup = myRole === 'host' ? data.lineupGuest : data.lineupHost;
             const oppFull = oppLineup.every(x => x !== null);
             if(isFull && !oppFull) {
@@ -684,12 +699,10 @@
                 document.getElementById('btn-submit-lineup').disabled = true;
             }
 
-            // Render Bench
             const benchDiv = document.getElementById('lineup-bench');
             benchDiv.innerHTML = '';
             
             myTeamIds.forEach(pid => {
-                // If player is NOT in the lineup, show on bench
                 if(!myLineup.includes(pid)) {
                     const p = PLAYERS_DB.find(x => x.id === pid);
                     const el = document.createElement('div');
@@ -700,7 +713,6 @@
                 }
             });
 
-            // Render Slots
             const pos = ['PG', 'SG', 'SF', 'PF', 'C'];
             pos.forEach((pStr, idx) => {
                 const slot = document.querySelector(`.drop-zone[data-pos="${pStr}"] .slot-content`);
@@ -729,8 +741,7 @@
         function initDragDrop() {
             interactInit = true;
             interact('.draggable-source').draggable({
-                inertia: true,
-                autoScroll: true,
+                inertia: true, autoScroll: true,
                 listeners: {
                     move: dragMoveListener,
                     end(event) {
@@ -763,12 +774,9 @@
                         const doc = await t.get(ref);
                         const d = doc.data();
                         let arr = myRole === 'host' ? [...d.lineupHost] : [...d.lineupGuest];
-                        
                         const oldIdx = arr.indexOf(pid);
                         if(oldIdx !== -1) arr[oldIdx] = null;
-                        
                         arr[posIdx] = pid;
-                        
                         const update = {};
                         if(myRole === 'host') update.lineupHost = arr;
                         else update.lineupGuest = arr;
@@ -806,10 +814,16 @@
             
             if(hReady && gReady) {
                 if(myRole === 'host') {
-                    // Initialize Stats
+                    // Initialize Stats with 3PM, 3PA, FTM, FTA
                     let stats = {};
                     [...d.teamHost, ...d.teamGuest].forEach(pid => {
-                        stats[pid] = { pts: 0, reb: 0, ast: 0, fgm: 0, fga: 0, fls: 0 };
+                        stats[pid] = { 
+                            pts: 0, reb: 0, ast: 0, 
+                            fgm: 0, fga: 0, 
+                            tpm: 0, tpa: 0, // 3pt
+                            ftm: 0, fta: 0, // Free Throws
+                            fls: 0 
+                        };
                     });
                     ref.update({ status: 'simulation', 'simState.stats': stats });
                 }
@@ -820,8 +834,10 @@
 
         // --- 3. SIMULATION LOGIC ---
 
+        // Helper to get %
+        const getPct = (m, a) => a > 0 ? Math.round((m/a)*100) : 0;
+
         function renderSim(data) {
-            // Update Scoreboard
             document.getElementById('sim-score-host').textContent = data.simState.scoreH;
             document.getElementById('sim-score-guest').textContent = data.simState.scoreG;
             document.getElementById('sim-quarter').textContent = "Q" + data.simState.q;
@@ -830,10 +846,9 @@
             const sec = data.simState.time % 60;
             document.getElementById('sim-clock').textContent = `${min}:${sec<10?'0':''}${sec}`;
 
-            // Draw Court
-            drawCourt(data);
+            // Trigger Animation Loop if not running
+            if (!animRequest) requestAnimationFrame(() => animateCourt(data));
 
-            // Update Logs
             const logDiv = document.getElementById('sim-log');
             logDiv.innerHTML = '';
             data.logs.slice(-20).forEach(l => {
@@ -844,11 +859,9 @@
             });
             logDiv.scrollTop = logDiv.scrollHeight;
 
-            // Mini Stats
             updateMiniBox(data.simState.stats, data.teamHost, 'box-host-mini');
             updateMiniBox(data.simState.stats, data.teamGuest, 'box-guest-mini');
 
-            // Controls
             if(myRole === 'host' && data.simState.q <= 4 && data.simState.time > 0) {
                 document.getElementById('sim-controls').classList.remove('hidden');
                 if(!simInterval) startSimulation(); 
@@ -857,130 +870,114 @@
             }
         }
 
-        function drawCourt(data) {
+        // Animation State
+        let playerAnims = {}; // store x,y for each pid
+
+        function animateCourt(data) {
             const canvas = document.getElementById('sim-canvas');
-            if(!canvas) return;
+            if(!canvas) return; // Stop if not visible
             const ctx = canvas.getContext('2d');
             
-            // Background
+            // Draw Background
             ctx.fillStyle = '#d2a679';
             ctx.fillRect(0,0, canvas.width, canvas.height);
-            
-            // Court Lines (Simplified)
             ctx.strokeStyle = '#ffffff';
             ctx.lineWidth = 2;
             
-            // Center Court
-            ctx.beginPath();
-            ctx.moveTo(canvas.width/2, 0);
-            ctx.lineTo(canvas.width/2, canvas.height);
-            ctx.stroke();
-            
-            ctx.beginPath();
-            ctx.arc(canvas.width/2, canvas.height/2, 30, 0, Math.PI*2);
-            ctx.stroke();
-            
-            // 3PT Lines (Arc approximation)
-            ctx.beginPath();
-            ctx.arc(0, canvas.height/2, 120, -0.2, Math.PI+0.2, true);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.arc(canvas.width, canvas.height/2, 120, Math.PI-0.2, 0.2, true);
-            ctx.stroke();
-            
-            // Keys
+            // Court Lines
+            ctx.beginPath(); ctx.moveTo(canvas.width/2, 0); ctx.lineTo(canvas.width/2, canvas.height); ctx.stroke();
+            ctx.beginPath(); ctx.arc(canvas.width/2, canvas.height/2, 30, 0, Math.PI*2); ctx.stroke();
             ctx.strokeRect(0, canvas.height/2 - 40, 80, 80);
             ctx.strokeRect(canvas.width - 80, canvas.height/2 - 40, 80, 80);
 
-            // Players
-            // Formation: Standard 5-out style locations
-            // Host (Left), Guest (Right)
-            // Positions: PG(0), SG(1), SF(2), PF(3), C(4)
-            const hostPos = [
-                {x: 140, y: 100}, // PG
-                {x: 100, y: 40},  // SG
-                {x: 100, y: 160}, // SF
-                {x: 40, y: 140},  // PF
-                {x: 40, y: 60}    // C
-            ];
+            // Targets based on active shooter (Ball location)
+            // If ball is active, players swarm towards it slightly
+            const activeId = roomData?.simState?.activeShooter;
             
-            const guestPos = [
-                {x: 460, y: 100}, // PG
-                {x: 500, y: 160}, // SG
-                {x: 500, y: 40},  // SF
-                {x: 560, y: 60},  // PF
-                {x: 560, y: 140}  // C
-            ];
+            // Base Positions
+            const hostBase = [{x:140,y:100},{x:100,y:40},{x:100,y:160},{x:40,y:140},{x:40,y:60}];
+            const guestBase = [{x:460,y:100},{x:500,y:160},{x:500,y:40},{x:560,y:60},{x:560,y:140}];
 
-            // Render Host
-            data.lineupHost.forEach((pid, idx) => {
-                if(!pid) return;
-                const p = PLAYERS_DB.find(x => x.id === pid);
-                const pos = hostPos[idx];
-                const isActive = data.simState.activeShooter === pid;
-                
-                ctx.beginPath();
-                ctx.fillStyle = '#3b82f6'; // Blue
-                ctx.arc(pos.x, pos.y, 10, 0, Math.PI*2);
-                ctx.fill();
-                if(isActive) {
-                    ctx.strokeStyle = '#ffff00';
-                    ctx.lineWidth = 3;
-                    ctx.stroke();
-                }
-                
-                // Text
-                ctx.fillStyle = 'white';
-                ctx.font = '10px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillText(p.pos, pos.x, pos.y+3);
-            });
+            // Draw Players
+            const drawTeam = (lineup, bases, color) => {
+                lineup.forEach((pid, idx) => {
+                    if(!pid) return;
+                    
+                    // Init anim state
+                    if(!playerAnims[pid]) playerAnims[pid] = { x: bases[idx].x, y: bases[idx].y };
+                    
+                    let targetX = bases[idx].x;
+                    let targetY = bases[idx].y;
 
-            // Render Guest
-            data.lineupGuest.forEach((pid, idx) => {
-                if(!pid) return;
-                const p = PLAYERS_DB.find(x => x.id === pid);
-                const pos = guestPos[idx];
-                const isActive = data.simState.activeShooter === pid;
-                
-                ctx.beginPath();
-                ctx.fillStyle = '#ef4444'; // Red
-                ctx.arc(pos.x, pos.y, 10, 0, Math.PI*2);
-                ctx.fill();
-                if(isActive) {
-                    ctx.strokeStyle = '#ffff00';
-                    ctx.lineWidth = 3;
-                    ctx.stroke();
-                }
+                    // Dynamic Movement:
+                    // If this player is active shooter, move to 'shot location' (randomized near basket)
+                    // If not, wander slightly
+                    if (activeId === pid) {
+                        // Move closer to basket (Opposite side)
+                        // Simple logic: if host, basket is right (600,100), if guest, basket left (0,100)
+                        const basketX = (color === '#3b82f6') ? 500 : 100; 
+                        targetX = basketX + (Math.random()*40 - 20);
+                        targetY = 100 + (Math.random()*100 - 50);
+                    } else {
+                        // Brownian motion
+                        targetX += (Math.random() * 20 - 10);
+                        targetY += (Math.random() * 20 - 10);
+                    }
 
-                ctx.fillStyle = 'white';
-                ctx.font = '10px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillText(p.pos, pos.x, pos.y+3);
-            });
+                    // Lerp
+                    playerAnims[pid].x += (targetX - playerAnims[pid].x) * 0.05;
+                    playerAnims[pid].y += (targetY - playerAnims[pid].y) * 0.05;
+
+                    const x = playerAnims[pid].x;
+                    const y = playerAnims[pid].y;
+
+                    ctx.beginPath();
+                    ctx.fillStyle = color;
+                    ctx.arc(x, y, 8, 0, Math.PI*2);
+                    ctx.fill();
+                    
+                    if(activeId === pid) {
+                        ctx.strokeStyle = '#ffff00';
+                        ctx.lineWidth = 3;
+                        ctx.stroke();
+                        // Draw ball
+                        ctx.beginPath();
+                        ctx.fillStyle = 'orange';
+                        ctx.arc(x+10, y, 5, 0, Math.PI*2);
+                        ctx.fill();
+                    }
+                });
+            };
+
+            if (roomData) {
+                drawTeam(roomData.lineupHost, hostBase, '#3b82f6');
+                drawTeam(roomData.lineupGuest, guestBase, '#ef4444');
+            }
+
+            animRequest = requestAnimationFrame(() => animateCourt(roomData));
         }
 
         function updateMiniBox(stats, teamIds, elId) {
             const el = document.getElementById(elId);
             el.innerHTML = '';
             teamIds.forEach(pid => {
-                const s = stats[pid] || {pts:0,reb:0,ast:0,fls:0};
+                const s = stats[pid] || {pts:0,fga:0,fgm:0};
                 const p = PLAYERS_DB.find(x => x.id === pid);
+                const pct = getPct(s.fgm, s.fga);
                 el.innerHTML += `
                     <tr class="border-b border-gray-800">
                         <td class="py-1 truncate max-w-[80px]">${p.name.split(' ').pop()}</td>
                         <td class="text-right text-yellow-500">${s.pts}</td>
-                        <td class="text-right text-gray-400">${s.fls}</td>
+                        <td class="text-right text-gray-400">${pct}%</td>
                     </tr>
                 `;
             });
         }
 
         function startSimulation() {
-            if(simInterval) return; // Already running
+            if(simInterval) return;
             if(myRole !== 'host') return;
 
-            // Faster Interval: 600ms
             simInterval = setInterval(async () => {
                 const ref = getRef(currentRoomId);
                 const doc = await ref.get();
@@ -996,7 +993,6 @@
                 let state = d.simState;
                 let logs = d.logs;
                 
-                // Tick Clock
                 state.time -= 15;
                 if(state.time <= 0) {
                     state.q++;
@@ -1004,12 +1000,10 @@
                     logs.push(`--- END OF QUARTER ${state.q-1} ---`);
                 }
 
-                // Possession
                 const isHostPoss = Math.random() > 0.5;
                 const attTeam = isHostPoss ? d.lineupHost : d.lineupGuest;
                 const defTeam = isHostPoss ? d.lineupGuest : d.lineupHost;
                 
-                // Pick Shooter
                 const shooters = attTeam.map(pid => PLAYERS_DB.find(x=>x.id===pid));
                 const totalOff = shooters.reduce((a,b) => a + b.off, 0);
                 let r = Math.random() * totalOff;
@@ -1021,51 +1015,51 @@
                 const shooter = shooters[shooterIdx];
                 const defender = PLAYERS_DB.find(x=>x.id === defTeam[shooterIdx]);
 
-                // Highlight Shooter for Viz
                 state.activeShooter = shooter.id;
 
-                // FOUL CHECK
-                const foulChance = 10; // 10% chance per possession
+                const foulChance = 10;
                 const isFoul = Math.random() * 100 < foulChance;
                 
                 if(isFoul) {
                     state.stats[defender.id].fls++;
-                    logs.push(`Foul on ${defender.name}! ${shooter.name} to the line.`);
+                    state.stats[shooter.id].fta += 2;
+                    logs.push(`Foul on ${defender.name}!`);
                     
-                    // 2 Free Throws (Simple 75% chance)
                     let ftPts = 0;
-                    if(Math.random() < 0.75) ftPts++;
-                    if(Math.random() < 0.75) ftPts++;
+                    if(Math.random() < 0.75) { ftPts++; state.stats[shooter.id].ftm++; }
+                    if(Math.random() < 0.75) { ftPts++; state.stats[shooter.id].ftm++; }
                     
                     state.stats[shooter.id].pts += ftPts;
                     if(isHostPoss) state.scoreH += ftPts; else state.scoreG += ftPts;
-                    logs.push(`${shooter.name} makes ${ftPts}/2 Free Throws.`);
 
                 } else {
-                    // Regular Shot
                     const hitChance = 45 + (shooter.off - defender.def) * 0.5;
                     const roll = Math.random() * 100;
+                    
                     state.stats[shooter.id].fga++;
+                    
+                    // 3PT Check
+                    const is3 = Math.random() < 0.35;
+                    if(is3) state.stats[shooter.id].tpa++;
 
                     if(roll < hitChance) {
-                        const is3 = Math.random() < 0.35;
                         const pts = is3 ? 3 : 2;
                         state.stats[shooter.id].pts += pts;
                         state.stats[shooter.id].fgm++;
+                        if(is3) state.stats[shooter.id].tpm++;
+                        
                         if(isHostPoss) state.scoreH += pts; else state.scoreG += pts;
                         
-                        // Assist?
                         if(Math.random() > 0.4) {
                             let mates = attTeam.filter(id => id !== shooter.id);
                             let assisterId = mates[Math.floor(Math.random()*mates.length)];
                             state.stats[assisterId].ast++;
                             const assister = PLAYERS_DB.find(x=>x.id===assisterId);
-                            logs.push(`${isHostPoss?'Host':'Guest'}: ${shooter.name} scores (${assister.name} ast)`);
+                            logs.push(`${shooter.name} ${is3?'3PT':'jumper'} (${assister.name} ast)`);
                         } else {
-                            logs.push(`${isHostPoss?'Host':'Guest'}: ${shooter.name} unassisted bucket`);
+                            logs.push(`${shooter.name} unassisted ${is3?'3PT':'score'}`);
                         }
                     } else {
-                        // Rebound
                         const allPlayers = [...attTeam, ...defTeam].map(pid => PLAYERS_DB.find(x=>x.id===pid));
                         const totalReb = allPlayers.reduce((a,b) => a + b.reb, 0);
                         let rReb = Math.random() * totalReb;
@@ -1076,7 +1070,7 @@
                         }
                         state.stats[rebId].reb++;
                         const rebP = PLAYERS_DB.find(x=>x.id===rebId);
-                        logs.push(`${shooter.name} misses. Rebound ${rebP.name}`);
+                        logs.push(`Miss by ${shooter.name}. Rebound ${rebP.name}`);
                     }
                 }
 
@@ -1099,7 +1093,6 @@
                 badge.className = "inline-block px-6 py-2 rounded bg-red-600 text-white font-bold text-2xl uppercase";
             }
 
-            // Fill Full Tables
             renderFullBox(data.simState.stats, data.teamHost, 'box-host-full');
             renderFullBox(data.simState.stats, data.teamGuest, 'box-guest-full');
         }
@@ -1110,19 +1103,31 @@
             teamIds.forEach(pid => {
                 const s = stats[pid];
                 const p = PLAYERS_DB.find(x => x.id === pid);
+                
+                const fgPct = getPct(s.fgm, s.fga);
+                const tpPct = getPct(s.tpm, s.tpa);
+                const ftPct = getPct(s.ftm, s.fta);
+
                 el.innerHTML += `
                     <tr class="border-b border-gray-700 hover:bg-gray-700">
                         <td class="py-2 font-bold">${p.name}</td>
                         <td class="py-2 text-right text-yellow-500 font-bold">${s.pts}</td>
                         <td class="py-2 text-right text-gray-300">${s.reb}</td>
                         <td class="py-2 text-right text-gray-300">${s.ast}</td>
-                        <td class="py-2 text-right text-gray-400">${s.fls}</td>
+                        <td class="py-2 text-right text-gray-400 text-sm">
+                            ${s.fgm}/${s.fga} <span class="text-xs text-gray-500">(${fgPct}%)</span>
+                        </td>
+                        <td class="py-2 text-right text-gray-400 text-sm">
+                            ${s.tpm}/${s.tpa} <span class="text-xs text-gray-500">(${tpPct}%)</span>
+                        </td>
+                        <td class="py-2 text-right text-gray-400 text-sm">
+                            ${s.ftm}/${s.fta} <span class="text-xs text-gray-500">(${ftPct}%)</span>
+                        </td>
                     </tr>
                 `;
             });
         }
 
-        // Utils
         async function updateGameMode() {
             if(!currentRoomId) return;
             const m = document.getElementById('mode-select').value;
