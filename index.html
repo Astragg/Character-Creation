@@ -3,17 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Project: ONOMANCER</title>
+    <title>D&D Beyond Style Builder</title>
     <style>
         :root {
-            --bg-body: #0a0a0a;
-            --bg-panel: #111111;
+            --bg-body: #050505;
+            --bg-panel: #111;
             --bg-card: #1a1a1a;
-            --accent: #991b1b; /* Deep Red */
-            --accent-glow: rgba(153, 27, 27, 0.3);
+            --accent: #b91c1c;
             --text-main: #e5e5e5;
             --text-muted: #737373;
-            --border: #262626;
+            --border: #333;
             --hex-bg: #1c1c1c;
         }
 
@@ -26,19 +25,91 @@
             height: 100vh;
             overflow: hidden;
             display: flex;
-            flex-direction: column;
         }
 
-        /* UTILS */
-        input { background: transparent; border: none; color: inherit; font-family: inherit; text-align: center; width: 100%; }
-        input:focus { outline: none; border-bottom: 1px solid var(--accent); }
-        .flex { display: flex; }
-        .col { flex-direction: column; }
-        .center { align-items: center; justify-content: center; }
-        .btn-icon { cursor: pointer; color: var(--text-muted); padding: 5px; transition: 0.2s; }
-        .btn-icon:hover { color: white; }
+        /* --- LEFT PANEL: THE BUILDER --- */
+        .builder-panel {
+            width: 350px;
+            background: #0a0a0a;
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            z-index: 10;
+        }
 
-        /* --- LAYOUT GRID --- */
+        .builder-header {
+            padding: 20px;
+            background: var(--accent);
+            color: white;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .builder-content {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .control-group { margin-bottom: 25px; }
+        .control-label {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            font-weight: bold;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        /* Inputs */
+        select, input[type="text"], input[type="number"] {
+            width: 100%;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+        select:focus, input:focus { border-color: var(--accent); outline: none; }
+
+        /* Stat Grid in Builder */
+        .builder-stat-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+            background: #161616;
+            padding: 5px 10px;
+            border-radius: 4px;
+        }
+        .builder-stat-label { font-weight: bold; font-size: 0.85rem; width: 40px; }
+        .builder-stat-input { width: 50px; text-align: center; font-weight: bold; }
+        .builder-bonus { color: var(--accent); font-size: 0.8rem; width: 30px; text-align: right; }
+
+        /* Toggle Switch */
+        .toggle-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+        .toggle-btn {
+            background: #333; border: none; color: #888; padding: 5px 10px; cursor: pointer; border-radius: 4px; font-size: 0.8rem;
+        }
+        .toggle-btn.active { background: var(--accent); color: white; }
+
+        /* --- RIGHT PANEL: THE SHEET PREVIEW --- */
+        .sheet-preview {
+            flex-grow: 1;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Re-using the exact Sheet Styles from before for Pixel-Perfect Layout */
         .dashboard {
             display: grid;
             grid-template-columns: 240px 1fr 240px;
@@ -46,384 +117,220 @@
             gap: 10px;
             padding: 10px;
             height: 100%;
-        }
-
-        /* --- 1. HEADER (TOP ROW) --- */
-        .header {
-            grid-column: 1 / -1;
-            display: flex;
-            gap: 10px;
-        }
-
-        .char-info-panel {
-            background: var(--bg-panel);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 10px 20px;
-            width: 300px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-        }
-        .char-name { font-size: 1.2rem; font-weight: bold; }
-        .char-sub { font-size: 0.8rem; color: var(--text-muted); }
-
-        .vitals-panel {
-            flex-grow: 1;
-            background: var(--bg-panel);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            display: flex;
-            align-items: center;
-            padding: 0 20px;
-            gap: 30px;
-        }
-
-        .vital-shield {
-            width: 50px; height: 60px;
-            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%23555" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>') no-repeat center;
-            background-size: contain;
-            display: flex; flex-direction: column;
-            align-items: center; justify-content: center;
-            padding-bottom: 5px;
-        }
-        .vital-shield input { font-size: 1.4rem; font-weight: bold; width: 40px; }
-        .vital-val-lg { font-size: 1.8rem; font-weight: bold; }
-
-        .hp-box {
-            background: #000;
-            border: 1px solid #333;
-            border-radius: 4px;
-            padding: 5px 15px;
-            text-align: center;
-            min-width: 120px;
-        }
-        .hp-bar-bg { height: 4px; background: #333; margin-top: 5px; width: 100%; position: relative; }
-        .hp-bar-fill { height: 100%; background: var(--accent); width: 100%; }
-
-        .session-log {
-            background: var(--bg-panel);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            width: 300px;
-            padding: 10px;
-            display: flex; flex-direction: column;
-        }
-        .save-load-controls {
-            display: flex; gap: 10px; justify-content: flex-end; margin-bottom: 5px;
-        }
-        .save-btn { background: var(--accent); border: none; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; cursor: pointer; }
-
-        /* --- 2. LEFT SIDEBAR (STATS) --- */
-        .sidebar-left {
-            grid-row: 2;
-            overflow-y: auto;
-            padding-right: 5px;
-        }
-
-        .stat-block {
-            margin-bottom: 20px;
-            position: relative;
-        }
-        
-        /* The Hex Shape Container */
-        .stat-hex {
-            width: 100%;
-            height: 90px;
-            background: var(--hex-bg);
-            border: 2px solid var(--border);
-            /* Clip path for tech shape */
-            clip-path: polygon(15% 0, 85% 0, 100% 15%, 100% 85%, 85% 100%, 15% 100%, 0 85%, 0 15%);
-            display: flex; flex-direction: column;
-            align-items: center; justify-content: center;
-            position: relative;
-        }
-        .stat-hex::before {
-            content: ''; position: absolute; top: 2px; left: 2px; right: 2px; bottom: 2px;
-            border: 1px solid #333;
-            clip-path: polygon(15% 0, 85% 0, 100% 15%, 100% 85%, 85% 100%, 15% 100%, 0 85%, 0 15%);
-            pointer-events: none;
-        }
-
-        .stat-val { font-size: 2rem; font-weight: bold; z-index: 2; }
-        .stat-mod { font-size: 1rem; color: var(--text-main); margin-top: -5px; z-index: 2; }
-        .stat-label { font-size: 0.7rem; text-transform: uppercase; color: var(--text-muted); margin-top: 2px; z-index: 2; }
-
-        /* Connection Line */
-        .stat-connector {
-            position: absolute;
-            right: -10px; top: 10px;
-            width: 20px; height: 1px; background: #444;
-            z-index: 0;
-        }
-
-        .skill-list {
-            margin-top: 5px;
-            padding-left: 10px;
-        }
-        .skill-row {
-            display: flex; align-items: center;
-            font-size: 0.8rem;
-            color: var(--text-muted);
-            margin-bottom: 3px;
-        }
-        .skill-prof {
-            width: 8px; height: 8px; border-radius: 50%;
-            border: 1px solid #555; margin-right: 8px;
-            cursor: pointer;
-        }
-        .skill-prof.active { background: var(--accent); border-color: var(--accent); }
-        .skill-val { width: 25px; text-align: right; margin-right: 5px; color: var(--text-main); }
-
-
-        /* --- 3. CENTER PANEL (TABS) --- */
-        .main-content {
-            grid-row: 2;
-            background: var(--bg-panel);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            display: flex; flex-direction: column;
             overflow: hidden;
         }
 
-        .tabs {
-            display: flex;
-            border-bottom: 1px solid var(--border);
-            background: #000;
-        }
-        .tab-btn {
-            background: transparent; border: none;
-            color: var(--text-muted);
-            padding: 12px 20px;
-            font-weight: bold;
-            cursor: pointer;
-            border-bottom: 2px solid transparent;
-        }
-        .tab-btn.active { color: white; border-bottom-color: var(--accent); }
-        .tab-btn:hover { color: #fff; }
+        /* HEADER */
+        .header { grid-column: 1 / -1; display: flex; gap: 10px; }
+        .char-info-panel { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 6px; padding: 10px 20px; width: 300px; display: flex; flex-direction: column; justify-content: center; }
+        .char-name { font-size: 1.2rem; font-weight: bold; color: white; }
+        .char-sub { font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; }
+        
+        .vitals-panel { flex-grow: 1; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 6px; display: flex; align-items: center; padding: 0 20px; gap: 30px; }
+        .vital-shield { width: 50px; height: 60px; background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%23555" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>') no-repeat center; background-size: contain; display: flex; flex-direction: column; align-items: center; justify-content: center; padding-bottom: 5px; }
+        .vital-val { font-size: 1.4rem; font-weight: bold; }
+        
+        .hp-box { background: #000; border: 1px solid #333; border-radius: 4px; padding: 5px 15px; text-align: center; min-width: 120px; }
+        .hp-bar-bg { height: 4px; background: #333; margin-top: 5px; width: 100%; position: relative; }
+        .hp-bar-fill { height: 100%; background: var(--accent); width: 100%; transition: width 0.3s; }
 
+        .session-log { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 6px; width: 300px; padding: 10px; display: flex; flex-direction: column; }
+        .save-load { display: flex; justify-content: flex-end; gap: 5px; margin-bottom: 5px; }
+        .sl-btn { background: #333; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 0.7rem; }
+        .sl-btn:hover { background: var(--accent); }
+
+        /* LEFT SIDEBAR STATS */
+        .sidebar-left { grid-row: 2; overflow-y: auto; padding-right: 5px; }
+        .stat-block { margin-bottom: 20px; }
+        .stat-hex { width: 100%; height: 90px; background: var(--hex-bg); border: 2px solid var(--border); clip-path: polygon(15% 0, 85% 0, 100% 15%, 100% 85%, 85% 100%, 15% 100%, 0 85%, 0 15%); display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
+        .stat-hex::before { content: ''; position: absolute; top: 2px; left: 2px; right: 2px; bottom: 2px; border: 1px solid #333; clip-path: polygon(15% 0, 85% 0, 100% 15%, 100% 85%, 85% 100%, 15% 100%, 0 85%, 0 15%); pointer-events: none; }
+        .stat-big { font-size: 2rem; font-weight: bold; z-index: 2; }
+        .stat-tiny { font-size: 1rem; margin-top: -5px; z-index: 2; }
+        .stat-lbl { font-size: 0.7rem; text-transform: uppercase; color: var(--text-muted); margin-top: 2px; z-index: 2; }
+        .stat-connector { position: absolute; right: -10px; top: 10px; width: 20px; height: 1px; background: #444; z-index: 0; }
+        
+        .skill-list { margin-top: 5px; padding-left: 10px; }
+        .skill-row { display: flex; align-items: center; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 3px; }
+        .skill-prof { width: 8px; height: 8px; border-radius: 50%; border: 1px solid #555; margin-right: 8px; }
+        .skill-prof.active { background: var(--accent); border-color: var(--accent); }
+        .skill-val { width: 25px; text-align: right; margin-right: 5px; color: var(--text-main); }
+
+        /* CENTER CONTENT */
+        .main-content { grid-row: 2; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 6px; display: flex; flex-direction: column; overflow: hidden; }
+        .tabs { display: flex; border-bottom: 1px solid var(--border); background: #000; }
+        .tab-btn { background: transparent; border: none; color: var(--text-muted); padding: 12px 20px; font-weight: bold; cursor: pointer; border-bottom: 2px solid transparent; }
+        .tab-btn.active { color: white; border-bottom-color: var(--accent); }
         .tab-pane { padding: 20px; overflow-y: auto; flex-grow: 1; display: none; }
         .tab-pane.show { display: block; }
 
-        /* ACTION CARDS */
-        .section-header { font-size: 0.9rem; font-weight: bold; margin-bottom: 10px; }
-        
-        .attack-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
-        .attack-card {
-            background: var(--bg-card); border: 1px solid var(--border); border-radius: 4px;
-            padding: 10px;
-            display: flex; flex-direction: column;
-            cursor: pointer;
-        }
-        .attack-card:hover { border-color: #555; }
-        .att-top { display: flex; align-items: center; margin-bottom: 5px; }
-        .att-icon { width: 20px; height: 20px; margin-right: 8px; fill: var(--text-muted); }
-        .att-name { font-weight: bold; font-size: 0.9rem; }
-        .att-stats { display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-muted); margin-top: 5px; }
-        .att-dmg { color: var(--text-main); }
-
-        .feature-card {
-            background: var(--bg-card); border: 1px solid var(--border); border-radius: 4px;
-            margin-bottom: 10px; padding: 0; overflow: hidden;
-        }
-        .feat-header {
-            background: #222; padding: 8px 12px;
-            display: flex; justify-content: space-between; align-items: center;
-            font-size: 0.9rem; font-weight: bold;
-        }
-        .feat-body { padding: 10px 12px; font-size: 0.85rem; color: #ccc; line-height: 1.4; }
-        
-        .slots-container { display: flex; gap: 4px; margin-top: 5px; }
-        .slot { width: 12px; height: 12px; background: var(--accent); border-radius: 2px; }
-        .slot.empty { background: #333; }
-
-
-        /* --- 4. RIGHT SIDEBAR --- */
-        .sidebar-right {
-            grid-row: 2;
-            overflow-y: auto;
-        }
-        .widget {
-            background: var(--bg-panel);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 10px;
-            margin-bottom: 10px;
-        }
-        .widget-title {
-            text-align: center; font-size: 0.8rem; color: var(--text-muted);
-            margin-bottom: 8px; font-weight: bold;
-        }
+        /* RIGHT SIDEBAR */
+        .sidebar-right { grid-row: 2; overflow-y: auto; }
+        .widget { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 6px; padding: 10px; margin-bottom: 10px; }
+        .widget-title { text-align: center; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px; font-weight: bold; }
         .prof-text { font-size: 0.8rem; line-height: 1.6; color: #aaa; }
 
     </style>
 </head>
 <body>
 
-    <input type="file" id="fileUpload" style="display:none" onchange="loadCharacterFromFile(this)">
+    <input type="file" id="fileUpload" style="display:none" onchange="loadFromFile(this)">
 
-    <div class="dashboard">
-        
-        <div class="header">
-            <div class="char-info-panel">
-                <input class="char-name" id="charName" value="Ichibē Hyōsube">
-                <input class="char-sub" id="charClass" value="The Onomancer 5 - Goliath">
-                <div style="font-size:0.75rem; margin-top:5px; color:#666;">
-                    Proficiency: <input type="number" id="profBonus" value="3" style="width:30px; display:inline;" onchange="updateDerivedStats()">
-                </div>
-            </div>
-
-            <div class="vitals-panel">
-                <div class="vital-shield">
-                    <input type="number" id="ac" value="16">
-                </div>
-                <div class="vital-shield">
-                    <input type="number" id="init" value="2">
-                </div>
-                <div class="vital-shield" style="background:none;">
-                    <div style="text-align:center;">
-                        <input type="number" id="speed" value="30" style="font-size:1.5rem; font-weight:bold;">
-                        <span style="font-size:0.6rem; text-transform:uppercase; color:#777;">Walk</span>
-                    </div>
-                </div>
-
-                <div class="hp-box">
-                    <div style="font-size:0.7rem; color:#888;">Hit Points</div>
-                    <div class="flex center" style="gap:5px;">
-                        <input type="number" id="hpCurrent" value="38" style="font-size:1.2rem; font-weight:bold; width:40px;">
-                        <span style="color:#555;">/</span>
-                        <input type="number" id="hpMax" value="38" style="font-size:1.2rem; font-weight:bold; width:40px;">
-                    </div>
-                    <div class="hp-bar-bg"><div class="hp-bar-fill" style="width:100%"></div></div>
-                </div>
-            </div>
-
-            <div class="session-log">
-                <div class="save-load-controls">
-                    <button class="save-btn" onclick="saveCharacter()">Download JSON</button>
-                    <button class="save-btn" style="background:#333;" onclick="document.getElementById('fileUpload').click()">Upload JSON</button>
-                </div>
-                <input type="text" placeholder="Write some notes..." style="background:#000; padding:5px; border-radius:4px; font-size:0.8rem; color:#888;">
-            </div>
+    <div class="builder-panel">
+        <div class="builder-header">
+            Character Builder
+            <span style="font-size:0.7rem; font-weight:normal; opacity:0.7;">v2.0</span>
         </div>
-
-        <div class="sidebar-left" id="statContainer">
-            </div>
-
-        <div class="main-content">
-            <div class="tabs">
-                <button class="tab-btn active" onclick="switchTab('actions')">Actions</button>
-                <button class="tab-btn" onclick="switchTab('spells')">Spells</button>
-                <button class="tab-btn" onclick="switchTab('inventory')">Inventory</button>
-                <button class="tab-btn" onclick="switchTab('features')">Features</button>
-                <button class="tab-btn" onclick="switchTab('notes')">Notes</button>
-            </div>
-
-            <div id="tab-actions" class="tab-pane show">
-                <div class="section-header">Attacks</div>
-                <div class="attack-grid">
-                    <div class="attack-card">
-                        <div class="att-top">
-                            <span class="att-name">The Great Brush</span>
-                        </div>
-                        <div class="att-stats">
-                            <span>Melee Attack</span>
-                            <span>Range 10</span>
-                        </div>
-                        <div class="att-stats">
-                            <span>+7 to Hit</span>
-                            <span class="att-dmg">1d10 + 4 Force</span>
-                        </div>
-                    </div>
-                    <div class="attack-card">
-                        <div class="att-top">
-                            <span class="att-name">Renaming Strike</span>
-                        </div>
-                        <div class="att-stats">
-                            <span>Spell Attack</span>
-                            <span>Range 5</span>
-                        </div>
-                        <div class="att-stats">
-                            <span>+7 to Hit</span>
-                            <span class="att-dmg">3d8 Force</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="section-header">Action</div>
-                <div class="feature-card">
-                    <div class="feat-header">
-                        <span>The Ink Well <span style="font-weight:normal; color:#777; font-size:0.7rem; margin-left:5px;">Class Feature</span></span>
-                        <div style="font-size:0.6rem; background:#333; padding:2px 5px; border-radius:2px;">Reset: Short Rest</div>
-                    </div>
-                    <div class="feat-body">
-                        <div class="slots-container">
-                            <div class="slot"></div><div class="slot"></div><div class="slot"></div><div class="slot"></div>
-                            <div class="slot"></div><div class="slot"></div><div class="slot"></div><div class="slot"></div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="feature-card">
-                    <div class="feat-header">
-                        <span>Binding Word (3 Ink)</span>
-                    </div>
-                    <div class="feat-body">
-                        <em>Trigger:</em> Action. <em>Effect:</em> Cast Hold Person.
-                    </div>
-                </div>
-
-                <div class="section-header">Bonus Action</div>
-                <div class="feature-card">
-                    <div class="feat-header">Extra Attack</div>
-                    <div class="feat-body">You can attack twice by burning a bonus action to use two actions.</div>
-                </div>
-                <div class="feature-card">
-                    <div class="feat-header">Heavy Stroke (1 Ink)</div>
-                    <div class="feat-body"><em>Trigger:</em> On a hit. <em>Effect:</em> Target's speed becomes 0.</div>
-                </div>
-
-                 <div class="section-header">Other</div>
-                <div class="feature-card">
-                    <div class="feat-header">Ink Blade</div>
-                    <div class="feat-body">When you hit with your brush, you can change damage type to Necrotic.</div>
-                </div>
-            </div>
+        <div class="builder-content">
             
-            <div id="tab-spells" class="tab-pane">No spell slots available.</div>
-            <div id="tab-inventory" class="tab-pane">Inventory is empty.</div>
-            <div id="tab-features" class="tab-pane">Feature list...</div>
-            <div id="tab-notes" class="tab-pane"><textarea style="width:100%; height:300px; background:transparent; border:none; color:white;">Your notes are empty.</textarea></div>
+            <div class="control-group">
+                <label class="control-label">Name</label>
+                <input type="text" id="inName" value="Ichibē Hyōsube" oninput="updateAll()">
+            </div>
 
-        </div>
+            <div class="control-group">
+                <label class="control-label">Race</label>
+                <select id="inRace" onchange="updateAll()">
+                    <option value="Human">Human (+1 All)</option>
+                    <option value="Goliath" selected>Goliath (+2 STR, +1 CON)</option>
+                    <option value="Elf">Elf (+2 DEX)</option>
+                    <option value="Dwarf">Dwarf (+2 CON)</option>
+                    <option value="Oni">Oni (+2 STR, +1 CHA)</option>
+                </select>
+            </div>
 
-        <div class="sidebar-right">
-            <div class="widget">
-                <div class="widget-title">Proficiencies</div>
-                <div class="prof-text">
-                    <strong>Weapons:</strong> Simple, Martial<br>
-                    <strong>Armor:</strong> Light, Medium<br>
-                    <strong>Tools:</strong> Calligrapher's Supplies<br>
-                    <strong>Languages:</strong> Common, Giant, Primordial
+            <div class="control-group">
+                <label class="control-label">Class</label>
+                <select id="inClass" onchange="updateAll()">
+                    <option value="Onomancer" selected>Onomancer (d8 Hit Die)</option>
+                    <option value="Fighter">Fighter (d10 Hit Die)</option>
+                    <option value="Wizard">Wizard (d6 Hit Die)</option>
+                    <option value="Barbarian">Barbarian (d12 Hit Die)</option>
+                    <option value="Rogue">Rogue (d8 Hit Die)</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label class="control-label">Level</label>
+                <input type="number" id="inLevel" value="5" min="1" max="20" oninput="updateAll()">
+            </div>
+
+            <div class="control-group">
+                <label class="control-label">Base Ability Scores (Before Race)</label>
+                <div id="statBuilder">
+                    </div>
+            </div>
+
+            <div class="control-group">
+                <div class="toggle-row">
+                    <label class="control-label" style="margin:0">Hit Points</label>
+                    <div>
+                        <button class="toggle-btn active" id="btnHpFixed" onclick="setHpMode('fixed')">Fixed</button>
+                        <button class="toggle-btn" id="btnHpManual" onclick="setHpMode('manual')">Manual</button>
+                    </div>
+                </div>
+                <div id="hpAutoDisplay" style="font-size:0.8rem; color:#888; margin-top:5px;">
+                    Calculating based on Class & CON...
+                </div>
+                <div id="hpManualInput" style="display:none; margin-top:5px;">
+                    <input type="number" id="inHpManual" value="38" oninput="updateAll()">
                 </div>
             </div>
-            <div class="widget">
-                <div class="widget-title">Tracking</div>
-                <div class="prof-text" style="text-align:center; color:#555;">No resources configured.</div>
+
+        </div>
+    </div>
+
+    <div class="sheet-preview">
+        <div class="dashboard">
+            
+            <div class="header">
+                <div class="char-info-panel">
+                    <div class="char-name" id="outName">Ichibē Hyōsube</div>
+                    <div class="char-sub" id="outSub">The Onomancer 5 - Goliath</div>
+                    <div style="font-size:0.75rem; margin-top:5px; color:#666;">
+                        Proficiency Bonus: <span id="outProf" style="color:var(--accent); font-weight:bold;">+3</span>
+                    </div>
+                </div>
+
+                <div class="vitals-panel">
+                    <div class="vital-shield">
+                        <div class="vital-val" id="outAC">16</div>
+                        <div style="font-size:0.6rem;">AC</div>
+                    </div>
+                    <div class="vital-shield">
+                        <div class="vital-val" id="outInit">+2</div>
+                        <div style="font-size:0.6rem;">INIT</div>
+                    </div>
+                    <div class="vital-shield" style="background:none;">
+                        <div style="text-align:center;">
+                            <div class="vital-val" id="outSpeed">30</div>
+                            <span style="font-size:0.6rem; text-transform:uppercase; color:#777;">Walk</span>
+                        </div>
+                    </div>
+
+                    <div class="hp-box">
+                        <div style="font-size:0.7rem; color:#888;">Hit Points</div>
+                        <div style="font-size:1.2rem; font-weight:bold; color:white;">
+                            <span id="outHpCurr">38</span> / <span id="outHpMax">38</span>
+                        </div>
+                        <div class="hp-bar-bg"><div class="hp-bar-fill" style="width:100%"></div></div>
+                    </div>
+                </div>
+
+                <div class="session-log">
+                    <div class="save-load">
+                        <button class="sl-btn" onclick="saveData()">Save JSON</button>
+                        <button class="sl-btn" onclick="document.getElementById('fileUpload').click()">Load JSON</button>
+                    </div>
+                    <textarea style="background:transparent; border:none; color:#777; width:100%; height:100%; font-family:inherit; font-size:0.8rem; resize:none;" placeholder="Session Notes..."></textarea>
+                </div>
             </div>
-            <div class="widget">
-                <div class="widget-title">Defenses</div>
-                <div class="prof-text" style="text-align:center; color:#555;">No defenses active.</div>
+
+            <div class="sidebar-left" id="statDisplay">
+                </div>
+
+            <div class="main-content">
+                <div class="tabs">
+                    <button class="tab-btn active">Actions</button>
+                    <button class="tab-btn">Spells</button>
+                    <button class="tab-btn">Features</button>
+                </div>
+                <div class="tab-pane show">
+                    <div style="font-weight:bold; margin-bottom:10px;">Attacks</div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                        <div style="background:#222; padding:10px; border:1px solid #333; border-radius:4px;">
+                            <div style="font-weight:bold;">The Great Brush</div>
+                            <div style="font-size:0.8rem; color:#888;">Melee • 10ft Reach</div>
+                            <div style="display:flex; justify-content:space-between; margin-top:5px;">
+                                <span id="atkBonus" style="color:white; font-weight:bold;">+7</span>
+                                <span style="color:#ccc;">1d10 + <span id="dmgMod">4</span> Force</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="widget">
-                <div class="widget-title">Conditions</div>
-                <div class="prof-text" style="text-align:center; color:#555;">No conditions active.</div>
+
+            <div class="sidebar-right">
+                <div class="widget">
+                    <div class="widget-title">Proficiencies</div>
+                    <div class="prof-text">
+                        <strong>Armor:</strong> Light, Medium<br>
+                        <strong>Weapons:</strong> Simple, Martial<br>
+                        <strong>Languages:</strong> Common, Giant
+                    </div>
+                </div>
+                <div class="widget">
+                    <div class="widget-title">Resistances</div>
+                    <div class="prof-text" style="text-align:center; color:#555;">None</div>
+                </div>
             </div>
+
         </div>
     </div>
 
 <script>
-    // --- DATA MODEL ---
+    /* --- DATABASE --- */
+    const STATS = ["Strength", "Dexterity", "Constitution", "Intelligence", "Wisdom", "Charisma"];
+    
     const SKILL_MAP = {
         "Strength": ["Athletics"],
         "Dexterity": ["Acrobatics", "Sleight of Hand", "Stealth"],
@@ -433,178 +340,219 @@
         "Charisma": ["Deception", "Intimidation", "Performance", "Persuasion"]
     };
 
-    const DEFAULT_STATS = {
-        Strength: 10, Dexterity: 14, Constitution: 14, Intelligence: 12, Wisdom: 18, Charisma: 8
+    const RACES = {
+        "Human": { speed: 30, mods: [1,1,1,1,1,1] },
+        "Goliath": { speed: 30, mods: [2,0,1,0,0,0] }, // STR, CON
+        "Elf": { speed: 30, mods: [0,2,0,0,0,0] }, // DEX
+        "Dwarf": { speed: 25, mods: [0,0,2,0,0,0] }, // CON
+        "Oni": { speed: 30, mods: [2,0,0,0,0,1] } // STR, CHA
     };
 
-    const DEFAULT_PROFS = ["Saving Throws-Strength", "Saving Throws-Wisdom", "Acrobatics", "Sleight of Hand", "Stealth", "Animal Handling", "Insight", "Medicine", "Perception", "Survival"];
+    const CLASSES = {
+        "Onomancer": { hitDie: 8, saves: ["Intelligence", "Wisdom"] },
+        "Fighter": { hitDie: 10, saves: ["Strength", "Constitution"] },
+        "Wizard": { hitDie: 6, saves: ["Intelligence", "Wisdom"] },
+        "Barbarian": { hitDie: 12, saves: ["Strength", "Constitution"] },
+        "Rogue": { hitDie: 8, saves: ["Dexterity", "Intelligence"] }
+    };
 
-    // --- RENDER LOGIC ---
-    function init() {
-        const container = document.getElementById('statContainer');
+    let hpMode = 'fixed';
+
+    /* --- INIT --- */
+    window.onload = function() {
+        buildStatInputs();
+        updateAll();
+    };
+
+    function buildStatInputs() {
+        const container = document.getElementById('statBuilder');
+        const defaultScores = [10, 14, 14, 12, 18, 8]; // From image
+        
+        STATS.forEach((stat, i) => {
+            container.innerHTML += `
+                <div class="builder-stat-row">
+                    <div class="builder-stat-label">${stat.substring(0,3)}</div>
+                    <input type="number" id="base${stat}" class="builder-stat-input" value="${defaultScores[i]}" oninput="updateAll()">
+                    <div class="builder-bonus" id="bonus${stat}">+0</div>
+                </div>
+            `;
+        });
+    }
+
+    /* --- CORE LOGIC --- */
+    function updateAll() {
+        // 1. Gather Inputs
+        const name = document.getElementById('inName').value;
+        const raceKey = document.getElementById('inRace').value;
+        const classKey = document.getElementById('inClass').value;
+        const level = parseInt(document.getElementById('inLevel').value) || 1;
+        
+        const raceData = RACES[raceKey];
+        const classData = CLASSES[classKey];
+
+        // 2. Calculate Proficiency: ceil(level / 4) + 1
+        const prof = Math.ceil(level / 4) + 1;
+
+        // 3. Process Stats & Bonuses
+        const finalStats = {};
+        const mods = {};
+
+        STATS.forEach((stat, i) => {
+            const base = parseInt(document.getElementById(`base${stat}`).value) || 10;
+            const bonus = raceData.mods[i];
+            
+            // Update Builder UI
+            document.getElementById(`bonus${stat}`).innerText = bonus > 0 ? `+${bonus}` : "+0";
+
+            const final = base + bonus;
+            finalStats[stat] = final;
+            mods[stat] = Math.floor((final - 10) / 2);
+        });
+
+        // 4. Calculate HP
+        let maxHp = 0;
+        if (hpMode === 'fixed') {
+            // Level 1: Max Die + Mod
+            // Level 2+: Avg Die (Die/2 + 1) + Mod
+            const conMod = mods["Constitution"];
+            const hitDie = classData.hitDie;
+            const lvl1 = hitDie + conMod;
+            const subsequent = (hitDie / 2 + 1) + conMod;
+            
+            maxHp = lvl1 + ((level - 1) * subsequent);
+            document.getElementById('hpAutoDisplay').innerText = `Auto: (${hitDie} + ${conMod}) + ${level-1}*(${hitDie/2+1} + ${conMod})`;
+        } else {
+            maxHp = parseInt(document.getElementById('inHpManual').value) || 10;
+        }
+
+        // 5. AC Calculation (Simple: 10 + DEX)
+        // Note: Real D&D has armor logic, simplified here to Unarmored Defense basics
+        const ac = 10 + mods["Dexterity"] + (classKey === "Barbarian" ? mods["Constitution"] : 0);
+
+        // 6. UPDATE DOM (Sheet Preview)
+        document.getElementById('outName').innerText = name;
+        document.getElementById('outSub').innerText = `${classKey} ${level} - ${raceKey}`;
+        document.getElementById('outProf').innerText = `+${prof}`;
+        
+        document.getElementById('outAC').innerText = ac;
+        document.getElementById('outInit').innerText = fmt(mods["Dexterity"]);
+        document.getElementById('outSpeed').innerText = raceData.speed;
+        
+        document.getElementById('outHpMax').innerText = maxHp;
+        document.getElementById('outHpCurr').innerText = maxHp; // Reset current on build change for simplicity
+
+        // Attack Bonus Demo (STR based)
+        const atkStat = classKey === "Rogue" || classKey === "Monk" ? mods["Dexterity"] : mods["Strength"];
+        document.getElementById('atkBonus').innerText = fmt(atkStat + prof);
+        document.getElementById('dmgMod').innerText = atkStat;
+
+        renderStatHexes(finalStats, mods, prof, classData.saves);
+    }
+
+    function renderStatHexes(stats, mods, prof, classSaves) {
+        const container = document.getElementById('statDisplay');
         container.innerHTML = "";
 
-        for (const [stat, skills] of Object.entries(SKILL_MAP)) {
-            let html = `
-                <div class="stat-block">
-                    <div class="stat-hex">
-                        <input type="number" class="stat-val" id="score-${stat}" value="${DEFAULT_STATS[stat]}" onchange="updateDerivedStats()">
-                        <div class="stat-mod" id="mod-${stat}">+0</div>
-                        <div class="stat-label">${stat}</div>
-                    </div>
-                    <div class="stat-connector"></div>
-                    <div class="skill-list">
-                        <div class="skill-row">
-                            <div class="skill-prof ${DEFAULT_PROFS.includes('Saving Throws-'+stat) ? 'active' : ''}" onclick="toggleProf(this)"></div>
-                            <div class="skill-val" id="save-${stat}">+0</div>
-                            <div>Saving Throws</div>
-                        </div>
+        STATS.forEach(stat => {
+            const mod = mods[stat];
+            // Is Saving Throw Proficient?
+            const isSaveProf = classSaves.includes(stat);
+            const saveVal = mod + (isSaveProf ? prof : 0);
+
+            let skillsHtml = `
+                <div class="skill-row">
+                    <div class="skill-prof ${isSaveProf?'active':''}"></div>
+                    <div class="skill-val">${fmt(saveVal)}</div>
+                    <div>Saving Throws</div>
+                </div>
             `;
 
-            skills.forEach(skill => {
-                const isProf = DEFAULT_PROFS.includes(skill) ? 'active' : '';
-                html += `
+            // Skills
+            SKILL_MAP[stat].forEach(skillName => {
+                // Determine proficiency (Hardcoded basics from image for demo)
+                // In a real full app, you'd select these in the builder too
+                const knownProfs = ["Athletics", "Acrobatics", "Stealth", "Perception", "Insight", "Survival"];
+                const isProf = knownProfs.includes(skillName);
+                const skillVal = mod + (isProf ? prof : 0);
+                
+                skillsHtml += `
                     <div class="skill-row">
-                        <div class="skill-prof ${isProf}" onclick="toggleProf(this)"></div>
-                        <div class="skill-val" id="skill-${skill.replace(/ /g, '')}">+0</div>
-                        <div>${skill}</div>
+                        <div class="skill-prof ${isProf?'active':''}"></div>
+                        <div class="skill-val">${fmt(skillVal)}</div>
+                        <div>${skillName}</div>
                     </div>
                 `;
             });
 
-            html += `</div></div>`;
-            container.innerHTML += html;
-        }
-        updateDerivedStats();
-    }
-
-    function updateDerivedStats() {
-        const profBonus = parseInt(document.getElementById('profBonus').value) || 0;
-
-        for (const [stat, skills] of Object.entries(SKILL_MAP)) {
-            const score = parseInt(document.getElementById(`score-${stat}`).value) || 10;
-            const mod = Math.floor((score - 10) / 2);
-            const modStr = mod >= 0 ? `+${mod}` : mod;
-
-            document.getElementById(`mod-${stat}`).innerText = modStr;
-
-            // Update Save
-            const saveRow = document.getElementById(`save-${stat}`).parentElement;
-            const saveProf = saveRow.querySelector('.skill-prof').classList.contains('active');
-            const saveVal = mod + (saveProf ? profBonus : 0);
-            document.getElementById(`save-${stat}`).innerText = saveVal >= 0 ? `+${saveVal}` : saveVal;
-
-            // Update Skills
-            skills.forEach(skill => {
-                const skillId = `skill-${skill.replace(/ /g, '')}`;
-                const el = document.getElementById(skillId);
-                const isProf = el.parentElement.querySelector('.skill-prof').classList.contains('active');
-                const val = mod + (isProf ? profBonus : 0);
-                el.innerText = val >= 0 ? `+${val}` : val;
-            });
-        }
-    }
-
-    function toggleProf(el) {
-        el.classList.toggle('active');
-        updateDerivedStats();
-    }
-
-    function switchTab(id) {
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('show'));
-        
-        event.target.classList.add('active');
-        document.getElementById(`tab-${id}`).classList.add('show');
-    }
-
-    // --- SAVE / LOAD LOGIC ---
-    function saveCharacter() {
-        const data = {
-            name: document.getElementById('charName').value,
-            sub: document.getElementById('charClass').value,
-            prof: document.getElementById('profBonus').value,
-            ac: document.getElementById('ac').value,
-            init: document.getElementById('init').value,
-            speed: document.getElementById('speed').value,
-            hpC: document.getElementById('hpCurrent').value,
-            hpM: document.getElementById('hpMax').value,
-            stats: {},
-            profs: []
-        };
-
-        // Gather Stats
-        for (const stat of Object.keys(SKILL_MAP)) {
-            data.stats[stat] = document.getElementById(`score-${stat}`).value;
-        }
-
-        // Gather Proficiencies
-        document.querySelectorAll('.skill-prof.active').forEach(el => {
-            const row = el.parentElement;
-            const txt = row.querySelector('div:last-child').innerText;
-            // Handle Saves vs Skills distinction strictly if needed, but simple text match works here
-            // If it's a save, prepend header
-            if(txt === "Saving Throws") {
-                const statName = row.closest('.stat-block').querySelector('.stat-label').innerText;
-                data.profs.push("Saving Throws-" + statName);
-            } else {
-                data.profs.push(txt);
-            }
+            container.innerHTML += `
+                <div class="stat-block">
+                    <div class="stat-hex">
+                        <div class="stat-big">${stats[stat]}</div>
+                        <div class="stat-tiny">${fmt(mod)}</div>
+                        <div class="stat-lbl">${stat}</div>
+                    </div>
+                    <div class="stat-connector"></div>
+                    <div class="skill-list">
+                        ${skillsHtml}
+                    </div>
+                </div>
+            `;
         });
+    }
 
+    /* --- HELPERS --- */
+    function fmt(n) { return n >= 0 ? "+" + n : n; }
+
+    function setHpMode(mode) {
+        hpMode = mode;
+        document.getElementById('btnHpFixed').className = mode === 'fixed' ? 'toggle-btn active' : 'toggle-btn';
+        document.getElementById('btnHpManual').className = mode === 'manual' ? 'toggle-btn active' : 'toggle-btn';
+        
+        document.getElementById('hpAutoDisplay').style.display = mode === 'fixed' ? 'block' : 'none';
+        document.getElementById('hpManualInput').style.display = mode === 'manual' ? 'block' : 'none';
+        
+        updateAll();
+    }
+
+    function saveData() {
+        const data = {
+            name: document.getElementById('inName').value,
+            race: document.getElementById('inRace').value,
+            class: document.getElementById('inClass').value,
+            level: document.getElementById('inLevel').value,
+            baseStats: STATS.map(s => document.getElementById(`base${s}`).value),
+            hpMode: hpMode,
+            manualHp: document.getElementById('inHpManual').value
+        };
         const blob = new Blob([JSON.stringify(data)], {type: 'application/json'});
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = data.name.replace(/ /g, '_') + '.json';
+        a.download = 'character_build.json';
         a.click();
     }
 
-    function loadCharacterFromFile(input) {
+    function loadFromFile(input) {
         const file = input.files[0];
         if(!file) return;
-        
         const reader = new FileReader();
-        reader.onload = function(e) {
+        reader.onload = e => {
             const data = JSON.parse(e.target.result);
+            document.getElementById('inName').value = data.name;
+            document.getElementById('inRace').value = data.race;
+            document.getElementById('inClass').value = data.class;
+            document.getElementById('inLevel').value = data.level;
             
-            document.getElementById('charName').value = data.name;
-            document.getElementById('charClass').value = data.sub;
-            document.getElementById('profBonus').value = data.prof;
-            document.getElementById('ac').value = data.ac;
-            document.getElementById('init').value = data.init;
-            document.getElementById('speed').value = data.speed;
-            document.getElementById('hpCurrent').value = data.hpC;
-            document.getElementById('hpMax').value = data.hpM;
-
-            // Update Stats
-            for(const [stat, val] of Object.entries(data.stats)) {
-                document.getElementById(`score-${stat}`).value = val;
-            }
-
-            // Clear Profs
-            document.querySelectorAll('.skill-prof').forEach(el => el.classList.remove('active'));
-
-            // Re-apply Profs
-            data.profs.forEach(p => {
-                if(p.startsWith("Saving Throws-")) {
-                    const stat = p.split("-")[1];
-                    const el = document.getElementById(`save-${stat}`);
-                    if(el) el.parentElement.querySelector('.skill-prof').classList.add('active');
-                } else {
-                    const el = document.getElementById(`skill-${p.replace(/ /g, '')}`);
-                    if(el) el.parentElement.querySelector('.skill-prof').classList.add('active');
-                }
-            });
-
-            updateDerivedStats();
+            STATS.forEach((s, i) => document.getElementById(`base${s}`).value = data.baseStats[i]);
+            
+            setHpMode(data.hpMode || 'fixed');
+            if(data.manualHp) document.getElementById('inHpManual').value = data.manualHp;
+            
+            updateAll();
         };
         reader.readAsText(file);
     }
-
-    // Start
-    init();
-
 </script>
+
 </body>
 </html>
