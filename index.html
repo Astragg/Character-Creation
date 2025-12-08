@@ -3,272 +3,268 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bleach 5e: Hero's Diary</title>
+    <title>Soul Society Archives</title>
     <style>
         :root {
-            --bg: #121212;
-            --panel: #1e1e1e;
-            --input-bg: #2d2d2d;
-            --text: #e0e0e0;
-            --accent: #d8b85e; /* Gold/Paper accent */
-            --accent-glow: #00d2ff; /* Spirit energy */
-            --border: #444;
-            --sheet-bg: #fdfbf7;
-            --sheet-text: #222;
+            --bg-app: #121212;
+            --bg-panel: #1e1e1e;
+            --bg-card: #2b2b2b;
+            --bg-input: #0f0f0f;
+            --accent: #b91c1c; /* Blood Red */
+            --text-main: #e5e5e5;
+            --text-muted: #a3a3a3;
+            --border: #404040;
+            --stat-width: 100px;
         }
 
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 0; display: flex; height: 100vh; overflow: hidden; }
+        * { box-sizing: border-box; scrollbar-width: thin; scrollbar-color: var(--accent) var(--bg-panel); }
+        body { margin: 0; padding: 0; background-color: var(--bg-app); color: var(--text-main); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; height: 100vh; overflow: hidden; }
 
-        /* --- LAYOUT --- */
-        .app-container { display: grid; grid-template-columns: 400px 1fr; width: 100%; height: 100%; }
+        /* --- LAYOUT GRID --- */
+        .app { display: flex; width: 100%; height: 100%; }
         
-        /* SIDEBAR (EDITOR) */
-        .editor { background: var(--panel); padding: 20px; overflow-y: auto; border-right: 1px solid var(--border); box-shadow: 2px 0 10px rgba(0,0,0,0.5); }
-        .editor h2 { color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 5px; margin-top: 20px; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 1px; }
+        /* 1. EDITOR SIDEBAR (Inputs) */
+        .editor {
+            width: 320px;
+            background: var(--bg-panel);
+            border-right: 1px solid var(--border);
+            padding: 20px;
+            overflow-y: auto;
+            flex-shrink: 0;
+            z-index: 10;
+        }
+
+        /* 2. DASHBOARD (The Sheet) */
+        .dashboard {
+            flex-grow: 1;
+            display: grid;
+            grid-template-columns: 120px 1fr 280px; /* Stats | Main | RightWidgets */
+            grid-template-rows: 100px 1fr; /* Header | Body */
+            gap: 15px;
+            padding: 20px;
+            overflow: hidden;
+        }
+
+        /* --- STYLING COMPONENTS --- */
+        h1, h2, h3 { margin: 0; text-transform: uppercase; letter-spacing: 1px; }
+        h2 { font-size: 0.9rem; color: var(--accent); margin-bottom: 10px; border-bottom: 1px solid var(--border); padding-bottom: 5px; }
+        label { display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 4px; }
         
-        .form-group { margin-bottom: 15px; }
-        label { display: block; font-size: 0.85rem; color: #aaa; margin-bottom: 5px; }
-        input, select, textarea { width: 100%; background: var(--input-bg); border: 1px solid var(--border); color: white; padding: 8px; border-radius: 4px; box-sizing: border-box; }
-        input:focus, select:focus { border-color: var(--accent); outline: none; }
+        input, select {
+            width: 100%; background: var(--bg-input); border: 1px solid #333; color: white; padding: 8px; margin-bottom: 15px; border-radius: 4px;
+        }
+        input:focus, select:focus { outline: 1px solid var(--accent); }
 
-        .stat-row { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; }
-        .stat-row label { width: 40px; margin: 0; font-weight: bold; color: white; }
-        .stat-row input { text-align: center; font-weight: bold; }
-        
-        .skill-list { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-size: 0.8rem; }
-        .skill-item { display: flex; align-items: center; gap: 5px; }
-        .skill-item input { width: auto; }
+        /* HEADER (Top Row) */
+        .dash-header {
+            grid-column: 1 / -1;
+            background: var(--bg-panel);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            justify-content: space-between;
+            border: 1px solid var(--border);
+        }
 
-        /* PREVIEW AREA */
-        .preview { background: #333; padding: 40px; overflow-y: auto; display: flex; justify-content: center; }
+        .char-identity h1 { font-size: 1.5rem; font-weight: 800; }
+        .char-identity span { color: var(--text-muted); font-size: 0.9rem; }
 
-        /* SHEET DESIGN (THE PAPER) */
-        .sheet {
-            background: var(--sheet-bg);
-            color: var(--sheet-text);
-            width: 850px;
-            min-height: 1100px;
-            padding: 50px;
-            box-shadow: 0 0 30px rgba(0,0,0,0.5);
-            font-family: 'Georgia', serif;
+        .vitals { display: flex; gap: 20px; }
+        .vital-box {
+            text-align: center;
+            background: var(--bg-input);
+            padding: 10px 20px;
+            border-radius: 6px;
+            border: 1px solid #333;
+            min-width: 80px;
+        }
+        .vital-val { display: block; font-size: 1.4rem; font-weight: bold; color: white; }
+        .vital-label { font-size: 0.7rem; color: var(--accent); text-transform: uppercase; font-weight: bold; }
+        .hp-box { border-color: var(--accent); }
+
+        /* STATS COLUMN (Left) */
+        .col-stats {
+            grid-column: 1;
+            grid-row: 2;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+
+        .stat-shield {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            text-align: center;
+            padding: 10px 0;
             position: relative;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        /* The "Shield" shape via CSS clip-path or simple border styling */
+        .stat-shield::before {
+            content: ''; position: absolute; top:0; left:0; right:0; height: 3px; background: var(--accent);
+            border-radius: 6px 6px 0 0;
+        }
+        .stat-mod { font-size: 1.8rem; font-weight: bold; display: block; line-height: 1; }
+        .stat-score { font-size: 0.8rem; color: var(--text-muted); background: var(--bg-input); padding: 2px 6px; border-radius: 4px; display: inline-block; margin-top: 5px; }
+        .stat-name { font-size: 0.7rem; text-transform: uppercase; display: block; margin-bottom: 5px; color: #aaa; }
+
+        /* MAIN STAGE (Center) */
+        .col-main {
+            grid-column: 2;
+            grid-row: 2;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            overflow-y: hidden; /* Internal scrolling only */
         }
 
-        .sheet-header { display: flex; justify-content: space-between; border-bottom: 3px solid var(--sheet-text); padding-bottom: 15px; margin-bottom: 30px; }
-        .char-name { font-size: 2.5rem; font-weight: bold; font-family: sans-serif; text-transform: uppercase; letter-spacing: -1px; }
-        .char-details { display: flex; gap: 20px; font-family: sans-serif; font-size: 0.9rem; text-transform: uppercase; margin-top: 10px; }
-        
-        .top-stats { display: flex; gap: 15px; justify-content: space-between; margin-bottom: 30px; }
-        .bubble { border: 2px solid #333; border-radius: 10px; padding: 10px; text-align: center; min-width: 60px; background: white; }
-        .bubble small { display: block; font-size: 0.6rem; text-transform: uppercase; color: #666; font-family: sans-serif; }
-        .bubble span { font-size: 1.4rem; font-weight: bold; display: block; }
+        .tab-bar { display: flex; gap: 10px; margin-bottom: 5px; }
+        .tab { background: var(--bg-panel); color: #888; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold; text-transform: uppercase; font-size: 0.8rem; }
+        .tab.active { background: var(--accent); color: white; }
 
-        .main-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 40px; }
-        
-        /* Attributes Column */
-        .attr-box { background: #eee; border-radius: 8px; padding: 10px; text-align: center; margin-bottom: 15px; border: 1px solid #ccc; }
-        .attr-label { font-weight: bold; text-transform: uppercase; font-size: 0.8rem; font-family: sans-serif; }
-        .attr-mod { font-size: 1.8rem; font-weight: bold; display: block; margin: 5px 0; }
-        .attr-score { font-size: 0.9rem; background: white; border: 1px solid #aaa; border-radius: 10px; padding: 2px 8px; display: inline-block; }
-
-        .prof-box { margin-bottom: 20px; font-size: 0.9rem; }
-        .prof-row { display: flex; justify-content: space-between; border-bottom: 1px solid #ddd; padding: 3px 0; }
-        .prof-row.checked { font-weight: bold; color: #000; }
-        .prof-row span:first-child { width: 20px; text-align: center; }
-
-        /* Features Column */
-        .feature-section h3 { border-bottom: 2px solid #000; font-family: sans-serif; text-transform: uppercase; margin-top: 0; }
-        .feature-item { margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px dashed #ccc; }
-        .feature-title { font-weight: bold; font-size: 1.1rem; }
-        .feature-meta { font-size: 0.8rem; color: #666; font-style: italic; margin-bottom: 4px; }
-        .feature-desc { font-size: 0.9rem; line-height: 1.4; }
-
-        /* PRINT */
-        @media print {
-            body { height: auto; overflow: visible; background: white; }
-            .editor { display: none; }
-            .preview { padding: 0; background: white; display: block; }
-            .sheet { box-shadow: none; width: 100%; margin: 0; padding: 0; }
-            .app-container { display: block; }
+        .panel-content {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding-right: 10px;
         }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        .card h3 { font-size: 1rem; color: white; margin-bottom: 5px; display: flex; justify-content: space-between; }
+        .card-meta { font-size: 0.75rem; color: var(--accent); font-style: italic; margin-bottom: 8px; }
+        .card-desc { font-size: 0.9rem; color: #ccc; line-height: 1.5; white-space: pre-wrap; }
+
+        /* ACTION ROWS */
+        .action-row { display: flex; justify-content: space-between; align-items: center; background: var(--bg-input); padding: 10px; margin-bottom: 5px; border-radius: 4px; border-left: 3px solid var(--accent); }
+        .action-name { font-weight: bold; }
+        .action-roll { background: #333; padding: 2px 8px; border-radius: 4px; font-size: 0.9rem; color: #fff; }
+
+        /* RIGHT WIDGETS */
+        .col-widgets {
+            grid-column: 3;
+            grid-row: 2;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            overflow-y: auto;
+        }
+
+        .widget { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 6px; padding: 15px; }
+        .skill-row { display: flex; justify-content: space-between; font-size: 0.85rem; padding: 4px 0; border-bottom: 1px solid #333; }
+        .skill-row span:last-child { color: var(--text-main); font-weight: bold; }
+        .prof-dot { color: #333; margin-right: 5px; }
+        .prof-dot.active { color: var(--accent); }
+
     </style>
 </head>
 <body>
 
-<div class="app-container">
+<div class="app">
+    
     <div class="editor">
-        <h1 style="text-align:center; color:white;">HERO'S DIARY</h1>
+        <h2>Character Builder</h2>
         
-        <h2>Identity</h2>
-        <div class="form-group"><label>Character Name</label><input type="text" id="name" value="Grimmjow" oninput="render()"></div>
-        <div class="form-group">
-            <label>Race</label>
-            <select id="race" onchange="render()">
-                </select>
-        </div>
-        <div class="form-group">
-            <label>Class</label>
-            <select id="charClass" onchange="changeClass()">
-                </select>
-        </div>
-        <div class="form-group">
-            <label>Subclass</label>
-            <select id="subclass" onchange="render()">
-                </select>
-        </div>
-        <div class="form-group"><label>Level</label><input type="number" id="level" value="1" min="1" max="20" oninput="render()"></div>
+        <label>Name</label>
+        <input type="text" id="inName" value="Grimmjow" oninput="updateSheet()">
+        
+        <label>Race</label>
+        <select id="inRace" onchange="updateSheet()"></select>
+        
+        <label>Class</label>
+        <select id="inClass" onchange="loadClass()"></select>
+        
+        <label>Subclass</label>
+        <select id="inSubclass" onchange="updateSheet()"></select>
+        
+        <label>Level</label>
+        <input type="number" id="inLevel" value="1" min="1" max="20" oninput="updateSheet()">
 
         <h2>Ability Scores</h2>
-        <div id="statsInputs">
-            </div>
+        <div id="statInputs"></div>
 
-        <h2>Proficiencies</h2>
-        <div class="form-group">
-            <label>Saving Throws (Check Class Def)</label>
-            <div class="skill-list" id="saveInputs">
-                </div>
-        </div>
-        <div class="form-group">
-            <label>Skills</label>
-            <div class="skill-list" id="skillInputs">
-                </div>
-        </div>
+        <h2>Skill Proficiencies</h2>
+        <div id="skillInputs"></div>
 
-        <div id="classSpecificOptions">
-            <h2>Hollow Evolutions</h2>
-            <div id="evoList" class="skill-list" style="grid-template-columns: 1fr;"></div>
+        <div id="classOptionsArea">
+            <h2>Class Options</h2>
+            <div id="evoInputs"></div>
         </div>
-
-        <button onclick="window.print()" style="width:100%; padding: 15px; background: var(--accent); border:none; font-weight:bold; cursor:pointer; margin-top:20px;">PRINT CHARACTER SHEET</button>
     </div>
 
-    <div class="preview">
-        <div class="sheet">
-            <div class="sheet-header">
-                <div>
-                    <div class="char-name" id="sheetName"></div>
-                    <div class="char-details">
-                        <span id="sheetRaceClass"></span> | <span id="sheetSubclass"></span> | Level <span id="sheetLevel"></span>
-                    </div>
-                </div>
-                <div style="text-align: right;">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/9/93/Dungeons_and_Dragons_5-character_logo.svg/1200px-Dungeons_and_Dragons_5-character_logo.svg.png" style="height: 50px; opacity: 0.5;">
-                </div>
+    <div class="dashboard">
+        
+        <div class="dash-header">
+            <div class="char-identity">
+                <h1 id="outName">Grimmjow</h1>
+                <span id="outRaceClass">Arrancar - Level 1</span>
             </div>
-
-            <div class="top-stats">
-                <div class="bubble"><small>Armor Class</small><span id="sheetAC">10</span></div>
-                <div class="bubble"><small>Initiative</small><span id="sheetInit">+0</span></div>
-                <div class="bubble"><small>Speed</small><span id="sheetSpeed">30ft</span></div>
-                <div class="bubble"><small>Hit Points</small><span id="sheetHP">10</span></div>
-                <div class="bubble"><small>Hit Dice</small><span id="sheetHD">1d10</span></div>
-                <div class="bubble"><small>Proficiency</small><span id="sheetProf">+2</span></div>
-                <div class="bubble"><small>Passive Perception</small><span id="sheetPP">10</span></div>
-            </div>
-
-            <div class="main-grid">
-                <div>
-                    <div id="sheetStats">
-                        </div>
-
-                    <div class="prof-box">
-                        <h4 style="border-bottom: 1px solid #000;">SAVING THROWS</h4>
-                        <div id="sheetSaves"></div>
-                    </div>
-
-                    <div class="prof-box">
-                        <h4 style="border-bottom: 1px solid #000;">SKILLS</h4>
-                        <div id="sheetSkills"></div>
-                    </div>
-
-                    <div class="attr-box" style="background: #222; color: white; border: 2px solid var(--accent);">
-                        <span class="attr-label" style="color: var(--accent);">Class Resource</span>
-                        <span class="attr-mod" id="sheetResourceVal">--</span>
-                        <span class="attr-score" id="sheetResourceName" style="color:black">--</span>
-                    </div>
+            <div class="vitals">
+                <div class="vital-box">
+                    <span class="vital-label">Armor Class</span>
+                    <span class="vital-val" id="outAC">10</span>
                 </div>
-
-                <div class="feature-section">
-                    <h3>Class Features & Traits</h3>
-                    <div id="sheetFeatures">
-                        </div>
+                <div class="vital-box">
+                    <span class="vital-label">Initiative</span>
+                    <span class="vital-val" id="outInit">+0</span>
+                </div>
+                <div class="vital-box">
+                    <span class="vital-label">Speed</span>
+                    <span class="vital-val" id="outSpeed">30</span>
+                </div>
+                <div class="vital-box hp-box">
+                    <span class="vital-label">Hit Points</span>
+                    <span class="vital-val" id="outHP">10</span>
+                </div>
+                <div class="vital-box" style="border-color: #555;">
+                    <span class="vital-label" id="outResName">Reiatsu</span>
+                    <span class="vital-val" id="outResVal">2</span>
                 </div>
             </div>
         </div>
+
+        <div class="col-stats" id="outStats">
+            </div>
+
+        <div class="col-main">
+            <div class="tab-bar">
+                <button class="tab active">Actions</button>
+                <button class="tab">Features</button>
+                <button class="tab">Spells</button>
+                <button class="tab">Inventory</button>
+            </div>
+            
+            <div class="panel-content" id="mainPanel">
+                </div>
+        </div>
+
+        <div class="col-widgets">
+            <div class="widget">
+                <h2>Proficiencies</h2>
+                <div style="font-size: 0.9rem; margin-bottom: 10px;">
+                    Bonus: <span id="outProfBonus" style="color:var(--accent); font-weight:bold;">+2</span>
+                </div>
+                <div id="outSkills"></div>
+            </div>
+            <div class="widget">
+                <h2>Saving Throws</h2>
+                <div id="outSaves"></div>
+            </div>
+        </div>
+
     </div>
 </div>
 
 <script>
-    /* =========================================
-       DATA: RACES
-       ========================================= */
-    const RACES = {
-        "Human": { speed: 30, size: "Medium", traits: ["Versatile: Gain a Feat (Manual Add)"] },
-        "Plus Soul": { speed: 30, size: "Medium", traits: ["Spirit Sight: Can see spirits."] },
-        "Hollow": { speed: 40, size: "Large", traits: ["Mask: Advantage on Intimidation."] }
-    };
-
-    /* =========================================
-       DATA: CLASSES (THE ARRANCAR)
-       ========================================= */
-    const CLASSES = {
-        "Arrancar": {
-            hd: 10,
-            primary: "CON",
-            saves: ["CON", "DEX"],
-            subclassLabel: "Aspect of Death",
-            scaling: [
-                { lvl: 1, prof: 2, reiatsu: 2, cero: '1d10', evos: 0 },
-                { lvl: 2, prof: 2, reiatsu: 3, cero: '1d10', evos: 2 },
-                { lvl: 3, prof: 2, reiatsu: 4, cero: '2d10', evos: 2 },
-                { lvl: 4, prof: 2, reiatsu: 5, cero: '2d10', evos: 2 },
-                { lvl: 5, prof: 3, reiatsu: 6, cero: '2d10', evos: 3 },
-                { lvl: 6, prof: 3, reiatsu: 7, cero: '3d10', evos: 3 },
-                { lvl: 7, prof: 3, reiatsu: 8, cero: '3d10', evos: 4 },
-                { lvl: 8, prof: 3, reiatsu: 9, cero: '3d10', evos: 4 },
-                { lvl: 9, prof: 4, reiatsu: 10, cero: '4d10', evos: 5 },
-                { lvl: 10, prof: 4, reiatsu: 11, cero: '4d10', evos: 5 },
-                { lvl: 11, prof: 4, reiatsu: 12, cero: '5d10', evos: 5 },
-                { lvl: 12, prof: 4, reiatsu: 13, cero: '5d10', evos: 6 },
-                { lvl: 13, prof: 5, reiatsu: 14, cero: '5d10', evos: 6 },
-                { lvl: 14, prof: 5, reiatsu: 15, cero: '6d10', evos: 6 },
-                { lvl: 15, prof: 5, reiatsu: 16, cero: '6d10', evos: 7 },
-                { lvl: 16, prof: 5, reiatsu: 17, cero: '6d10', evos: 7 },
-                { lvl: 17, prof: 6, reiatsu: 18, cero: '7d10', evos: 7 },
-                { lvl: 18, prof: 6, reiatsu: 19, cero: '8d10', evos: 8 },
-                { lvl: 19, prof: 6, reiatsu: 20, cero: '8d10', evos: 8 },
-                { lvl: 20, prof: 6, reiatsu: 25, cero: '10d10', evos: 8 }
-            ],
-            features: [
-                { lvl: 1, name: "Hierro (Iron Skin)", desc: "AC = 10 + DEX + CON. Reaction to reduce damage (1d10+Lvl)." },
-                { lvl: 1, name: "Bala", desc: "Bonus Action 1d6 Force ranged attack." },
-                { lvl: 2, name: "Cero", desc: "Action: Fire blast (See chart for dmg)." },
-                { lvl: 2, name: "Sonído", desc: "Bonus Action teleport (Cost 1 Reiatsu)." },
-                { lvl: 5, name: "Extra Attack", desc: "Attack twice." },
-                { lvl: 6, name: "High-Speed Regen", desc: "Heal using Reiatsu as Bonus Action." },
-                { lvl: 11, name: "Resurrección", desc: "Enter True Form (Fly, Heal, Damage buff)." }
-            ],
-            subclasses: {
-                "Destruction": [{lvl: 3, name: "Primal Scream", desc: "Roar to frighten enemies."}],
-                "Nihilism": [{lvl: 3, name: "Emptiness", desc: "Immune to Charm, no eating/breathing."}],
-                "Madness": [{lvl: 3, name: "Analysis", desc: "Learn enemy stats."}],
-                "Sacrifice": [{lvl: 3, name: "Phantom Currents", desc: "Swim speed & Defense reaction."}],
-                "Solitude": [{lvl: 3, name: "Cero Metralleta", desc: "Rapid fire Cero attacks."}],
-                "Time": [{lvl: 3, name: "Aura of Age", desc: "Slow enemies near you."}]
-            },
-            // Custom Logic for Arrancar Evolutions
-            customOptions: "evolutions" 
-        }
-        // FUTURE CLASSES GO HERE
-    };
-
-    const EVOLUTIONS = [
-        {name: "Bala Barrage", tier: 1}, {name: "Acidic Touch", tier: 1}, {name: "Pesquisa Radar", tier: 1},
-        {name: "Hierro Armor (Resist)", tier: 5}, {name: "Cero Doble", tier: 5}, {name: "Garganta", tier: 5},
-        {name: "Gran Rey Cero", tier: 9}, {name: "Los Lobos", tier: 9}, 
-        {name: "Indestructible", tier: 15}, {name: "Respira", tier: 15}
-    ];
-
+    /* --- DATASETS --- */
     const STATS = ["STR", "DEX", "CON", "INT", "WIS", "CHA"];
     const SKILLS = {
         "Acrobatics": "DEX", "Animal Handling": "WIS", "Arcana": "INT", "Athletics": "STR",
@@ -278,236 +274,282 @@
         "Stealth": "DEX", "Survival": "WIS"
     };
 
-    /* =========================================
-       LOGIC ENGINE
-       ========================================= */
-    
-    // Init
-    window.onload = function() {
-        populateSelect('race', Object.keys(RACES));
-        populateSelect('charClass', Object.keys(CLASSES));
-        
-        // Generate Stat Inputs
-        const statContainer = document.getElementById('statsInputs');
-        STATS.forEach(stat => {
-            statContainer.innerHTML += `
-                <div class="stat-row">
-                    <label>${stat}</label>
-                    <input type="number" id="val-${stat}" value="${stat === 'DEX' || stat === 'CON' ? 16 : 10}" oninput="render()">
-                </div>`;
-        });
-
-        // Generate Save Inputs
-        const saveContainer = document.getElementById('saveInputs');
-        STATS.forEach(stat => {
-            saveContainer.innerHTML += `
-                <div class="skill-item">
-                    <input type="checkbox" id="save-${stat}" onchange="render()">
-                    <label>${stat}</label>
-                </div>`;
-        });
-
-        // Generate Skill Inputs
-        const skillContainer = document.getElementById('skillInputs');
-        for (const [skill, stat] of Object.entries(SKILLS)) {
-            skillContainer.innerHTML += `
-                <div class="skill-item">
-                    <input type="checkbox" id="skill-${skill.replace(/ /g,'')}" onchange="render()">
-                    <label>${skill} (${stat})</label>
-                </div>`;
-        }
-
-        // Generate Evolutions (Specific to Arrancar, but we load them hiddenly)
-        const evoContainer = document.getElementById('evoList');
-        EVOLUTIONS.forEach(evo => {
-            evoContainer.innerHTML += `
-                <div class="skill-item">
-                    <input type="checkbox" class="evo-check" value="${evo.name}" data-tier="${evo.tier}" onchange="render()">
-                    <label>${evo.name} (Lvl ${evo.tier})</label>
-                </div>`;
-        });
-
-        changeClass(); // Trigger initial class load
+    const RACES = {
+        "Human": { speed: 30, size: "Medium", traits: [{name:"Versatile", desc:"Gain a Feat."}] },
+        "Plus Soul": { speed: 30, size: "Medium", traits: [{name:"Spirit Sight", desc:"Can see spirits."}] },
+        "Hollow": { speed: 40, size: "Large", traits: [{name:"Mask", desc:"Advantage on Intimidation."}] },
+        "Arrancar": { speed: 30, size: "Medium", traits: [{name:"Hollow Origin", desc:"Retain hollow characteristics."}]}
     };
 
-    function populateSelect(id, options) {
+    const CLASSES = {
+        "Arrancar": {
+            hd: 10,
+            primary: "CON",
+            saves: ["CON", "DEX"],
+            resource: "Reiatsu",
+            scaling: [
+                { lvl: 1, prof: 2, res: 2, extra: "1d10 Cero" }, { lvl: 2, prof: 2, res: 3, extra: "1d10 Cero" },
+                { lvl: 3, prof: 2, res: 4, extra: "2d10 Cero" }, { lvl: 4, prof: 2, res: 5, extra: "2d10 Cero" },
+                { lvl: 5, prof: 3, res: 6, extra: "2d10 Cero" }, { lvl: 6, prof: 3, res: 7, extra: "3d10 Cero" },
+                { lvl: 7, prof: 3, res: 8, extra: "3d10 Cero" }, { lvl: 8, prof: 3, res: 9, extra: "3d10 Cero" },
+                { lvl: 9, prof: 4, res: 10, extra: "4d10 Cero" }, { lvl: 10, prof: 4, res: 11, extra: "4d10 Cero" },
+                { lvl: 11, prof: 4, res: 12, extra: "5d10 Cero" }, { lvl: 12, prof: 4, res: 13, extra: "5d10 Cero" },
+                { lvl: 13, prof: 5, res: 14, extra: "5d10 Cero" }, { lvl: 14, prof: 5, res: 15, extra: "6d10 Cero" },
+                { lvl: 15, prof: 5, res: 16, extra: "6d10 Cero" }, { lvl: 16, prof: 5, res: 17, extra: "6d10 Cero" },
+                { lvl: 17, prof: 6, res: 18, extra: "7d10 Cero" }, { lvl: 18, prof: 6, res: 19, extra: "8d10 Cero" },
+                { lvl: 19, prof: 6, res: 20, extra: "8d10 Cero" }, { lvl: 20, prof: 6, res: 25, extra: "10d10 Cero" }
+            ],
+            features: [
+                { lvl: 1, name: "Hierro (Iron Skin)", desc: "AC = 10 + DEX + CON. Reaction: Reduce damage by 1d10 + Level." },
+                { lvl: 1, name: "Bala", desc: "Bonus Action. Ranged Spell Attack. Damage: 1d6 Force." },
+                { lvl: 2, name: "Cero", desc: "Action. 100ft Line or 30ft Cone. DEX Save. Cost: 2 Reiatsu." },
+                { lvl: 2, name: "Sonído", desc: "Bonus Action. Teleport 30ft. Cost: 1 Reiatsu." },
+                { lvl: 5, name: "Extra Attack", desc: "You can attack twice whenever you take the Attack action." },
+                { lvl: 6, name: "High-Speed Regeneration", desc: "Bonus Action. Spend Reiatsu to heal 1d10 per point." }
+            ],
+            subclasses: {
+                "Destruction": [{lvl: 3, name: "Primal Scream", desc: "Roar to frighten enemies within 10ft."}],
+                "Nihilism": [{lvl: 3, name: "Emptiness", desc: "Immune to Charm. No need to eat/breathe."}],
+                "Time": [{lvl: 3, name: "Aura of Age", desc: "Enemies within 5ft have reduced speed."}]
+            },
+            evolutions: [
+                {name: "Bala Barrage", tier: 1}, {name: "Acidic Touch", tier: 1}, {name: "Pesquisa", tier: 1},
+                {name: "Hierro Armor", tier: 5}, {name: "Cero Doble", tier: 5}, {name: "Garganta", tier: 5},
+                {name: "Gran Rey Cero", tier: 9}, {name: "Los Lobos", tier: 9}
+            ]
+        }
+    };
+
+    /* --- INITIALIZATION --- */
+    window.onload = function() {
+        populateDropdown("inRace", Object.keys(RACES), "Arrancar");
+        populateDropdown("inClass", Object.keys(CLASSES), "Arrancar");
+        
+        createStatInputs();
+        createSkillInputs();
+        loadClass(); // Will trigger updateSheet
+    };
+
+    function populateDropdown(id, list, def) {
         const sel = document.getElementById(id);
         sel.innerHTML = "";
-        options.forEach(opt => {
-            const el = document.createElement('option');
-            el.value = opt;
-            el.innerText = opt;
-            sel.appendChild(el);
+        list.forEach(item => {
+            const opt = document.createElement("option");
+            opt.value = item;
+            opt.innerText = item;
+            if(item === def) opt.selected = true;
+            sel.appendChild(opt);
         });
     }
 
-    function changeClass() {
-        const cName = document.getElementById('charClass').value;
-        const cls = CLASSES[cName];
-        
-        // Populate Subclasses
-        populateSelect('subclass', Object.keys(cls.subclasses));
-        
-        // Show/Hide Custom Options
-        const evoSection = document.getElementById('classSpecificOptions');
-        evoSection.style.display = (cls.customOptions === "evolutions") ? "block" : "none";
-
-        // Auto-check Saving Throws based on Class
-        STATS.forEach(s => document.getElementById(`save-${s}`).checked = false);
-        cls.saves.forEach(s => document.getElementById(`save-${s}`).checked = true);
-
-        render();
+    function createStatInputs() {
+        const container = document.getElementById("statInputs");
+        STATS.forEach(stat => {
+            const div = document.createElement("div");
+            div.style.marginBottom = "5px";
+            div.innerHTML = `
+                <div style="display:flex; align-items:center; justify-content:space-between;">
+                    <label style="margin:0; width:40px; font-weight:bold;">${stat}</label>
+                    <input type="number" id="in${stat}" value="${(stat==='DEX'||stat==='CON')?16:10}" 
+                    style="width:60px; margin:0;" oninput="updateSheet()">
+                </div>
+            `;
+            container.appendChild(div);
+        });
     }
 
+    function createSkillInputs() {
+        const container = document.getElementById("skillInputs");
+        // Saves
+        container.innerHTML = "<div style='margin-bottom:5px; color:#fff; font-size:0.8rem; font-weight:bold;'>Saving Throws</div>";
+        STATS.forEach(stat => {
+            container.innerHTML += `
+                <div style="display:flex; align-items:center; margin-bottom:2px;">
+                    <input type="checkbox" id="save${stat}" style="width:auto; margin:0 8px 0 0;" onchange="updateSheet()">
+                    <label style="margin:0;">${stat}</label>
+                </div>`;
+        });
+        
+        // Skills
+        container.innerHTML += "<div style='margin-top:10px; margin-bottom:5px; color:#fff; font-size:0.8rem; font-weight:bold;'>Skills</div>";
+        for (const [skill, stat] of Object.entries(SKILLS)) {
+            const id = skill.replace(/ /g, "");
+            container.innerHTML += `
+                <div style="display:flex; align-items:center; margin-bottom:2px;">
+                    <input type="checkbox" id="skill${id}" style="width:auto; margin:0 8px 0 0;" onchange="updateSheet()">
+                    <label style="margin:0;">${skill}</label>
+                </div>`;
+        }
+    }
+
+    function loadClass() {
+        const clsName = document.getElementById("inClass").value;
+        const cls = CLASSES[clsName];
+
+        // Populate Subclasses
+        populateDropdown("inSubclass", Object.keys(cls.subclasses));
+
+        // Create Evolutions Checkboxes
+        const evoDiv = document.getElementById("evoInputs");
+        evoDiv.innerHTML = "";
+        if(cls.evolutions) {
+            cls.evolutions.forEach((evo, idx) => {
+                evoDiv.innerHTML += `
+                    <div style="display:flex; align-items:center; margin-bottom:2px;">
+                        <input type="checkbox" class="evo-check" value="${evo.name}" style="width:auto; margin:0 8px 0 0;" onchange="updateSheet()">
+                        <label style="margin:0;">${evo.name} (T${evo.tier})</label>
+                    </div>`;
+            });
+        }
+
+        // Set Default Saves
+        STATS.forEach(s => document.getElementById(`save${s}`).checked = false);
+        cls.saves.forEach(s => document.getElementById(`save${s}`).checked = true);
+
+        updateSheet();
+    }
+
+    /* --- UPDATE LOGIC --- */
     function getMod(score) { return Math.floor((score - 10) / 2); }
-    function fmtSign(n) { return n >= 0 ? "+" + n : n; }
+    function fmtMod(n) { return n >= 0 ? "+" + n : n; }
 
-    function render() {
-        // 1. Gather Basic Data
-        const name = document.getElementById('name').value;
-        const raceName = document.getElementById('race').value;
-        const className = document.getElementById('charClass').value;
-        const subclassName = document.getElementById('subclass').value;
-        const level = parseInt(document.getElementById('level').value);
+    function updateSheet() {
+        const charName = document.getElementById("inName").value;
+        const raceName = document.getElementById("inRace").value;
+        const className = document.getElementById("inClass").value;
+        const subclassName = document.getElementById("inSubclass").value;
+        const level = parseInt(document.getElementById("inLevel").value);
 
-        const raceData = RACES[raceName];
-        const classData = CLASSES[className];
-        const classLevelData = classData.scaling[level - 1] || classData.scaling[19];
-        const profBonus = classLevelData.prof;
+        const race = RACES[raceName];
+        const cls = CLASSES[className];
+        const scaling = cls.scaling[level-1] || cls.scaling[19];
+        const prof = scaling.prof;
 
-        // 2. Render Header
-        document.getElementById('sheetName').innerText = name;
-        document.getElementById('sheetRaceClass').innerText = `${raceName} ${className}`;
-        document.getElementById('sheetSubclass').innerText = subclassName;
-        document.getElementById('sheetLevel').innerText = level;
-        document.getElementById('sheetProf').innerText = fmtSign(profBonus);
-        document.getElementById('sheetSpeed').innerText = raceData.speed + " ft";
-        document.getElementById('sheetHD').innerText = `${level}d${classData.hd}`;
+        // 1. HEADER
+        document.getElementById("outName").innerText = charName;
+        document.getElementById("outRaceClass").innerText = `${raceName} ${className} | ${subclassName} | Level ${level}`;
+        document.getElementById("outProfBonus").innerText = fmtMod(prof);
+        document.getElementById("outSpeed").innerText = race.speed;
+        document.getElementById("outResName").innerText = cls.resource;
+        document.getElementById("outResVal").innerText = scaling.res;
 
-        // 3. Stats & Mods
+        // 2. STATS & MODS
         const stats = {};
         let statsHTML = "";
-        
         STATS.forEach(stat => {
-            const raw = parseInt(document.getElementById(`val-${stat}`).value);
-            const mod = getMod(raw);
-            stats[stat] = { val: raw, mod: mod };
-            
+            const val = parseInt(document.getElementById(`in${stat}`).value);
+            const mod = getMod(val);
+            stats[stat] = { val: val, mod: mod };
+
             statsHTML += `
-                <div class="attr-box">
-                    <span class="attr-label">${stat}</span>
-                    <span class="attr-mod">${fmtSign(mod)}</span>
-                    <span class="attr-score">${raw}</span>
+                <div class="stat-shield">
+                    <span class="stat-name">${stat}</span>
+                    <span class="stat-mod">${mod}</span>
+                    <span class="stat-score">${val}</span>
                 </div>
             `;
         });
-        document.getElementById('sheetStats').innerHTML = statsHTML;
+        document.getElementById("outStats").innerHTML = statsHTML;
 
-        // 4. Derived Vitals
-        // AC Logic: Check for Hierro (Arrancar)
+        // 3. VITALS (AC, HP, INIT)
         let ac = 10 + stats.DEX.mod;
-        if (className === "Arrancar") {
-            ac = 10 + stats.DEX.mod + stats.CON.mod; // Hierro
-        }
-        document.getElementById('sheetAC').innerText = ac;
-        document.getElementById('sheetInit').innerText = fmtSign(stats.DEX.mod);
+        if(className === "Arrancar") ac += stats.CON.mod; // Hierro
+        document.getElementById("outAC").innerText = ac;
+        document.getElementById("outInit").innerText = fmtMod(stats.DEX.mod);
         
-        // HP Logic
-        const hp = classData.hd + stats.CON.mod + ((level - 1) * ((classData.hd/2 + 1) + stats.CON.mod));
-        document.getElementById('sheetHP').innerText = Math.max(level, hp); // Minimum 1hp per level
+        // HP: Max at level 1 + Avg for rest
+        const hpPerLvl = (cls.hd / 2) + 1;
+        const hp = cls.hd + stats.CON.mod + ((level-1) * (hpPerLvl + stats.CON.mod));
+        document.getElementById("outHP").innerText = hp;
 
-        // Passive Perception
-        const wisMod = stats.WIS.mod;
-        const perProf = document.getElementById('skill-Perception').checked ? profBonus : 0;
-        document.getElementById('sheetPP').innerText = 10 + wisMod + perProf;
-
-        // 5. Saves & Skills
-        let savesHTML = "";
+        // 4. SKILLS & SAVES WIDGETS
+        let saveHTML = "";
         STATS.forEach(stat => {
-            const isProf = document.getElementById(`save-${stat}`).checked;
-            const total = stats[stat].mod + (isProf ? profBonus : 0);
-            savesHTML += `
-                <div class="prof-row ${isProf ? 'checked' : ''}">
-                    <span>${isProf ? '●' : '○'}</span>
-                    <span>${stat}</span>
-                    <span>${fmtSign(total)}</span>
-                </div>
-            `;
+            const isProf = document.getElementById(`save${stat}`).checked;
+            const total = stats[stat].mod + (isProf ? prof : 0);
+            saveHTML += `
+                <div class="skill-row">
+                    <span><span class="prof-dot ${isProf?'active':''}">${isProf?'●':'○'}</span> ${stat}</span>
+                    <span>${fmtMod(total)}</span>
+                </div>`;
         });
-        document.getElementById('sheetSaves').innerHTML = savesHTML;
+        document.getElementById("outSaves").innerHTML = saveHTML;
 
-        let skillsHTML = "";
-        for (const [skill, statKey] of Object.entries(SKILLS)) {
-            const isProf = document.getElementById(`skill-${skill.replace(/ /g,'')}`).checked;
-            const total = stats[statKey].mod + (isProf ? profBonus : 0);
-            skillsHTML += `
-                <div class="prof-row ${isProf ? 'checked' : ''}">
-                    <span>${isProf ? '●' : '○'}</span>
-                    <span>${skill} <small>(${statKey})</small></span>
-                    <span>${fmtSign(total)}</span>
-                </div>
-            `;
+        let skillHTML = "";
+        for(const [skill, attr] of Object.entries(SKILLS)) {
+            const id = skill.replace(/ /g, "");
+            const isProf = document.getElementById(`skill${id}`).checked;
+            const total = stats[attr].mod + (isProf ? prof : 0);
+            skillHTML += `
+                <div class="skill-row">
+                    <span><span class="prof-dot ${isProf?'active':''}">${isProf?'●':'○'}</span> ${skill} <small style='color:#555'>(${attr})</small></span>
+                    <span>${fmtMod(total)}</span>
+                </div>`;
         }
-        document.getElementById('sheetSkills').innerHTML = skillsHTML;
+        document.getElementById("outSkills").innerHTML = skillHTML;
 
-        // 6. Class Resources (Reiatsu)
-        if (className === "Arrancar") {
-            document.getElementById('sheetResourceName').innerText = `Reiatsu (Cero: ${classLevelData.cero})`;
-            document.getElementById('sheetResourceVal').innerText = classLevelData.reiatsu;
-        }
+        // 5. MAIN CONTENT (ACTIONS & FEATURES)
+        const main = document.getElementById("mainPanel");
+        main.innerHTML = "";
 
-        // 7. Features List
-        let featHTML = "";
+        // A. ATTACKS SECTION
+        let attacksHTML = `<h3>Attacks</h3>`;
+        // Generic Unarmed
+        attacksHTML += `
+            <div class="action-row">
+                <span class="action-name">Unarmed Strike</span>
+                <span class="action-roll">Hit: ${fmtMod(stats.STR.mod + prof)} | Dmg: 1+${stats.STR.mod}</span>
+            </div>`;
         
-        // Core Class Features
-        classData.features.forEach(feat => {
-            if (feat.lvl <= level) {
+        // Arrancar Specific Attacks
+        if(className === "Arrancar") {
+             attacksHTML += `
+            <div class="action-row" style="border-color:#00d2ff">
+                <span class="action-name">Bala (Ranged)</span>
+                <span class="action-roll">Hit: ${fmtMod(stats.DEX.mod + prof)} | Dmg: 1d6 Force</span>
+            </div>
+            <div class="action-row" style="border-color:#ff0055">
+                <span class="action-name">Cero (2 Reiatsu)</span>
+                <span class="action-roll">DEX Save DC ${8+prof+stats.CON.mod} | Dmg: ${scaling.extra}</span>
+            </div>`;
+        }
+        main.innerHTML += `<div class="card">${attacksHTML}</div>`;
+
+        // B. FEATURES
+        let featHTML = `<h3>Class Features</h3>`;
+        cls.features.forEach(f => {
+            if(level >= f.lvl) {
                 featHTML += `
-                    <div class="feature-item">
-                        <div class="feature-title">${feat.name}</div>
-                        <div class="feature-meta">Class Feature (Lvl ${feat.lvl})</div>
-                        <div class="feature-desc">${feat.desc}</div>
-                    </div>`;
+                <div style="margin-bottom:10px; padding-bottom:10px; border-bottom:1px dashed #444;">
+                    <div style="font-weight:bold; color:#fff;">${f.name}</div>
+                    <div class="card-desc">${f.desc}</div>
+                </div>`;
             }
         });
 
-        // Subclass Features
-        if (classData.subclasses[subclassName]) {
-            classData.subclasses[subclassName].forEach(feat => {
-                if (feat.lvl <= level) {
+        // Subclass
+        if(cls.subclasses[subclassName]) {
+            cls.subclasses[subclassName].forEach(f => {
+                if(level >= f.lvl) {
                     featHTML += `
-                        <div class="feature-item">
-                            <div class="feature-title">${feat.name}</div>
-                            <div class="feature-meta">${subclassName} Feature (Lvl ${feat.lvl})</div>
-                            <div class="feature-desc">${feat.desc}</div>
-                        </div>`;
+                    <div style="margin-bottom:10px; padding-bottom:10px; border-bottom:1px dashed #444;">
+                        <div style="font-weight:bold; color:var(--accent);">${f.name}</div>
+                        <div class="card-desc">${f.desc}</div>
+                    </div>`;
                 }
             });
         }
-
-        // Evolutions (Arrancar Specific)
-        if (className === "Arrancar") {
-            const evos = document.querySelectorAll('.evo-check:checked');
-            evos.forEach(box => {
-                featHTML += `
-                    <div class="feature-item">
-                        <div class="feature-title" style="color:var(--accent-glow)">${box.value}</div>
-                        <div class="feature-meta">Hollow Evolution</div>
-                    </div>`;
+        
+        // Selected Evolutions
+        const evos = document.querySelectorAll('.evo-check:checked');
+        if(evos.length > 0) {
+            featHTML += `<div style="margin-top:10px; font-weight:bold; color:#00d2ff;">Evolutions</div>`;
+            evos.forEach(e => {
+                featHTML += `<div style="font-size:0.9rem;">• ${e.value}</div>`;
             });
         }
-        
-        // Race Traits
-        raceData.traits.forEach(trait => {
-             featHTML += `
-                    <div class="feature-item">
-                        <div class="feature-title">${trait.split(':')[0]}</div>
-                        <div class="feature-meta">Racial Trait</div>
-                        <div class="feature-desc">${trait.split(':')[1] || ''}</div>
-                    </div>`;
-        });
 
-        document.getElementById('sheetFeatures').innerHTML = featHTML;
+        main.innerHTML += `<div class="card">${featHTML}</div>`;
     }
 </script>
 
