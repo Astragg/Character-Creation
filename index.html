@@ -3,1155 +3,578 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NBA Draft Battles: SimCast Edition</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <!-- Firebase SDKs (Compat) -->
-    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
-    <!-- Interact.js for Drag and Drop -->
-    <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
-    
+    <title>Arrancar Character Creator</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Teko:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;700&display=swap');
-        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
-        
+        :root {
+            --bg-color: #1a1a1a;
+            --panel-bg: #2b2b2b;
+            --text-color: #e0e0e0;
+            --accent-color: #00d2ff; /* Spirit Blue */
+            --accent-secondary: #ff0055; /* Cero Red */
+            --border-color: #444;
+        }
+
         body {
-            font-family: 'Teko', sans-serif;
-            background-color: #0f172a;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 20px;
+            max-width: 1200px;
+            width: 100%;
+        }
+
+        /* CONTROLS SIDEBAR */
+        .controls {
+            background-color: var(--panel-bg);
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            height: fit-content;
+        }
+
+        h1, h2, h3 {
+            margin-top: 0;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        h1 { color: var(--accent-color); font-size: 1.5rem; text-align: center; border-bottom: 2px solid var(--accent-color); padding-bottom: 10px; }
+        h2 { font-size: 1.2rem; color: var(--accent-secondary); margin-top: 20px; }
+        
+        label { display: block; margin-top: 10px; font-weight: bold; font-size: 0.9rem; }
+        input[type="text"], input[type="number"], select {
+            width: 100%;
+            padding: 8px;
+            background: #111;
+            border: 1px solid #555;
             color: white;
+            border-radius: 4px;
+            box-sizing: border-box;
         }
-        .font-mono { font-family: 'Roboto Mono', monospace; }
-        .font-pixel { font-family: 'Press Start 2P', cursive; }
+
+        .stat-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .evo-list {
+            max-height: 300px;
+            overflow-y: auto;
+            background: #111;
+            padding: 10px;
+            border: 1px solid #555;
+            margin-top: 5px;
+        }
+
+        .evo-item {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 8px;
+            font-size: 0.85rem;
+        }
         
-        /* Card Styles */
-        .nba-card {
-            transition: all 0.2s;
-            background: linear-gradient(145deg, #1e293b, #0f172a);
-            user-select: none;
-            touch-action: none; 
-        }
-        .nba-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-            border-color: #60a5fa;
-        }
-        .nba-card.disabled {
-            opacity: 0.4;
-            pointer-events: none;
-            filter: grayscale(100%);
-        }
-        .nba-card.drafted-host { border: 2px solid #3b82f6; opacity: 0.6; }
-        .nba-card.drafted-guest { border: 2px solid #ef4444; opacity: 0.6; }
+        .evo-item input { width: auto; margin-right: 8px; margin-top: 3px; }
 
-        /* Draggable Styles */
-        .draggable-source {
-            cursor: grab;
-            touch-action: none;
+        button.print-btn {
+            background: var(--accent-color);
+            color: #000;
+            border: none;
+            width: 100%;
+            padding: 15px;
+            font-weight: bold;
+            margin-top: 20px;
+            cursor: pointer;
+            text-transform: uppercase;
         }
-        .draggable-source:active {
-            cursor: grabbing;
-        }
-        .drag-active {
-            opacity: 0.5;
-        }
-        .drop-target {
-            background-color: rgba(59, 130, 246, 0.2);
-            border: 2px dashed #60a5fa;
-        }
-        .drop-target-hover {
-            background-color: rgba(59, 130, 246, 0.4);
-            border: 2px solid #60a5fa;
-            transform: scale(1.02);
-        }
+        button.print-btn:hover { background: #fff; }
 
-        /* Scrollbar */
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: #0f172a; }
-        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
-
-        .shiny-text {
-            background: linear-gradient(to right, #fff, #94a3b8, #fff);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-            background-size: 200% auto;
-            animation: shine 3s linear infinite;
-        }
-        @keyframes shine { to { background-position: 200% center; } }
-        
-        /* Sim Canvas */
-        #sim-canvas {
-            image-rendering: pixelated; 
+        /* CHARACTER SHEET */
+        .sheet {
+            background-color: #f4f4f4;
+            color: #111;
+            padding: 40px;
+            border-radius: 2px;
             box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            font-family: 'Georgia', serif;
+            position: relative;
+        }
+
+        .sheet-header {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 3px solid #000;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        .sheet-title { font-size: 2.5rem; font-weight: bold; font-family: sans-serif; text-transform: uppercase; }
+        .sheet-subtitle { font-size: 1rem; color: #555; }
+
+        .sheet-grid {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 30px;
+        }
+
+        .stat-box {
+            border: 2px solid #000;
+            padding: 10px;
+            text-align: center;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            background: #fff;
+        }
+        .stat-val { font-size: 1.5rem; font-weight: bold; display: block; }
+        .stat-label { text-transform: uppercase; font-size: 0.7rem; letter-spacing: 1px; }
+
+        .feature-block {
+            margin-bottom: 20px;
+            border-left: 4px solid var(--accent-secondary);
+            padding-left: 10px;
+        }
+        .feature-name { font-weight: bold; font-size: 1.1rem; }
+        .feature-desc { font-size: 0.9rem; line-height: 1.4; color: #333; }
+
+        .vitals-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+            background: #e0e0e0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .vital-box { text-align: center; }
+        .vital-label { font-size: 0.7rem; text-transform: uppercase; display: block; }
+        .vital-val { font-size: 1.2rem; font-weight: bold; }
+
+        .section-header {
+            background: #000;
+            color: #fff;
+            padding: 5px 10px;
+            text-transform: uppercase;
+            font-weight: bold;
+            margin-bottom: 10px;
+            font-family: sans-serif;
+        }
+
+        @media print {
+            body { background: white; padding: 0; display: block; }
+            .controls { display: none; }
+            .container { display: block; width: 100%; max-width: none; }
+            .sheet { box-shadow: none; border: none; width: 100%; padding: 0; }
         }
     </style>
 </head>
-<body class="h-screen flex flex-col overflow-hidden">
+<body>
 
-    <!-- Modal -->
-    <div id="modal" class="fixed inset-0 bg-black/90 z-50 hidden flex items-center justify-center backdrop-blur-sm">
-        <div class="bg-gray-800 p-6 rounded-lg max-w-sm w-full border border-gray-700 shadow-2xl">
-            <h3 id="modal-title" class="text-2xl font-bold mb-2 text-red-400">Notice</h3>
-            <p id="modal-msg" class="text-gray-300 text-lg mb-6">Message</p>
-            <button onclick="closeModal()" class="w-full py-2 bg-gray-700 hover:bg-gray-600 text-white rounded uppercase font-bold">Close</button>
+<div class="container">
+    <div class="controls">
+        <h1>Arrancar Forge</h1>
+        
+        <label>Name</label>
+        <input type="text" id="charName" placeholder="Enter Name" oninput="updateSheet()">
+        
+        <div class="stat-grid">
+            <div>
+                <label>Level (1-20)</label>
+                <input type="number" id="level" min="1" max="20" value="1" oninput="updateLogic()">
+            </div>
+            <div>
+                <label>Aspect of Death</label>
+                <select id="subclass" onchange="updateSheet()">
+                    <option value="Destruction">Destruction (Grimmjow)</option>
+                    <option value="Nihilism">Nihilism (Ulquiorra)</option>
+                    <option value="Madness">Madness (Szayelaporro)</option>
+                    <option value="Sacrifice">Sacrifice (Harribel)</option>
+                    <option value="Solitude">Solitude (Starrk)</option>
+                    <option value="Time">Time (Baraggan)</option>
+                </select>
+            </div>
         </div>
+
+        <h2>Ability Scores</h2>
+        <div class="stat-grid">
+            <div><label>STR</label><input type="number" id="str" value="10" oninput="updateSheet()"></div>
+            <div><label>DEX</label><input type="number" id="dex" value="16" oninput="updateSheet()"></div>
+            <div><label>CON</label><input type="number" id="con" value="16" oninput="updateSheet()"></div>
+            <div><label>INT</label><input type="number" id="int" value="10" oninput="updateSheet()"></div>
+            <div><label>WIS</label><input type="number" id="wis" value="10" oninput="updateSheet()"></div>
+            <div><label>CHA</label><input type="number" id="cha" value="10" oninput="updateSheet()"></div>
+        </div>
+
+        <h2>Hollow Evolutions</h2>
+        <div id="evoLimitDisplay" style="font-size: 0.8rem; margin-bottom: 5px; color: var(--accent-color);">Available: 0</div>
+        <div class="evo-list" id="evoList">
+            </div>
+
+        <button class="print-btn" onclick="window.print()">Print Character Sheet</button>
     </div>
 
-    <!-- Header -->
-    <header class="bg-gray-900 border-b border-gray-800 p-3 flex justify-between items-center shrink-0 z-20">
-        <div class="flex items-center gap-2">
-            <i class="fas fa-basketball-ball text-orange-500 text-2xl animate-bounce"></i>
-            <h1 class="text-2xl md:text-3xl font-bold tracking-widest uppercase shiny-text">SimCast Draft</h1>
-        </div>
-        <div id="status-bar" class="hidden md:flex gap-4 text-gray-400 text-lg">
-            <span>Room: <span id="header-room-id" class="text-white font-mono">---</span></span>
-            <span>User: <span id="header-user-id" class="text-white font-mono">---</span></span>
-        </div>
-    </header>
-
-    <!-- Main Content -->
-    <main class="flex-1 overflow-hidden relative">
-
-        <!-- 1. LOBBY -->
-        <div id="view-lobby" class="absolute inset-0 flex flex-col items-center justify-center p-4 z-10 bg-[#0f172a]">
-            <div class="max-w-md w-full bg-gray-800 p-8 rounded-xl border border-gray-700 shadow-2xl text-center">
-                <h2 class="text-4xl font-bold mb-8 text-white">Start Game</h2>
-                <button onclick="createRoom()" class="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold text-2xl uppercase mb-6 shadow-lg shadow-blue-900/50 transition">
-                    Create Lobby
-                </button>
-                <div class="flex gap-2">
-                    <input type="text" id="room-input" placeholder="ROOM CODE" class="flex-1 bg-gray-900 border border-gray-600 text-white px-4 py-3 rounded-lg text-xl uppercase font-mono text-center tracking-widest">
-                    <button onclick="joinRoom()" class="bg-green-600 hover:bg-green-500 text-white px-6 py-3 rounded-lg font-bold text-xl uppercase">JOIN</button>
-                </div>
+    <div class="sheet">
+        <div class="sheet-header">
+            <div>
+                <div class="sheet-title" id="displayName">Nameless</div>
+                <div class="sheet-subtitle">Race: Arrancar | Class: The Arrancar</div>
+            </div>
+            <div style="text-align: right;">
+                <div class="sheet-title" style="font-size: 1.5rem;" id="displayLevel">Level 1</div>
+                <div class="sheet-subtitle" id="displaySubclass">Aspect of Destruction</div>
             </div>
         </div>
 
-        <!-- 2. WAITING ROOM -->
-        <div id="view-waiting" class="absolute inset-0 flex flex-col items-center justify-center p-4 hidden bg-gray-900 z-10">
-            <div class="bg-gray-800 p-8 rounded-xl border border-gray-700 text-center max-w-lg w-full">
-                <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-500 mx-auto mb-4"></div>
-                <h2 class="text-3xl font-bold mb-2">Waiting for Player 2...</h2>
-                <div class="bg-black/50 p-4 rounded-lg mb-6 cursor-pointer hover:bg-black/70 transition" onclick="copyRoomId()">
-                    <div class="text-gray-400 text-sm uppercase">Room Code</div>
-                    <div id="display-room-id" class="text-5xl font-mono text-blue-400 tracking-widest">ABCD</div>
-                </div>
-                
-                <div class="text-left bg-gray-700/30 p-4 rounded mb-4">
-                    <label class="block text-gray-400 mb-2 uppercase tracking-wide">Select Mode:</label>
-                    <select id="mode-select" onchange="updateGameMode()" class="w-full bg-gray-800 border border-gray-600 text-white p-2 rounded text-xl">
-                        <option value="classic">Classic (Draft Best 5)</option>
-                        <option value="ringless">Ringless (Max 1 Star/Ring)</option>
-                        <option value="lockdown">Lockdown (DEF > 85 Only)</option>
-                        <option value="smallball">Small Ball (No Centers)</option>
-                    </select>
-                </div>
+        <div class="vitals-grid">
+            <div class="vital-box">
+                <span class="vital-label">Armor Class</span>
+                <span class="vital-val" id="displayAC">13</span>
+            </div>
+            <div class="vital-box">
+                <span class="vital-label">Hit Points</span>
+                <span class="vital-val" id="displayHP">10</span>
+            </div>
+            <div class="vital-box">
+                <span class="vital-label">Proficiency</span>
+                <span class="vital-val" id="displayProf">+2</span>
+            </div>
+            <div class="vital-box">
+                <span class="vital-label">Speed</span>
+                <span class="vital-val">30 ft</span>
             </div>
         </div>
 
-        <!-- 3. DRAFT BOARD -->
-        <div id="view-draft" class="absolute inset-0 flex flex-col hidden bg-gray-900">
-            <!-- Turn Indicator -->
-            <div class="bg-gray-800 p-2 border-b border-gray-700 flex justify-center items-center gap-4 shrink-0 shadow-md z-20">
-                <div id="turn-banner" class="px-6 py-2 rounded text-2xl font-bold uppercase tracking-widest bg-gray-700 text-gray-400 transition-all duration-300">
-                    Initializing...
+        <div class="sheet-grid">
+            <div>
+                <div class="section-header">Attributes</div>
+                <div class="stat-box"><span class="stat-val" id="dispSTR">10 (+0)</span><span class="stat-label">Strength</span></div>
+                <div class="stat-box"><span class="stat-val" id="dispDEX">10 (+0)</span><span class="stat-label">Dexterity</span></div>
+                <div class="stat-box"><span class="stat-val" id="dispCON">10 (+0)</span><span class="stat-label">Constitution</span></div>
+                <div class="stat-box"><span class="stat-val" id="dispINT">10 (+0)</span><span class="stat-label">Intelligence</span></div>
+                <div class="stat-box"><span class="stat-val" id="dispWIS">10 (+0)</span><span class="stat-label">Wisdom</span></div>
+                <div class="stat-box"><span class="stat-val" id="dispCHA">10 (+0)</span><span class="stat-label">Charisma</span></div>
+
+                <div class="section-header" style="margin-top:20px;">Reiatsu Engine</div>
+                <div class="stat-box" style="border-color: var(--accent-secondary);">
+                    <span class="stat-val" id="displayReiatsu">2</span>
+                    <span class="stat-label">Max Reiatsu Points</span>
+                </div>
+                <div class="stat-box" style="border-color: var(--accent-secondary);">
+                    <span class="stat-val" id="displayCero">1d10</span>
+                    <span class="stat-label">Cero Damage (Force)</span>
+                </div>
+                <div class="feature-block">
+                    <div class="feature-name">Bala</div>
+                    <div class="feature-desc">Bonus Action. Range 60ft. <span id="balaDmg">1d6</span> Force dmg.</div>
                 </div>
             </div>
 
-            <!-- Draft Content -->
-            <div class="flex-1 flex overflow-hidden">
-                <!-- Host Roster -->
-                <div class="w-1/5 md:w-1/4 bg-gray-900 border-r border-gray-800 flex flex-col">
-                    <div class="p-2 bg-blue-900/20 border-b border-blue-900/50 text-center">
-                        <h3 class="text-xl font-bold text-blue-400 uppercase">Host Team</h3>
-                        <div id="host-count" class="text-sm text-gray-400">0/5 Players</div>
+            <div>
+                <div class="section-header">Class Features</div>
+                <div id="coreFeaturesList">
                     </div>
-                    <div id="roster-host" class="flex-1 overflow-y-auto p-2 space-y-2"></div>
-                </div>
 
-                <!-- Player Pool -->
-                <div class="flex-1 bg-[#0f172a] flex flex-col relative">
-                    <!-- Filters -->
-                    <div class="p-2 bg-gray-800 border-b border-gray-700 flex gap-2 shrink-0">
-                        <input type="text" id="player-search" placeholder="Search..." class="flex-1 bg-gray-900 border border-gray-600 text-white px-3 py-1 rounded text-lg">
-                        <select id="pos-filter" class="bg-gray-900 border border-gray-600 text-white px-3 py-1 rounded text-lg w-24">
-                            <option value="ALL">All</option>
-                            <option value="G">G</option>
-                            <option value="SF">SF</option>
-                            <option value="PF">PF</option>
-                            <option value="C">C</option>
-                        </select>
+                <div class="section-header">Aspect of Death Features</div>
+                <div id="subclassFeaturesList">
                     </div>
-                    <!-- Cards Grid -->
-                    <div id="player-pool" class="flex-1 overflow-y-auto p-3 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 content-start"></div>
-                </div>
 
-                <!-- Guest Roster -->
-                <div class="w-1/5 md:w-1/4 bg-gray-900 border-l border-gray-800 flex flex-col">
-                    <div class="p-2 bg-red-900/20 border-b border-red-900/50 text-center">
-                        <h3 class="text-xl font-bold text-red-400 uppercase">Guest Team</h3>
-                        <div id="guest-count" class="text-sm text-gray-400">0/5 Players</div>
+                <div class="section-header">Evolutions</div>
+                <div id="selectedEvosList">
                     </div>
-                    <div id="roster-guest" class="flex-1 overflow-y-auto p-2 space-y-2"></div>
-                </div>
             </div>
         </div>
+    </div>
+</div>
 
-        <!-- 4. LINEUP EDITOR (Drag & Drop) -->
-        <div id="view-lineup" class="absolute inset-0 flex flex-col hidden bg-gray-900 z-20">
-            <div class="p-4 text-center bg-gray-800 border-b border-gray-700 shrink-0">
-                <h2 class="text-3xl font-bold text-yellow-500 uppercase tracking-widest">Set Your Lineup</h2>
-                <p class="text-gray-400">Drag players to positions. Matchups matter for the simulation!</p>
-                <div id="waiting-lineup-msg" class="hidden text-green-400 font-bold mt-2 animate-pulse">Waiting for opponent to finish...</div>
-            </div>
+<script>
+    // --- DATA ---
+    const classTable = [
+        { lvl: 1, prof: 2, reiatsu: 2, cero: '1d10', evos: 0, bala: '1d6' },
+        { lvl: 2, prof: 2, reiatsu: 3, cero: '1d10', evos: 2, bala: '1d6' },
+        { lvl: 3, prof: 2, reiatsu: 4, cero: '2d10', evos: 2, bala: '1d6' },
+        { lvl: 4, prof: 2, reiatsu: 5, cero: '2d10', evos: 2, bala: '1d6' },
+        { lvl: 5, prof: 3, reiatsu: 6, cero: '2d10', evos: 3, bala: '1d8' },
+        { lvl: 6, prof: 3, reiatsu: 7, cero: '3d10', evos: 3, bala: '1d8' },
+        { lvl: 7, prof: 3, reiatsu: 8, cero: '3d10', evos: 4, bala: '1d8' },
+        { lvl: 8, prof: 3, reiatsu: 9, cero: '3d10', evos: 4, bala: '1d8' },
+        { lvl: 9, prof: 4, reiatsu: 10, cero: '4d10', evos: 5, bala: '1d8' },
+        { lvl: 10, prof: 4, reiatsu: 11, cero: '4d10', evos: 5, bala: '1d8' },
+        { lvl: 11, prof: 4, reiatsu: 12, cero: '5d10', evos: 5, bala: '1d10' },
+        { lvl: 12, prof: 4, reiatsu: 13, cero: '5d10', evos: 6, bala: '1d10' },
+        { lvl: 13, prof: 5, reiatsu: 14, cero: '5d10', evos: 6, bala: '1d10' },
+        { lvl: 14, prof: 5, reiatsu: 15, cero: '6d10', evos: 6, bala: '1d10' },
+        { lvl: 15, prof: 5, reiatsu: 16, cero: '6d10', evos: 7, bala: '1d10' },
+        { lvl: 16, prof: 5, reiatsu: 17, cero: '6d10', evos: 7, bala: '1d10' },
+        { lvl: 17, prof: 6, reiatsu: 18, cero: '7d10', evos: 7, bala: '1d10' },
+        { lvl: 18, prof: 6, reiatsu: 19, cero: '8d10', evos: 8, bala: '1d10' },
+        { lvl: 19, prof: 6, reiatsu: 20, cero: '8d10', evos: 8, bala: '1d10' },
+        { lvl: 20, prof: 6, reiatsu: 25, cero: '10d10', evos: 8, bala: '1d10' }
+    ];
 
-            <div class="flex-1 flex flex-col md:flex-row p-4 gap-4 overflow-hidden">
-                <!-- Bench (Source) -->
-                <div class="flex-1 bg-gray-800 rounded-xl border border-gray-700 flex flex-col overflow-hidden">
-                    <div class="p-3 bg-gray-700 font-bold text-center uppercase">Bench (Drag From Here)</div>
-                    <div id="lineup-bench" class="flex-1 p-4 space-y-3 overflow-y-auto">
-                        <!-- Draggable Cards appear here -->
-                    </div>
-                </div>
+    const subclassData = {
+        "Destruction": [
+            { lvl: 3, name: "Primal Scream", desc: "Bonus Action roar. 10ft range, WIS save or Frightened." },
+            { lvl: 5, name: "Cero Buff", desc: "Cero knocks targets Prone and Stuns them." },
+            { lvl: 11, name: "Resurrección: Pantera", desc: "Reach 15ft. Attacks deal Force damage. Advantage vs Frightened." },
+            { lvl: 20, name: "Segunda Etapa: Desgarrón", desc: "Cast Steel Wind Strike at will (4 Reiatsu)." }
+        ],
+        "Nihilism": [
+            { lvl: 3, name: "Emptiness", desc: "Immune to Charm. No need to eat/breathe." },
+            { lvl: 5, name: "Instant Regen", desc: "Add CON Mod to High-Speed Regeneration." },
+            { lvl: 11, name: "Resurrección: Murciélago", desc: "Fly speed x2. Bonus Action Dash." },
+            { lvl: 14, name: "Lanza del Relámpago", desc: "300ft range. 5d10 Force in 20ft sphere. 1/Short Rest." },
+            { lvl: 20, name: "Segunda Etapa: Latigazo", desc: "Immune to Non-Magical damage. Two actions per turn." }
+        ],
+        "Madness": [
+            { lvl: 3, name: "Analysis", desc: "Bonus Action: Learn Target's HP/AC/Immunities." },
+            { lvl: 5, name: "Voodoo Doll", desc: "Action (3 Reiatsu). Link to target. They take damage you take." },
+            { lvl: 11, name: "Resurrección: Fornicarás", desc: "Create Carbon-Copy clones of two targets." },
+            { lvl: 20, name: "Segunda Etapa: Puppet Master", desc: "Cast Dominate Monster (5 Reiatsu)." }
+        ],
+        "Sacrifice": [
+            { lvl: 3, name: "Phantom Currents", desc: "Swim Speed = Walk. Reaction: Disadvantage on attacks vs allies." },
+            { lvl: 5, name: "Ola Azul", desc: "Attack replacement: 15ft Cone (2d6 Cold + Push)." },
+            { lvl: 11, name: "Resurrección: Tiburon", desc: "Immune Cold. Melee hits splash water (DEX dmg)." },
+            { lvl: 20, name: "Segunda Etapa: Abyss Queen", desc: "100ft water sphere. Enemies have Disadv on melee. 4d10 Bludgeoning/turn." }
+        ],
+        "Solitude": [
+            { lvl: 3, name: "Cero Metralleta", desc: "Fire Cero Shots (60ft, 1d10 Force) as weapon attacks." },
+            { lvl: 5, name: "Quick Draw", desc: "No Loading. No Disadv on ranged attacks in melee." },
+            { lvl: 11, name: "Resurrección: Los Lobos", desc: "Summon 2 Spirit Wolves. Explode for 4d6 Force." },
+            { lvl: 20, name: "Segunda Etapa: Primary Soul", desc: "Split into 10 Wolves. Invincible until all 10 die." }
+        ],
+        "Time": [
+            { lvl: 3, name: "Aura of Age", desc: "Enemies within 5ft lose 10ft Speed." },
+            { lvl: 5, name: "Senectud", desc: "1 Reiatsu on hit: +1d8 Necrotic & -1 AC to target." },
+            { lvl: 11, name: "Resurrección: Arrogante", desc: "Ranged attacks against you have Disadvantage." },
+            { lvl: 14, name: "Respira", desc: "30ft cloud. 5d10 Necrotic. Dissolves 0 HP targets." },
+            { lvl: 20, name: "Segunda Etapa: Absolute Entropy", desc: "Auto-hit melee. Immune to all except Force/Radiant." }
+        ]
+    };
 
-                <!-- Starters (Target) -->
-                <div class="flex-1 bg-gray-800 rounded-xl border border-gray-700 flex flex-col overflow-hidden">
-                    <div class="p-3 bg-gray-700 font-bold text-center uppercase">Starting 5 (Drop Here)</div>
-                    <div class="flex-1 p-4 flex flex-col justify-between gap-2 overflow-y-auto">
-                        <!-- Drop Zones -->
-                        <div class="drop-zone flex items-center gap-3 p-2 bg-gray-900 rounded border border-gray-600 h-20" data-pos="PG">
-                            <div class="w-12 text-center font-bold text-gray-500 text-xl">PG</div>
-                            <div class="flex-1 h-full rounded border-2 border-dashed border-gray-700 flex items-center justify-center text-gray-600 slot-content">Drop PG</div>
-                        </div>
-                        <div class="drop-zone flex items-center gap-3 p-2 bg-gray-900 rounded border border-gray-600 h-20" data-pos="SG">
-                            <div class="w-12 text-center font-bold text-gray-500 text-xl">SG</div>
-                            <div class="flex-1 h-full rounded border-2 border-dashed border-gray-700 flex items-center justify-center text-gray-600 slot-content">Drop SG</div>
-                        </div>
-                        <div class="drop-zone flex items-center gap-3 p-2 bg-gray-900 rounded border border-gray-600 h-20" data-pos="SF">
-                            <div class="w-12 text-center font-bold text-gray-500 text-xl">SF</div>
-                            <div class="flex-1 h-full rounded border-2 border-dashed border-gray-700 flex items-center justify-center text-gray-600 slot-content">Drop SF</div>
-                        </div>
-                        <div class="drop-zone flex items-center gap-3 p-2 bg-gray-900 rounded border border-gray-600 h-20" data-pos="PF">
-                            <div class="w-12 text-center font-bold text-gray-500 text-xl">PF</div>
-                            <div class="flex-1 h-full rounded border-2 border-dashed border-gray-700 flex items-center justify-center text-gray-600 slot-content">Drop PF</div>
-                        </div>
-                        <div class="drop-zone flex items-center gap-3 p-2 bg-gray-900 rounded border border-gray-600 h-20" data-pos="C">
-                            <div class="w-12 text-center font-bold text-gray-500 text-xl">C</div>
-                            <div class="flex-1 h-full rounded border-2 border-dashed border-gray-700 flex items-center justify-center text-gray-600 slot-content">Drop C</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+    const coreFeatures = [
+        { lvl: 1, name: "Hierro", desc: "Unarmored AC = 10+DEX+CON. Reaction: Reduce dmg by 1d10+Level." },
+        { lvl: 2, name: "Cero", desc: "100ft Line or 30ft Cone. DEX Save. Costs 2 Reiatsu." },
+        { lvl: 2, name: "Sonído", desc: "Bonus Action: Teleport 30ft (1 Reiatsu)." },
+        { lvl: 5, name: "Extra Attack", desc: "Attack twice when taking Attack action." },
+        { lvl: 6, name: "High-Speed Regen", desc: "Bonus Action: Spend Reiatsu to heal 1d10 per point." },
+        { lvl: 7, name: "Pesquisa", desc: "Sensory Pulse." },
+        { lvl: 9, name: "Gran Rey Cero", desc: "Cero does 4d10. Ignores resistance if upgraded." },
+        { lvl: 10, name: "Despair Aura", desc: "Immune to Fear." },
+        { lvl: 11, name: "Resurrección", desc: "True Form. Heal to full. Fly Speed. +Prof Bonus to Dmg." },
+        { lvl: 15, name: "Relentless", desc: "Refuse Death once per Long Rest." },
+        { lvl: 18, name: "Cero Oscuras", desc: "Cero crits on 19-20. Necrotic + Force." }
+    ];
+
+    const evolutions = [
+        // Tier 1
+        { tier: 1, name: "Bala Barrage", desc: "Replace attack with 10ft cube spray (2d4 Force)." },
+        { tier: 1, name: "Acidic Touch", desc: "Melee deals +1d4 Acid." },
+        { tier: 1, name: "Pesquisa (Radar)", desc: "Gain Blindsight 30ft." },
+        { tier: 1, name: "Gemelos Sonído", desc: "After Sonído, attacks vs you have Disadvantage." },
+        { tier: 1, name: "Glotonería", desc: "Eat corpse to regain HP." },
+        { tier: 1, name: "Tiburon Skin", desc: "Advantage on Grappling." },
+        // Tier 2
+        { tier: 2, name: "Hierro Armor", desc: "Resistance to non-magical B/P/S damage." },
+        { tier: 2, name: "Cero Doble", desc: "Reaction: Absorb energy dmg, reflect in next attack." },
+        { tier: 2, name: "Garganta", desc: "Dimensional pocket storage." },
+        { tier: 2, name: "Negación", desc: "Cast Command ('Kneel')." },
+        { tier: 2, name: "Dilated Time", desc: "Reaction: Enemy misses you -> their Speed is 0." },
+        { tier: 2, name: "Colmillo", desc: "Manifest magical force sword." },
+        // Tier 3
+        { tier: 3, name: "Gran Rey Cero+", desc: "Cero ignores Resistance/Immunity." },
+        { tier: 3, name: "Amor", desc: "Control enemy Action (WIS save)." },
+        { tier: 3, name: "Los Lobos (Pack)", desc: "Summon 3 exploding wolves." },
+        { tier: 3, name: "Calaveras", desc: "Summon 3 Skeletons." },
+        { tier: 3, name: "Grand Fall", desc: "Jump crash (3d10 Bludg + Prone)." },
+        // Tier 4
+        { tier: 4, name: "Indestructible", desc: "Resistance to ALL dmg. -10ft Speed." },
+        { tier: 4, name: "The Second Skin", desc: "On 0HP, regain 20HP if you reach an ally." },
+        { tier: 4, name: "Respira (Rot)", desc: "20ft Aura (4d10 Necrotic). Destroys weapons." },
+        { tier: 4, name: "Hirviendo", desc: "60ft flash-boil (Fire/Cold dmg)." },
+        { tier: 4, name: "Gran Caída", desc: "Death's Axe. 10d10 Necrotic." }
+    ];
+
+    // --- LOGIC ---
+
+    function getMod(score) {
+        return Math.floor((score - 10) / 2);
+    }
+
+    function fmtMod(score) {
+        const mod = getMod(score);
+        return mod >= 0 ? `+${mod}` : mod;
+    }
+
+    function initEvolutions() {
+        const list = document.getElementById('evoList');
+        list.innerHTML = "";
+        evolutions.forEach((evo, index) => {
+            const div = document.createElement('div');
+            div.className = 'evo-item';
             
-            <div class="p-4 bg-gray-800 border-t border-gray-700 shrink-0">
-                <button onclick="submitLineup()" id="btn-submit-lineup" class="w-full py-3 bg-green-600 hover:bg-green-500 text-white font-bold text-2xl uppercase rounded disabled:opacity-50 disabled:cursor-not-allowed">
-                    Confirm Lineup
-                </button>
-            </div>
-        </div>
-
-        <!-- 5. SIMCAST VIEW -->
-        <div id="view-sim" class="absolute inset-0 flex flex-col hidden bg-black z-30 overflow-hidden">
-            <!-- Scoreboard -->
-            <div class="bg-gray-900 border-b border-gray-800 p-2 flex justify-between items-center shrink-0 h-20">
-                <div class="w-1/3 text-center">
-                    <div class="text-blue-400 font-bold text-lg uppercase">HOST</div>
-                    <div id="sim-score-host" class="text-4xl font-mono font-bold text-white leading-none">0</div>
+            // Logic handled in updateLogic to disable/enable based on level
+            div.innerHTML = `
+                <input type="checkbox" id="evo-${index}" value="${index}" onchange="updateSheet()">
+                <div>
+                    <strong>${evo.name}</strong> <span style="color:#777">(Tier ${evo.tier})</span><br>
+                    ${evo.desc}
                 </div>
-                <div class="w-1/3 text-center flex flex-col items-center">
-                    <div id="sim-quarter" class="text-gray-500 font-mono text-lg">Q1</div>
-                    <div id="sim-clock" class="text-yellow-500 font-mono text-2xl font-bold">12:00</div>
-                </div>
-                <div class="w-1/3 text-center">
-                    <div class="text-red-400 font-bold text-lg uppercase">GUEST</div>
-                    <div id="sim-score-guest" class="text-4xl font-mono font-bold text-white leading-none">0</div>
-                </div>
-            </div>
+            `;
+            list.appendChild(div);
+        });
+    }
 
-            <div class="flex-1 flex flex-col overflow-hidden bg-black relative">
-                <!-- 2D COURT CANVAS -->
-                <div class="relative bg-black flex justify-center items-center p-2 shrink-0">
-                    <canvas id="sim-canvas" width="600" height="200" class="w-full max-w-2xl border-4 border-gray-800 rounded bg-[#d2a679]"></canvas>
-                </div>
+    function updateLogic() {
+        // Enforce level caps on evolutions and limit selection count
+        const lvl = parseInt(document.getElementById('level').value);
+        const tableData = classTable[lvl - 1];
+        const maxEvos = tableData.evos;
+        
+        // Update checkboxes availability based on Tier
+        evolutions.forEach((evo, index) => {
+            const checkbox = document.getElementById(`evo-${index}`);
+            let reqLvl = 1;
+            if(evo.tier === 2) reqLvl = 5;
+            if(evo.tier === 3) reqLvl = 9;
+            if(evo.tier === 4) reqLvl = 15;
 
-                <!-- Play By Play Log -->
-                <div id="sim-log" class="flex-1 bg-gray-900/50 p-4 overflow-y-auto font-mono text-sm md:text-base space-y-1 border-t border-gray-800">
-                    <div class="text-gray-500 text-center italic">Simulation starting...</div>
-                </div>
-            </div>
-
-            <!-- Stats Ticker -->
-            <div class="h-32 bg-gray-900 shrink-0 flex flex-col md:flex-row border-t border-gray-700">
-                <div class="flex-1 p-2 border-r border-gray-800 overflow-y-auto">
-                     <table class="w-full text-left text-xs">
-                        <thead><tr class="text-gray-500 border-b border-gray-700"><th class="pb-1">Host</th><th class="pb-1 text-right">PTS</th><th class="pb-1 text-right">FG%</th></tr></thead>
-                        <tbody id="box-host-mini"></tbody>
-                     </table>
-                </div>
-                <div class="flex-1 p-2 overflow-y-auto">
-                    <table class="w-full text-left text-xs">
-                        <thead><tr class="text-gray-500 border-b border-gray-700"><th class="pb-1">Guest</th><th class="pb-1 text-right">PTS</th><th class="pb-1 text-right">FG%</th></tr></thead>
-                        <tbody id="box-guest-mini"></tbody>
-                     </table>
-                </div>
-            </div>
-
-            <!-- Start Sim Button (Host Only) -->
-            <div id="sim-controls" class="absolute bottom-36 left-0 right-0 p-4 flex justify-center hidden pointer-events-none">
-                <button onclick="startSimulation()" class="px-8 py-2 bg-yellow-600 hover:bg-yellow-500 text-white font-bold text-xl uppercase rounded shadow-lg animate-pulse pointer-events-auto">
-                    Tip Off
-                </button>
-            </div>
-        </div>
-
-        <!-- 6. FINAL BOX SCORE -->
-        <div id="view-result" class="absolute inset-0 flex flex-col hidden bg-gray-900 z-40 overflow-y-auto">
-            <div class="p-6 text-center shrink-0">
-                <h2 class="text-4xl font-bold text-white mb-2 uppercase">Final Score</h2>
-                <div class="flex justify-center items-center gap-8 mb-6">
-                    <div class="text-5xl font-mono font-bold text-blue-400" id="final-host">0</div>
-                    <div class="text-2xl text-gray-600">vs</div>
-                    <div class="text-5xl font-mono font-bold text-red-400" id="final-guest">0</div>
-                </div>
-                <div id="winner-badge" class="inline-block px-6 py-2 rounded bg-yellow-600 text-black font-bold text-2xl uppercase">Winner</div>
-            </div>
-
-            <div class="flex-1 max-w-5xl mx-auto w-full p-4 space-y-6">
-                <!-- Host Box -->
-                <div class="bg-gray-800 rounded border border-gray-700 p-4 overflow-x-auto">
-                    <h3 class="text-xl text-blue-400 font-bold mb-2 uppercase">Host Stats</h3>
-                    <table class="w-full text-left text-sm md:text-base">
-                        <thead>
-                            <tr class="text-gray-500 border-b border-gray-600">
-                                <th class="py-2">Player</th>
-                                <th class="py-2 text-right">PTS</th>
-                                <th class="py-2 text-right">REB</th>
-                                <th class="py-2 text-right">AST</th>
-                                <th class="py-2 text-right">FG</th>
-                                <th class="py-2 text-right">3PT</th>
-                                <th class="py-2 text-right">FT</th>
-                            </tr>
-                        </thead>
-                        <tbody id="box-host-full"></tbody>
-                    </table>
-                </div>
-
-                <!-- Guest Box -->
-                <div class="bg-gray-800 rounded border border-gray-700 p-4 overflow-x-auto">
-                    <h3 class="text-xl text-red-400 font-bold mb-2 uppercase">Guest Stats</h3>
-                    <table class="w-full text-left text-sm md:text-base">
-                        <thead>
-                            <tr class="text-gray-500 border-b border-gray-600">
-                                <th class="py-2">Player</th>
-                                <th class="py-2 text-right">PTS</th>
-                                <th class="py-2 text-right">REB</th>
-                                <th class="py-2 text-right">AST</th>
-                                <th class="py-2 text-right">FG</th>
-                                <th class="py-2 text-right">3PT</th>
-                                <th class="py-2 text-right">FT</th>
-                            </tr>
-                        </thead>
-                        <tbody id="box-guest-full"></tbody>
-                    </table>
-                </div>
-            </div>
-
-            <div class="p-6 text-center pb-12">
-                <button onclick="location.reload()" class="px-8 py-3 bg-gray-700 hover:bg-gray-600 text-white font-bold text-xl uppercase rounded">New Game</button>
-            </div>
-        </div>
-
-    </main>
-
-    <script>
-        // --- DATABASE ---
-        // Stats: OVR, OFF, DEF, REB, PAS
-        const PLAYERS_DB = [
-            // C
-            { id: 1, name: "Kareem Abdul-Jabbar", pos: "C", r: 6, ovr: 99, off: 98, def: 90, reb: 95, pas: 60 },
-            { id: 2, name: "Shaquille O'Neal", pos: "C", r: 4, ovr: 98, off: 99, def: 85, reb: 98, pas: 50 },
-            { id: 3, name: "Hakeem Olajuwon", pos: "C", r: 2, ovr: 97, off: 95, def: 99, reb: 95, pas: 45 },
-            { id: 4, name: "Wilt Chamberlain", pos: "C", r: 2, ovr: 98, off: 99, def: 90, reb: 99, pas: 55 },
-            { id: 5, name: "Bill Russell", pos: "C", r: 11, ovr: 96, off: 70, def: 99, reb: 99, pas: 60 },
-            { id: 6, name: "Nikola Jokic", pos: "C", r: 1, ovr: 97, off: 96, def: 70, reb: 94, pas: 99 },
-            { id: 7, name: "Joel Embiid", pos: "C", r: 0, ovr: 96, off: 97, def: 90, reb: 92, pas: 60 },
-            { id: 8, name: "David Robinson", pos: "C", r: 2, ovr: 95, off: 85, def: 95, reb: 92, pas: 40 },
-            { id: 9, name: "Patrick Ewing", pos: "C", r: 0, ovr: 93, off: 88, def: 88, reb: 90, pas: 30 },
-            { id: 10, name: "Dwight Howard", pos: "C", r: 1, ovr: 92, off: 80, def: 95, reb: 98, pas: 30 },
-            { id: 11, name: "Dikembe Mutombo", pos: "C", r: 0, ovr: 89, off: 60, def: 98, reb: 95, pas: 20 },
-            { id: 12, name: "Ben Wallace", pos: "C", r: 1, ovr: 89, off: 40, def: 99, reb: 96, pas: 30 },
-            { id: 13, name: "Yao Ming", pos: "C", r: 0, ovr: 91, off: 90, def: 75, reb: 85, pas: 40 },
-            { id: 14, name: "Alonzo Mourning", pos: "C", r: 1, ovr: 90, off: 85, def: 92, reb: 90, pas: 20 },
-            { id: 15, name: "Rudy Gobert", pos: "C", r: 0, ovr: 88, off: 60, def: 96, reb: 95, pas: 30 },
-            { id: 16, name: "Robert Parish", pos: "C", r: 4, ovr: 90, off: 80, def: 85, reb: 90, pas: 40 },
-            
-            // PF
-            { id: 30, name: "Tim Duncan", pos: "PF", r: 5, ovr: 97, off: 88, def: 95, reb: 95, pas: 60 },
-            { id: 31, name: "Giannis Antetokounmpo", pos: "PF", r: 1, ovr: 96, off: 94, def: 92, reb: 94, pas: 70 },
-            { id: 32, name: "Kevin Garnett", pos: "PF", r: 1, ovr: 95, off: 85, def: 98, reb: 96, pas: 70 },
-            { id: 33, name: "Dirk Nowitzki", pos: "PF", r: 1, ovr: 95, off: 95, def: 65, reb: 80, pas: 50 },
-            { id: 34, name: "Karl Malone", pos: "PF", r: 0, ovr: 95, off: 94, def: 85, reb: 90, pas: 50 },
-            { id: 35, name: "Charles Barkley", pos: "PF", r: 0, ovr: 94, off: 92, def: 70, reb: 96, pas: 60 },
-            { id: 36, name: "Dennis Rodman", pos: "PF", r: 5, ovr: 89, off: 40, def: 99, reb: 99, pas: 40 },
-            { id: 37, name: "Anthony Davis", pos: "PF", r: 1, ovr: 94, off: 90, def: 95, reb: 92, pas: 40 },
-            { id: 38, name: "Draymond Green", pos: "PF", r: 4, ovr: 88, off: 60, def: 95, reb: 75, pas: 85 },
-            { id: 39, name: "Chris Bosh", pos: "PF", r: 2, ovr: 90, off: 88, def: 80, reb: 85, pas: 50 },
-            { id: 40, name: "Pau Gasol", pos: "PF", r: 2, ovr: 91, off: 90, def: 80, reb: 88, pas: 70 },
-            { id: 41, name: "Kevin McHale", pos: "PF", r: 3, ovr: 93, off: 92, def: 85, reb: 85, pas: 50 },
-            { id: 42, name: "Zion Williamson", pos: "PF", r: 0, ovr: 89, off: 92, def: 60, reb: 80, pas: 60 },
-            { id: 43, name: "Shawn Kemp", pos: "PF", r: 0, ovr: 89, off: 88, def: 75, reb: 85, pas: 40 },
-
-            // SF
-            { id: 60, name: "LeBron James", pos: "SF", r: 4, ovr: 99, off: 97, def: 88, reb: 85, pas: 95 },
-            { id: 61, name: "Larry Bird", pos: "SF", r: 3, ovr: 97, off: 96, def: 80, reb: 85, pas: 85 },
-            { id: 62, name: "Kevin Durant", pos: "SF", r: 2, ovr: 96, off: 99, def: 80, reb: 75, pas: 70 },
-            { id: 63, name: "Kawhi Leonard", pos: "SF", r: 2, ovr: 94, off: 90, def: 98, reb: 70, pas: 50 },
-            { id: 64, name: "Scottie Pippen", pos: "SF", r: 6, ovr: 93, off: 80, def: 98, reb: 75, pas: 80 },
-            { id: 65, name: "Julius Erving", pos: "SF", r: 1, ovr: 94, off: 95, def: 75, reb: 80, pas: 60 },
-            { id: 66, name: "Dominique Wilkins", pos: "SF", r: 0, ovr: 91, off: 94, def: 60, reb: 70, pas: 30 },
-            { id: 67, name: "Carmelo Anthony", pos: "SF", r: 0, ovr: 91, off: 95, def: 50, reb: 70, pas: 30 },
-            { id: 68, name: "Jayson Tatum", pos: "SF", r: 1, ovr: 93, off: 92, def: 85, reb: 75, pas: 60 },
-            { id: 69, name: "Paul Pierce", pos: "SF", r: 1, ovr: 91, off: 90, def: 75, reb: 60, pas: 60 },
-            { id: 70, name: "James Worthy", pos: "SF", r: 3, ovr: 90, off: 90, def: 70, reb: 70, pas: 50 },
-            { id: 71, name: "Grant Hill", pos: "SF", r: 0, ovr: 90, off: 88, def: 75, reb: 75, pas: 85 },
-            { id: 72, name: "Jimmy Butler", pos: "SF", r: 0, ovr: 91, off: 88, def: 92, reb: 70, pas: 70 },
-            
-            // G
-            { id: 90, name: "Michael Jordan", pos: "G", r: 6, ovr: 99, off: 99, def: 99, reb: 60, pas: 65 },
-            { id: 91, name: "Magic Johnson", pos: "G", r: 5, ovr: 98, off: 90, def: 75, reb: 80, pas: 99 },
-            { id: 92, name: "Kobe Bryant", pos: "G", r: 5, ovr: 98, off: 98, def: 95, reb: 60, pas: 70 },
-            { id: 93, name: "Stephen Curry", pos: "G", r: 4, ovr: 97, off: 99, def: 65, reb: 50, pas: 85 },
-            { id: 94, name: "Jerry West", pos: "G", r: 1, ovr: 96, off: 94, def: 85, reb: 50, pas: 85 },
-            { id: 95, name: "Oscar Robertson", pos: "G", r: 1, ovr: 96, off: 90, def: 75, reb: 85, pas: 95 },
-            { id: 96, name: "Dwyane Wade", pos: "G", r: 3, ovr: 95, off: 92, def: 90, reb: 60, pas: 70 },
-            { id: 97, name: "Isiah Thomas", pos: "G", r: 2, ovr: 93, off: 85, def: 75, reb: 40, pas: 90 },
-            { id: 98, name: "Allen Iverson", pos: "G", r: 0, ovr: 94, off: 96, def: 70, reb: 40, pas: 60 },
-            { id: 99, name: "Steve Nash", pos: "G", r: 0, ovr: 93, off: 88, def: 50, reb: 40, pas: 98 },
-            { id: 100, name: "John Stockton", pos: "G", r: 0, ovr: 93, off: 75, def: 80, reb: 40, pas: 99 },
-            { id: 101, name: "James Harden", pos: "G", r: 0, ovr: 94, off: 97, def: 60, reb: 65, pas: 88 },
-            { id: 102, name: "Chris Paul", pos: "G", r: 0, ovr: 93, off: 85, def: 85, reb: 50, pas: 98 },
-            { id: 103, name: "Jason Kidd", pos: "G", r: 1, ovr: 92, off: 70, def: 85, reb: 75, pas: 95 },
-            { id: 104, name: "Gary Payton", pos: "G", r: 1, ovr: 92, off: 80, def: 98, reb: 50, pas: 75 },
-            { id: 105, name: "Russell Westbrook", pos: "G", r: 0, ovr: 91, off: 88, def: 70, reb: 85, pas: 85 },
-            { id: 106, name: "Luka Doncic", pos: "G", r: 0, ovr: 96, off: 97, def: 65, reb: 85, pas: 92 },
-            { id: 107, name: "Tracy McGrady", pos: "G", r: 0, ovr: 92, off: 95, def: 70, reb: 65, pas: 60 },
-            { id: 108, name: "Vince Carter", pos: "G", r: 0, ovr: 90, off: 92, def: 65, reb: 60, pas: 50 },
-            { id: 109, name: "Damian Lillard", pos: "G", r: 0, ovr: 92, off: 94, def: 55, reb: 45, pas: 70 },
-            { id: 110, name: "Reggie Miller", pos: "G", r: 0, ovr: 89, off: 88, def: 60, reb: 30, pas: 40 },
-            { id: 111, name: "Ray Allen", pos: "G", r: 2, ovr: 90, off: 89, def: 70, reb: 45, pas: 50 },
-            { id: 112, name: "Klay Thompson", pos: "G", r: 4, ovr: 89, off: 88, def: 85, reb: 40, pas: 40 },
-            { id: 113, name: "Kyrie Irving", pos: "G", r: 1, ovr: 92, off: 95, def: 55, reb: 40, pas: 75 },
-            { id: 114, name: "Ja Morant", pos: "G", r: 0, ovr: 90, off: 92, def: 60, reb: 50, pas: 80 }
-        ];
-
-        // --- FIREBASE CONFIG (USER PROVIDED) ---
-        const firebaseConfig = {
-            apiKey: "AIzaSyDCrKQVcGBW4iy7OMAtn4Jcf1ot5CGALBE",
-            authDomain: "highnoon-66ee0.firebaseapp.com",
-            databaseURL: "https://highnoon-66ee0-default-rtdb.europe-west1.firebasedatabase.app",
-            projectId: "highnoon-66ee0",
-            storageBucket: "highnoon-66ee0.firebasestorage.app",
-            messagingSenderId: "754268761672",
-            appId: "1:754268761672:web:7fbf59d2c403b43356727d"
-        };
-        const app = firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
-        const db = firebase.firestore();
-        const appId = 'nba-sim-battles';
-
-        // --- STATE ---
-        let currentUser = null;
-        let currentRoomId = null;
-        let roomUnsubscribe = null;
-        let myRole = null; 
-        let roomData = null;
-        let simInterval = null;
-        let animRequest = null; // Animation Frame
-
-        // --- AUTH ---
-        window.onload = async () => {
-            try {
-                await auth.signInAnonymously();
-            } catch(e) { console.error(e); }
-        };
-        auth.onAuthStateChanged(u => {
-            if(u) {
-                currentUser = u;
-                document.getElementById('header-user-id').textContent = u.uid.slice(0,4);
+            if (lvl < reqLvl) {
+                checkbox.disabled = true;
+                checkbox.checked = false;
+                checkbox.parentElement.style.opacity = "0.4";
+            } else {
+                checkbox.disabled = false;
+                checkbox.parentElement.style.opacity = "1";
             }
         });
 
-        // --- ROOM MANAGEMENT ---
-        const getRef = (id) => db.collection('artifacts').doc(appId).collection('public').doc('data').collection('rooms').doc(id);
+        // Enforce Count Limit
+        const checkboxes = document.querySelectorAll('.evo-list input[type="checkbox"]');
+        let checkedCount = 0;
+        checkboxes.forEach(box => { if(box.checked) checkedCount++; });
 
-        async function createRoom() {
-            if(!currentUser) return;
-            const rid = (Math.random().toString(36) + '000000').substring(2, 8).toUpperCase();
-            
-            await getRef(rid).set({
-                hostId: currentUser.uid,
-                guestId: null,
-                status: 'waiting', 
-                mode: 'classic',
-                turnOwner: 'host', 
-                turnIndex: 0,
-                teamHost: [],
-                teamGuest: [],
-                lineupHost: [null, null, null, null, null],
-                lineupGuest: [null, null, null, null, null],
-                taken: [],
-                logs: [],
-                // New Stats Tracking: 3PM/A, FTM/A
-                simState: { 
-                    q: 1, time: 720, scoreH: 0, scoreG: 0, 
-                    activeShooter: null, 
-                    ballX: 300, ballY: 100, // For animation sync
-                    stats: {} 
-                } 
-            });
-            currentRoomId = rid;
-            myRole = 'host';
-            joinGameUI(rid);
-        }
+        document.getElementById('evoLimitDisplay').innerText = `Evolutions Known: ${checkedCount} / ${maxEvos}`;
 
-        async function joinRoom() {
-            const input = document.getElementById('room-input');
-            const rid = input.value.trim().toUpperCase();
-            if (!rid) return alert("Please enter a valid Room Code");
-
-            const ref = getRef(rid);
-            const doc = await ref.get();
-            if(!doc.exists) return alert('Room not found');
-            
-            const data = doc.data();
-            if(data.hostId !== currentUser.uid && !data.guestId) {
-                await ref.update({ guestId: currentUser.uid, status: 'drafting' });
-                myRole = 'guest';
-            } else if (data.hostId === currentUser.uid) myRole = 'host';
-            else if (data.guestId === currentUser.uid) myRole = 'guest';
-            else return alert('Full');
-
-            currentRoomId = rid;
-            joinGameUI(rid);
-        }
-
-        function joinGameUI(rid) {
-            document.getElementById('view-lobby').classList.add('hidden');
-            document.getElementById('header-room-id').textContent = rid;
-            document.getElementById('display-room-id').textContent = rid;
-
-            roomUnsubscribe = getRef(rid).onSnapshot(snap => {
-                if(!snap.exists) return;
-                const data = snap.data();
-                roomData = data;
-                renderGame(data);
-            });
-        }
-
-        // --- RENDER ROUTER ---
-        function renderGame(data) {
-            ['view-waiting', 'view-draft', 'view-lineup', 'view-sim', 'view-result'].forEach(id => {
-                document.getElementById(id).classList.add('hidden');
-            });
-
-            if(data.status === 'waiting') {
-                document.getElementById('view-waiting').classList.remove('hidden');
-                document.getElementById('mode-select').disabled = (myRole !== 'host');
-                document.getElementById('mode-select').value = data.mode;
-            } 
-            else if(data.status === 'drafting') {
-                document.getElementById('view-draft').classList.remove('hidden');
-                renderDraft(data);
+        checkboxes.forEach(box => {
+            if (!box.checked && checkedCount >= maxEvos) {
+                box.disabled = true;
+            } else if (!box.checked && !box.disabled && lvl >= (box.value < 6 ? 1 : box.value < 12 ? 5 : box.value < 18 ? 9 : 15)) {
+                 // Re-enable if under limit and meets tier req (logic simplified here, relies on previous block)
+                 const index = parseInt(box.value);
+                 const evo = evolutions[index];
+                 let reqLvl = 1;
+                 if(evo.tier === 2) reqLvl = 5;
+                 if(evo.tier === 3) reqLvl = 9;
+                 if(evo.tier === 4) reqLvl = 15;
+                 
+                 if(lvl >= reqLvl) box.disabled = false;
             }
-            else if(data.status === 'lineups') {
-                document.getElementById('view-lineup').classList.remove('hidden');
-                renderLineupEditor(data);
-            }
-            else if(data.status === 'simulation') {
-                document.getElementById('view-sim').classList.remove('hidden');
-                renderSim(data);
-            }
-            else if(data.status === 'finished') {
-                document.getElementById('view-result').classList.remove('hidden');
-                renderResult(data);
-            }
-        }
+        });
 
-        // --- 1. DRAFT LOGIC ---
-        function renderDraft(data) {
-            const banner = document.getElementById('turn-banner');
-            const isMyTurn = data.turnOwner === myRole;
-            banner.textContent = isMyTurn ? "Your Pick!" : `${data.turnOwner === 'host' ? "Host" : "Guest"} Picking...`;
-            banner.className = `px-6 py-2 rounded text-2xl font-bold uppercase tracking-widest transition-all duration-300 ${isMyTurn ? 'bg-green-600 text-white animate-pulse' : 'bg-gray-700 text-gray-400'}`;
+        updateSheet();
+    }
 
-            const renderList = (ids, elId) => {
-                const el = document.getElementById(elId);
-                el.innerHTML = '';
-                ids.forEach(pid => {
-                    const p = PLAYERS_DB.find(x => x.id === pid);
-                    el.innerHTML += `
-                        <div class="bg-gray-800 p-2 rounded flex justify-between items-center border border-gray-600">
-                            <span class="font-bold text-gray-400 w-6">${p.pos}</span>
-                            <span class="truncate font-bold">${p.name}</span>
-                            <span class="text-yellow-500 text-sm">${p.ovr}</span>
-                        </div>
-                    `;
-                });
-                for(let i=ids.length; i<5; i++) {
-                    el.innerHTML += `<div class="bg-gray-800/50 p-2 rounded border border-dashed border-gray-700 text-gray-600 text-center text-sm">Empty Slot</div>`;
-                }
-            };
+    function updateSheet() {
+        // Inputs
+        const name = document.getElementById('charName').value || "Nameless";
+        const lvl = parseInt(document.getElementById('level').value);
+        const subclass = document.getElementById('subclass').value;
+        const sSTR = parseInt(document.getElementById('str').value);
+        const sDEX = parseInt(document.getElementById('dex').value);
+        const sCON = parseInt(document.getElementById('con').value);
+        const sINT = parseInt(document.getElementById('int').value);
+        const sWIS = parseInt(document.getElementById('wis').value);
+        const sCHA = parseInt(document.getElementById('cha').value);
 
-            renderList(data.teamHost, 'roster-host');
-            renderList(data.teamGuest, 'roster-guest');
-            document.getElementById('host-count').textContent = `${data.teamHost.length}/5`;
-            document.getElementById('guest-count').textContent = `${data.teamGuest.length}/5`;
+        const data = classTable[lvl - 1];
 
-            const pool = document.getElementById('player-pool');
-            const search = document.getElementById('player-search').value.toLowerCase();
-            const filter = document.getElementById('pos-filter').value;
-            pool.innerHTML = '';
+        // Header
+        document.getElementById('displayName').innerText = name;
+        document.getElementById('displayLevel').innerText = "Level " + lvl;
+        document.getElementById('displaySubclass').innerText = "Aspect of " + subclass;
 
-            PLAYERS_DB.forEach(p => {
-                if(data.taken.includes(p.id)) return;
-                if(filter !== 'ALL' && p.pos !== filter) return;
-                if(!p.name.toLowerCase().includes(search)) return;
+        // Stats
+        document.getElementById('dispSTR').innerText = `${sSTR} (${fmtMod(sSTR)})`;
+        document.getElementById('dispDEX').innerText = `${sDEX} (${fmtMod(sDEX)})`;
+        document.getElementById('dispCON').innerText = `${sCON} (${fmtMod(sCON)})`;
+        document.getElementById('dispINT').innerText = `${sINT} (${fmtMod(sINT)})`;
+        document.getElementById('dispWIS').innerText = `${sWIS} (${fmtMod(sWIS)})`;
+        document.getElementById('dispCHA').innerText = `${sCHA} (${fmtMod(sCHA)})`;
 
-                let valid = true;
-                if(!isMyTurn) valid = false;
-                
-                // Modes Logic
-                if(valid) {
-                    if (data.mode === 'ringless') {
-                        const myTeam = myRole === 'host' ? data.teamHost : data.teamGuest;
-                        const hasStar = myTeam.some(id => PLAYERS_DB.find(x => x.id === id).r > 0);
-                        if(hasStar && p.r > 0) valid = false;
-                    }
-                    else if (data.mode === 'lockdown') {
-                        if(p.def < 85) valid = false;
-                    }
-                    else if (data.mode === 'smallball') {
-                        if(p.pos === 'C') valid = false;
-                    }
-                }
-
-                const card = document.createElement('div');
-                card.className = `nba-card p-2 rounded border border-gray-700 flex flex-col cursor-pointer ${valid ? '' : 'disabled'}`;
-                card.onclick = () => valid && pickPlayer(p.id);
-                card.innerHTML = `
-                    <div class="flex justify-between text-xs text-gray-400 mb-1">
-                        <span>${p.pos}</span>
-                        <span>${p.r > 0 ? '<i class="fas fa-trophy text-yellow-500"></i> '+p.r : ''}</span>
-                    </div>
-                    <div class="font-bold leading-tight truncate mb-1">${p.name}</div>
-                    <div class="mt-auto flex gap-1 h-1">
-                        <div class="h-full bg-blue-500 rounded" style="width:${p.off}%"></div>
-                        <div class="h-full bg-red-500 rounded" style="width:${p.def}%"></div>
-                    </div>
-                    <div class="text-right text-xs text-gray-500 mt-1">OVR ${p.ovr}</div>
-                `;
-                pool.appendChild(card);
-            });
-        }
-
-        async function pickPlayer(pid) {
-            const ref = getRef(currentRoomId);
-            await db.runTransaction(async (t) => {
-                const doc = await t.get(ref);
-                const d = doc.data();
-                if(d.turnOwner !== myRole) return;
-                
-                const nextTurn = d.turnIndex + 1;
-                const nextOwner = d.turnOwner === 'host' ? 'guest' : 'host';
-                
-                let h = d.teamHost, g = d.teamGuest;
-                if(myRole === 'host') h.push(pid); else g.push(pid);
-                
-                let status = 'drafting';
-                if(h.length === 5 && g.length === 5) status = 'lineups';
-
-                t.update(ref, {
-                    teamHost: h, teamGuest: g,
-                    taken: [...d.taken, pid],
-                    turnIndex: nextTurn,
-                    turnOwner: nextOwner,
-                    status: status
-                });
-            });
-        }
-
-        // --- 2. LINEUP LOGIC ---
-        let interactInit = false;
-
-        function renderLineupEditor(data) {
-            const myTeamIds = myRole === 'host' ? data.teamHost : data.teamGuest;
-            const myLineup = myRole === 'host' ? data.lineupHost : data.lineupGuest;
-
-            const isFull = myLineup.every(x => x !== null);
-            document.getElementById('btn-submit-lineup').disabled = !isFull;
-            
-            const oppLineup = myRole === 'host' ? data.lineupGuest : data.lineupHost;
-            const oppFull = oppLineup.every(x => x !== null);
-            if(isFull && !oppFull) {
-                document.getElementById('waiting-lineup-msg').classList.remove('hidden');
-                document.getElementById('btn-submit-lineup').textContent = "Waiting for Opponent...";
-                document.getElementById('btn-submit-lineup').disabled = true;
-            }
-
-            const benchDiv = document.getElementById('lineup-bench');
-            benchDiv.innerHTML = '';
-            
-            myTeamIds.forEach(pid => {
-                if(!myLineup.includes(pid)) {
-                    const p = PLAYERS_DB.find(x => x.id === pid);
-                    const el = document.createElement('div');
-                    el.className = 'bg-gray-700 p-3 rounded flex justify-between items-center draggable-source touch-none select-none';
-                    el.dataset.pid = pid;
-                    el.innerHTML = `<span class="font-bold text-blue-300 w-8">${p.pos}</span><span class="font-bold">${p.name}</span><span class="text-sm bg-black px-2 rounded">${p.ovr}</span>`;
-                    benchDiv.appendChild(el);
-                }
-            });
-
-            const pos = ['PG', 'SG', 'SF', 'PF', 'C'];
-            pos.forEach((pStr, idx) => {
-                const slot = document.querySelector(`.drop-zone[data-pos="${pStr}"] .slot-content`);
-                const pid = myLineup[idx];
-                
-                if(pid) {
-                    const p = PLAYERS_DB.find(x => x.id === pid);
-                    slot.innerHTML = `
-                        <div class="flex-1 flex justify-between items-center w-full px-4 draggable-source cursor-grab" data-pid="${pid}">
-                            <span class="font-bold text-white">${p.name}</span>
-                            <i class="fas fa-times text-red-500 cursor-pointer p-2" onclick="removeFromLineup(${idx})"></i>
-                        </div>
-                    `;
-                    slot.parentElement.classList.add('bg-blue-900/30', 'border-blue-500');
-                    slot.parentElement.classList.remove('border-gray-600');
-                } else {
-                    slot.innerHTML = `Drop ${pStr}`;
-                    slot.parentElement.classList.remove('bg-blue-900/30', 'border-blue-500');
-                    slot.parentElement.classList.add('border-gray-600');
-                }
-            });
-
-            if(!interactInit) initDragDrop();
-        }
-
-        function initDragDrop() {
-            interactInit = true;
-            interact('.draggable-source').draggable({
-                inertia: true, autoScroll: true,
-                listeners: {
-                    move: dragMoveListener,
-                    end(event) {
-                        event.target.style.transform = 'translate(0px, 0px)';
-                        event.target.setAttribute('data-x', 0);
-                        event.target.setAttribute('data-y', 0);
-                        event.target.classList.remove('drag-active');
-                    },
-                    start(event) { event.target.classList.add('drag-active'); }
-                }
-            });
-
-            interact('.drop-zone').dropzone({
-                accept: '.draggable-source',
-                overlap: 0.50,
-                ondropactivate: (event) => event.target.classList.add('drop-target'),
-                ondragenter: (event) => event.target.classList.add('drop-target-hover'),
-                ondragleave: (event) => event.target.classList.remove('drop-target-hover'),
-                ondropdeactivate: (event) => {
-                    event.target.classList.remove('drop-target');
-                    event.target.classList.remove('drop-target-hover');
-                },
-                ondrop: async (event) => {
-                    const pid = parseInt(event.relatedTarget.dataset.pid);
-                    const posStr = event.target.dataset.pos;
-                    const posIdx = ['PG','SG','SF','PF','C'].indexOf(posStr);
-                    
-                    const ref = getRef(currentRoomId);
-                    await db.runTransaction(async (t) => {
-                        const doc = await t.get(ref);
-                        const d = doc.data();
-                        let arr = myRole === 'host' ? [...d.lineupHost] : [...d.lineupGuest];
-                        const oldIdx = arr.indexOf(pid);
-                        if(oldIdx !== -1) arr[oldIdx] = null;
-                        arr[posIdx] = pid;
-                        const update = {};
-                        if(myRole === 'host') update.lineupHost = arr;
-                        else update.lineupGuest = arr;
-                        t.update(ref, update);
-                    });
-                }
-            });
-        }
-
-        function dragMoveListener (event) {
-            var target = event.target
-            var x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx
-            var y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy
-            target.style.transform = 'translate(' + x + 'px, ' + y + 'px)'
-            target.setAttribute('data-x', x)
-            target.setAttribute('data-y', y)
-        }
-
-        async function removeFromLineup(idx) {
-            const ref = getRef(currentRoomId);
-            const doc = await ref.get();
-            let arr = myRole === 'host' ? [...doc.data().lineupHost] : [...doc.data().lineupGuest];
-            arr[idx] = null;
-            if(myRole === 'host') ref.update({ lineupHost: arr });
-            else ref.update({ lineupGuest: arr });
-        }
-
-        async function submitLineup() {
-            const ref = getRef(currentRoomId);
-            const doc = await ref.get();
-            const d = doc.data();
-            
-            const hReady = d.lineupHost.every(x=>x);
-            const gReady = d.lineupGuest.every(x=>x);
-            
-            if(hReady && gReady) {
-                if(myRole === 'host') {
-                    // Initialize Stats with 3PM, 3PA, FTM, FTA
-                    let stats = {};
-                    [...d.teamHost, ...d.teamGuest].forEach(pid => {
-                        stats[pid] = { 
-                            pts: 0, reb: 0, ast: 0, 
-                            fgm: 0, fga: 0, 
-                            tpm: 0, tpa: 0, // 3pt
-                            ftm: 0, fta: 0, // Free Throws
-                            fls: 0 
-                        };
-                    });
-                    ref.update({ status: 'simulation', 'simState.stats': stats });
-                }
-            } else {
-                renderLineupEditor(d);
-            }
-        }
-
-        // --- 3. SIMULATION LOGIC ---
-
-        // Helper to get %
-        const getPct = (m, a) => a > 0 ? Math.round((m/a)*100) : 0;
-
-        function renderSim(data) {
-            document.getElementById('sim-score-host').textContent = data.simState.scoreH;
-            document.getElementById('sim-score-guest').textContent = data.simState.scoreG;
-            document.getElementById('sim-quarter').textContent = "Q" + data.simState.q;
-            
-            const min = Math.floor(data.simState.time / 60);
-            const sec = data.simState.time % 60;
-            document.getElementById('sim-clock').textContent = `${min}:${sec<10?'0':''}${sec}`;
-
-            // Trigger Animation Loop if not running
-            if (!animRequest) requestAnimationFrame(() => animateCourt(data));
-
-            const logDiv = document.getElementById('sim-log');
-            logDiv.innerHTML = '';
-            data.logs.slice(-20).forEach(l => {
-                const row = document.createElement('div');
-                row.className = l.includes('Host') ? 'text-blue-300' : (l.includes('Guest') ? 'text-red-300' : 'text-gray-400');
-                row.textContent = l;
-                logDiv.appendChild(row);
-            });
-            logDiv.scrollTop = logDiv.scrollHeight;
-
-            updateMiniBox(data.simState.stats, data.teamHost, 'box-host-mini');
-            updateMiniBox(data.simState.stats, data.teamGuest, 'box-guest-mini');
-
-            if(myRole === 'host' && data.simState.q <= 4 && data.simState.time > 0) {
-                document.getElementById('sim-controls').classList.remove('hidden');
-                if(!simInterval) startSimulation(); 
-            } else {
-                document.getElementById('sim-controls').classList.add('hidden');
-            }
-        }
-
-        // Animation State
-        let playerAnims = {}; // store x,y for each pid
-
-        function animateCourt(data) {
-            const canvas = document.getElementById('sim-canvas');
-            if(!canvas) return; // Stop if not visible
-            const ctx = canvas.getContext('2d');
-            
-            // Draw Background
-            ctx.fillStyle = '#d2a679';
-            ctx.fillRect(0,0, canvas.width, canvas.height);
-            ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = 2;
-            
-            // Court Lines
-            ctx.beginPath(); ctx.moveTo(canvas.width/2, 0); ctx.lineTo(canvas.width/2, canvas.height); ctx.stroke();
-            ctx.beginPath(); ctx.arc(canvas.width/2, canvas.height/2, 30, 0, Math.PI*2); ctx.stroke();
-            ctx.strokeRect(0, canvas.height/2 - 40, 80, 80);
-            ctx.strokeRect(canvas.width - 80, canvas.height/2 - 40, 80, 80);
-
-            // Targets based on active shooter (Ball location)
-            // If ball is active, players swarm towards it slightly
-            const activeId = roomData?.simState?.activeShooter;
-            
-            // Base Positions
-            const hostBase = [{x:140,y:100},{x:100,y:40},{x:100,y:160},{x:40,y:140},{x:40,y:60}];
-            const guestBase = [{x:460,y:100},{x:500,y:160},{x:500,y:40},{x:560,y:60},{x:560,y:140}];
-
-            // Draw Players
-            const drawTeam = (lineup, bases, color) => {
-                lineup.forEach((pid, idx) => {
-                    if(!pid) return;
-                    
-                    // Init anim state
-                    if(!playerAnims[pid]) playerAnims[pid] = { x: bases[idx].x, y: bases[idx].y };
-                    
-                    let targetX = bases[idx].x;
-                    let targetY = bases[idx].y;
-
-                    // Dynamic Movement:
-                    // If this player is active shooter, move to 'shot location' (randomized near basket)
-                    // If not, wander slightly
-                    if (activeId === pid) {
-                        // Move closer to basket (Opposite side)
-                        // Simple logic: if host, basket is right (600,100), if guest, basket left (0,100)
-                        const basketX = (color === '#3b82f6') ? 500 : 100; 
-                        targetX = basketX + (Math.random()*40 - 20);
-                        targetY = 100 + (Math.random()*100 - 50);
-                    } else {
-                        // Brownian motion
-                        targetX += (Math.random() * 20 - 10);
-                        targetY += (Math.random() * 20 - 10);
-                    }
-
-                    // Lerp
-                    playerAnims[pid].x += (targetX - playerAnims[pid].x) * 0.05;
-                    playerAnims[pid].y += (targetY - playerAnims[pid].y) * 0.05;
-
-                    const x = playerAnims[pid].x;
-                    const y = playerAnims[pid].y;
-
-                    ctx.beginPath();
-                    ctx.fillStyle = color;
-                    ctx.arc(x, y, 8, 0, Math.PI*2);
-                    ctx.fill();
-                    
-                    if(activeId === pid) {
-                        ctx.strokeStyle = '#ffff00';
-                        ctx.lineWidth = 3;
-                        ctx.stroke();
-                        // Draw ball
-                        ctx.beginPath();
-                        ctx.fillStyle = 'orange';
-                        ctx.arc(x+10, y, 5, 0, Math.PI*2);
-                        ctx.fill();
-                    }
-                });
-            };
-
-            if (roomData) {
-                drawTeam(roomData.lineupHost, hostBase, '#3b82f6');
-                drawTeam(roomData.lineupGuest, guestBase, '#ef4444');
-            }
-
-            animRequest = requestAnimationFrame(() => animateCourt(roomData));
-        }
-
-        function updateMiniBox(stats, teamIds, elId) {
-            const el = document.getElementById(elId);
-            el.innerHTML = '';
-            teamIds.forEach(pid => {
-                const s = stats[pid] || {pts:0,fga:0,fgm:0};
-                const p = PLAYERS_DB.find(x => x.id === pid);
-                const pct = getPct(s.fgm, s.fga);
-                el.innerHTML += `
-                    <tr class="border-b border-gray-800">
-                        <td class="py-1 truncate max-w-[80px]">${p.name.split(' ').pop()}</td>
-                        <td class="text-right text-yellow-500">${s.pts}</td>
-                        <td class="text-right text-gray-400">${pct}%</td>
-                    </tr>
-                `;
-            });
-        }
-
-        function startSimulation() {
-            if(simInterval) return;
-            if(myRole !== 'host') return;
-
-            simInterval = setInterval(async () => {
-                const ref = getRef(currentRoomId);
-                const doc = await ref.get();
-                const d = doc.data();
-
-                if(d.status !== 'simulation') { clearInterval(simInterval); return; }
-                if(d.simState.q > 4) { 
-                    clearInterval(simInterval); 
-                    ref.update({ status: 'finished' });
-                    return; 
-                }
-
-                let state = d.simState;
-                let logs = d.logs;
-                
-                state.time -= 15;
-                if(state.time <= 0) {
-                    state.q++;
-                    state.time = 720;
-                    logs.push(`--- END OF QUARTER ${state.q-1} ---`);
-                }
-
-                const isHostPoss = Math.random() > 0.5;
-                const attTeam = isHostPoss ? d.lineupHost : d.lineupGuest;
-                const defTeam = isHostPoss ? d.lineupGuest : d.lineupHost;
-                
-                const shooters = attTeam.map(pid => PLAYERS_DB.find(x=>x.id===pid));
-                const totalOff = shooters.reduce((a,b) => a + b.off, 0);
-                let r = Math.random() * totalOff;
-                let shooterIdx = 0;
-                for(let i=0; i<shooters.length; i++) {
-                    r -= shooters[i].off;
-                    if(r<=0) { shooterIdx = i; break; }
-                }
-                const shooter = shooters[shooterIdx];
-                const defender = PLAYERS_DB.find(x=>x.id === defTeam[shooterIdx]);
-
-                state.activeShooter = shooter.id;
-
-                const foulChance = 10;
-                const isFoul = Math.random() * 100 < foulChance;
-                
-                if(isFoul) {
-                    state.stats[defender.id].fls++;
-                    state.stats[shooter.id].fta += 2;
-                    logs.push(`Foul on ${defender.name}!`);
-                    
-                    let ftPts = 0;
-                    if(Math.random() < 0.75) { ftPts++; state.stats[shooter.id].ftm++; }
-                    if(Math.random() < 0.75) { ftPts++; state.stats[shooter.id].ftm++; }
-                    
-                    state.stats[shooter.id].pts += ftPts;
-                    if(isHostPoss) state.scoreH += ftPts; else state.scoreG += ftPts;
-
-                } else {
-                    const hitChance = 45 + (shooter.off - defender.def) * 0.5;
-                    const roll = Math.random() * 100;
-                    
-                    state.stats[shooter.id].fga++;
-                    
-                    // 3PT Check
-                    const is3 = Math.random() < 0.35;
-                    if(is3) state.stats[shooter.id].tpa++;
-
-                    if(roll < hitChance) {
-                        const pts = is3 ? 3 : 2;
-                        state.stats[shooter.id].pts += pts;
-                        state.stats[shooter.id].fgm++;
-                        if(is3) state.stats[shooter.id].tpm++;
-                        
-                        if(isHostPoss) state.scoreH += pts; else state.scoreG += pts;
-                        
-                        if(Math.random() > 0.4) {
-                            let mates = attTeam.filter(id => id !== shooter.id);
-                            let assisterId = mates[Math.floor(Math.random()*mates.length)];
-                            state.stats[assisterId].ast++;
-                            const assister = PLAYERS_DB.find(x=>x.id===assisterId);
-                            logs.push(`${shooter.name} ${is3?'3PT':'jumper'} (${assister.name} ast)`);
-                        } else {
-                            logs.push(`${shooter.name} unassisted ${is3?'3PT':'score'}`);
-                        }
-                    } else {
-                        const allPlayers = [...attTeam, ...defTeam].map(pid => PLAYERS_DB.find(x=>x.id===pid));
-                        const totalReb = allPlayers.reduce((a,b) => a + b.reb, 0);
-                        let rReb = Math.random() * totalReb;
-                        let rebId = allPlayers[0].id;
-                        for(let p of allPlayers) {
-                            rReb -= p.reb;
-                            if(rReb <= 0) { rebId = p.id; break; }
-                        }
-                        state.stats[rebId].reb++;
-                        const rebP = PLAYERS_DB.find(x=>x.id===rebId);
-                        logs.push(`Miss by ${shooter.name}. Rebound ${rebP.name}`);
-                    }
-                }
-
-                ref.update({ simState: state, logs: logs });
-
-            }, 600); 
-        }
-
-        // --- 4. RESULT ---
-        function renderResult(data) {
-            document.getElementById('final-host').textContent = data.simState.scoreH;
-            document.getElementById('final-guest').textContent = data.simState.scoreG;
-            
-            const badge = document.getElementById('winner-badge');
-            if(data.simState.scoreH > data.simState.scoreG) {
-                badge.textContent = "Host Wins";
-                badge.className = "inline-block px-6 py-2 rounded bg-blue-600 text-white font-bold text-2xl uppercase";
-            } else {
-                badge.textContent = "Guest Wins";
-                badge.className = "inline-block px-6 py-2 rounded bg-red-600 text-white font-bold text-2xl uppercase";
-            }
-
-            renderFullBox(data.simState.stats, data.teamHost, 'box-host-full');
-            renderFullBox(data.simState.stats, data.teamGuest, 'box-guest-full');
-        }
-
-        function renderFullBox(stats, teamIds, elId) {
-            const el = document.getElementById(elId);
-            el.innerHTML = '';
-            teamIds.forEach(pid => {
-                const s = stats[pid];
-                const p = PLAYERS_DB.find(x => x.id === pid);
-                
-                const fgPct = getPct(s.fgm, s.fga);
-                const tpPct = getPct(s.tpm, s.tpa);
-                const ftPct = getPct(s.ftm, s.fta);
-
-                el.innerHTML += `
-                    <tr class="border-b border-gray-700 hover:bg-gray-700">
-                        <td class="py-2 font-bold">${p.name}</td>
-                        <td class="py-2 text-right text-yellow-500 font-bold">${s.pts}</td>
-                        <td class="py-2 text-right text-gray-300">${s.reb}</td>
-                        <td class="py-2 text-right text-gray-300">${s.ast}</td>
-                        <td class="py-2 text-right text-gray-400 text-sm">
-                            ${s.fgm}/${s.fga} <span class="text-xs text-gray-500">(${fgPct}%)</span>
-                        </td>
-                        <td class="py-2 text-right text-gray-400 text-sm">
-                            ${s.tpm}/${s.tpa} <span class="text-xs text-gray-500">(${tpPct}%)</span>
-                        </td>
-                        <td class="py-2 text-right text-gray-400 text-sm">
-                            ${s.ftm}/${s.fta} <span class="text-xs text-gray-500">(${ftPct}%)</span>
-                        </td>
-                    </tr>
-                `;
-            });
-        }
-
-        async function updateGameMode() {
-            if(!currentRoomId) return;
-            const m = document.getElementById('mode-select').value;
-            await getRef(currentRoomId).update({ mode: m });
-        }
+        // Vitals
+        const ac = 10 + getMod(sDEX) + getMod(sCON);
+        document.getElementById('displayAC').innerText = ac;
         
-        function copyRoomId() {
-            const t = document.getElementById('display-room-id').textContent;
-            const textArea = document.createElement("textarea");
-            textArea.value = t;
-            textArea.style.position = "fixed";
-            textArea.style.left = "-9999px";
-            document.body.appendChild(textArea);
-            textArea.select();
-            try {
-                document.execCommand('copy');
-                alert('Copied: ' + t);
-            } catch (err) {
-                prompt("Copy this ID:", t);
-            }
-            document.body.removeChild(textArea);
-        }
+        // HP Calculation (Simple average: 6 per level + CON mod)
+        const hp = (10 + getMod(sCON)) + ((lvl - 1) * (6 + getMod(sCON)));
+        document.getElementById('displayHP').innerText = hp;
+        document.getElementById('displayProf').innerText = `+${data.prof}`;
 
-        function closeModal() { document.getElementById('modal').classList.add('hidden'); }
-    </script>
+        // Class Specifics
+        document.getElementById('displayReiatsu').innerText = data.reiatsu;
+        document.getElementById('displayCero').innerText = data.cero;
+        document.getElementById('balaDmg').innerText = data.bala;
+
+        // Render Features
+        const coreList = document.getElementById('coreFeaturesList');
+        coreList.innerHTML = "";
+        coreFeatures.forEach(feat => {
+            if (feat.lvl <= lvl) {
+                coreList.innerHTML += `
+                    <div class="feature-block">
+                        <div class="feature-name">${feat.name}</div>
+                        <div class="feature-desc">${feat.desc}</div>
+                    </div>
+                `;
+            }
+        });
+
+        const subList = document.getElementById('subclassFeaturesList');
+        subList.innerHTML = "";
+        subclassData[subclass].forEach(feat => {
+            if (feat.lvl <= lvl) {
+                subList.innerHTML += `
+                    <div class="feature-block">
+                        <div class="feature-name">${feat.name}</div>
+                        <div class="feature-desc">${feat.desc}</div>
+                    </div>
+                `;
+            }
+        });
+
+        const evoList = document.getElementById('selectedEvosList');
+        evoList.innerHTML = "";
+        const checkboxes = document.querySelectorAll('.evo-list input[type="checkbox"]');
+        let hasEvo = false;
+        checkboxes.forEach(box => {
+            if (box.checked) {
+                hasEvo = true;
+                const evo = evolutions[box.value];
+                evoList.innerHTML += `
+                    <div class="feature-block" style="border-color: #00d2ff;">
+                        <div class="feature-name">${evo.name}</div>
+                        <div class="feature-desc">${evo.desc}</div>
+                    </div>
+                `;
+            }
+        });
+        if(!hasEvo) evoList.innerHTML = "<div style='font-style:italic; color:#777'>No evolutions selected.</div>";
+    }
+
+    // Initialize
+    initEvolutions();
+    updateLogic();
+
+</script>
+
 </body>
 </html>
