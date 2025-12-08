@@ -3,17 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Arrancar Campaign Sheet</title>
+    <title>Arrancar: Definitive Edition</title>
     <style>
         :root {
-            --bg-dark: #121212;
-            --bg-panel: #1e1e1e;
-            --bg-card: #2c2c2c;
-            --accent: #ef4444; /* Hollow Red */
-            --accent-glow: rgba(239, 68, 68, 0.3);
-            --text-main: #f3f4f6;
-            --text-muted: #9ca3af;
-            --border: #404040;
+            --bg-dark: #0f0f0f;
+            --bg-panel: #181818;
+            --bg-card: #242424;
+            --accent: #d62828; /* Blood Red */
+            --accent-dim: rgba(214, 40, 40, 0.2);
+            --text-main: #ededed;
+            --text-muted: #999;
+            --border: #333;
         }
 
         * { box-sizing: border-box; }
@@ -21,66 +21,55 @@
             margin: 0; padding: 0; 
             background-color: var(--bg-dark); 
             color: var(--text-main); 
-            font-family: 'Segoe UI', system-ui, sans-serif;
+            font-family: 'Segoe UI', Roboto, Helvetica, sans-serif;
             height: 100vh;
             display: flex;
             overflow: hidden;
         }
 
-        /* --- LEFT: BUILDER SIDEBAR --- */
+        /* --- BUILDER (LEFT) --- */
         .builder {
-            width: 380px;
+            width: 360px;
             background: var(--bg-panel);
             border-right: 1px solid var(--border);
             display: flex;
             flex-direction: column;
             flex-shrink: 0;
-            z-index: 10;
+            overflow-y: auto;
+            padding-bottom: 40px;
         }
 
         .builder-header {
-            padding: 15px 20px;
+            padding: 20px;
             background: #111;
             border-bottom: 1px solid var(--border);
             text-transform: uppercase;
-            letter-spacing: 1px;
-            font-weight: 800;
+            letter-spacing: 2px;
+            font-weight: 900;
             color: var(--accent);
+            text-align: center;
         }
 
-        .builder-scroll {
-            padding: 20px;
-            overflow-y: auto;
-            flex-grow: 1;
+        .control-section { padding: 15px 20px; border-bottom: 1px solid var(--border); }
+        .control-section h3 { font-size: 0.75rem; color: var(--text-muted); margin: 0 0 10px 0; text-transform: uppercase; }
+
+        label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 5px; }
+        input, select { 
+            width: 100%; background: #000; border: 1px solid #444; color: white; padding: 8px; border-radius: 4px; 
+            margin-bottom: 10px; font-size: 0.9rem;
         }
+        input:focus, select:focus { border-color: var(--accent); outline: none; }
 
-        .section-title {
-            font-size: 0.8rem;
-            text-transform: uppercase;
-            color: var(--text-muted);
-            margin: 20px 0 10px 0;
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 5px;
-        }
+        .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .stat-box label { font-size: 0.7rem; text-align: center; width: 100%; display: block; }
+        .stat-box input { text-align: center; font-weight: bold; }
 
-        .input-group { margin-bottom: 15px; }
-        .input-group label { display: block; font-size: 0.85rem; margin-bottom: 5px; font-weight: 600; }
-        
-        input[type="text"], input[type="number"], select {
-            width: 100%; padding: 8px; background: #000; border: 1px solid #444; color: white; border-radius: 4px;
-        }
-        input:focus { border-color: var(--accent); outline: none; }
+        .skill-select { display: flex; flex-direction: column; gap: 5px; }
+        .skill-opt { display: flex; align-items: center; font-size: 0.85rem; cursor: pointer; }
+        .skill-opt input { width: auto; margin: 0 10px 0 0; }
 
-        .stat-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
-        .stat-row label { width: 50px; font-weight: bold; }
-        .stat-row input { width: 60px; text-align: center; }
-
-        .skill-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
-        .skill-check { display: flex; align-items: center; font-size: 0.8rem; gap: 8px; cursor: pointer; }
-        .skill-check input { width: auto; margin: 0; }
-
-        /* --- RIGHT: CHARACTER SHEET --- */
-        .sheet-container {
+        /* --- SHEET (RIGHT) --- */
+        .sheet {
             flex-grow: 1;
             display: grid;
             grid-template-rows: auto 1fr;
@@ -91,388 +80,406 @@
         /* HEADER */
         .sheet-header {
             background: var(--bg-card);
-            padding: 20px 30px;
+            padding: 20px 40px;
             border-bottom: 1px solid var(--border);
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
-        .char-info h1 { margin: 0; font-size: 2rem; }
-        .char-info p { margin: 5px 0 0; color: var(--text-muted); }
+        .header-main h1 { margin: 0; font-size: 2.2rem; letter-spacing: -1px; }
+        .header-sub { color: var(--text-muted); font-size: 0.95rem; margin-top: 5px; }
 
-        /* VITALS BAR */
-        .vitals-bar {
-            display: flex;
-            gap: 20px;
-            padding: 15px 30px;
-            background: #1a1a1a;
-            border-bottom: 1px solid var(--border);
+        /* VITALS STRIP */
+        .vitals {
+            display: flex; gap: 15px; padding: 15px 40px; background: #121212; border-bottom: 1px solid var(--border);
         }
-        .vital-box {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 8px 16px;
-            text-align: center;
-            min-width: 80px;
+        .vital-tile {
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px;
+            padding: 8px 15px; min-width: 90px; text-align: center;
         }
-        .vital-val { font-size: 1.4rem; font-weight: 800; display: block; }
-        .vital-lbl { font-size: 0.7rem; text-transform: uppercase; color: var(--text-muted); }
-        .vital-box.prof { border-color: var(--accent); }
+        .vital-num { font-size: 1.4rem; font-weight: 800; display: block; line-height: 1.1; }
+        .vital-lbl { font-size: 0.65rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.5px; }
 
-        /* MAIN CONTENT AREA */
+        /* CONTENT AREA */
         .sheet-body {
             display: grid;
-            grid-template-columns: 280px 1fr;
-            padding: 20px 30px;
-            gap: 20px;
-            overflow-y: hidden; /* Internal scroll */
-            height: 100%;
+            grid-template-columns: 260px 1fr;
+            padding: 20px 40px;
+            gap: 30px;
+            overflow: hidden;
         }
 
-        /* LEFT COL: STATS & SKILLS */
+        /* LEFT COL (Stats) */
         .col-stats { overflow-y: auto; padding-right: 10px; }
         
-        .stat-block { 
-            background: var(--bg-card); border-radius: 8px; margin-bottom: 10px; padding: 10px; 
-            display: flex; align-items: center; justify-content: space-between;
-            border: 1px solid var(--border);
+        .stat-row { 
+            display: flex; justify-content: space-between; align-items: center; 
+            background: var(--bg-card); margin-bottom: 8px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border);
         }
-        .stat-block .lbl { font-weight: 800; font-size: 1.2rem; width: 40px; }
-        .stat-block .mod { font-size: 1.5rem; color: var(--accent); font-weight: bold; }
-        .stat-block .raw { font-size: 0.8rem; background: #000; padding: 2px 6px; border-radius: 4px; color: #888; }
+        .stat-name { font-weight: 800; font-size: 0.9rem; color: var(--text-muted); width: 40px; }
+        .stat-mod { font-size: 1.2rem; font-weight: bold; color: var(--text-main); }
+        .stat-raw { font-size: 0.8rem; background: #000; padding: 2px 6px; border-radius: 4px; color: #666; }
 
-        .skill-list-view { font-size: 0.85rem; background: var(--bg-card); padding: 10px; border-radius: 8px; border: 1px solid var(--border); }
-        .skill-row-view { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #333; }
-        .skill-row-view.proficient { color: white; font-weight: bold; }
-        .dot { color: #333; }
-        .dot.active { color: var(--accent); }
-
-        /* RIGHT COL: TABS & FEATURES */
-        .col-features { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
-        
-        .tabs { display: flex; gap: 10px; margin-bottom: 15px; }
-        .tab-btn {
-            background: var(--bg-panel); border: 1px solid var(--border); color: var(--text-muted);
-            padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold; text-transform: uppercase;
+        .prof-list { margin-top: 20px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+        .prof-item { 
+            display: flex; justify-content: space-between; padding: 6px 10px; 
+            background: var(--bg-card); border-bottom: 1px solid #333; font-size: 0.85rem; 
         }
-        .tab-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+        .prof-item.active { background: #2a2a2a; color: white; font-weight: 600; }
+        .prof-dot { color: #444; margin-right: 8px; }
+        .prof-dot.on { color: var(--accent); }
 
-        .tab-content { overflow-y: auto; padding-right: 10px; flex-grow: 1; padding-bottom: 50px;}
+        /* RIGHT COL (Features/Actions) */
+        .col-content { display: flex; flex-direction: column; overflow: hidden; }
         
-        .action-card {
+        .tabs { display: flex; gap: 5px; margin-bottom: 15px; border-bottom: 2px solid var(--border); padding-bottom: 1px; }
+        .tab {
+            background: transparent; border: none; color: var(--text-muted); 
+            padding: 10px 20px; cursor: pointer; font-weight: 700; text-transform: uppercase; font-size: 0.85rem;
+            border-bottom: 3px solid transparent; transition: 0.2s;
+        }
+        .tab:hover { color: white; }
+        .tab.active { color: white; border-bottom-color: var(--accent); }
+
+        .tab-panel { overflow-y: auto; padding-right: 15px; padding-bottom: 50px; display: none; height: 100%; }
+        .tab-panel.show { display: block; }
+
+        /* ACTION CARDS */
+        .card {
             background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px;
-            padding: 15px; margin-bottom: 10px; border-left: 4px solid var(--border);
+            padding: 15px; margin-bottom: 12px; border-left: 4px solid #555; position: relative;
         }
-        .action-card.attack { border-left-color: #ef4444; } /* Red for attacks */
-        .action-card.bonus { border-left-color: #3b82f6; } /* Blue for bonus */
-        .action-card.reaction { border-left-color: #eab308; } /* Yellow for reaction */
-        
-        .act-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
-        .act-name { font-weight: 800; font-size: 1.1rem; }
-        .act-type { font-size: 0.7rem; text-transform: uppercase; background: #111; padding: 2px 6px; border-radius: 4px; color: #aaa; }
-        .act-detail { font-size: 0.9rem; color: #ccc; line-height: 1.4; }
-        .act-roll { background: #1a1a1a; padding: 5px 10px; margin-top: 8px; border-radius: 4px; font-weight: bold; font-family: monospace; color: var(--accent); }
+        .card.Action { border-left-color: #ef4444; } /* Red */
+        .card.Bonus { border-left-color: #3b82f6; } /* Blue */
+        .card.Reaction { border-left-color: #eab308; } /* Yellow */
+        .card.Passive { border-left-color: #a8a29e; } /* Gray */
 
-        .hidden { display: none; }
+        .card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+        .card-title { font-weight: 800; font-size: 1rem; color: white; }
+        .card-type { font-size: 0.65rem; text-transform: uppercase; background: #111; padding: 3px 6px; border-radius: 4px; color: #999; border: 1px solid #333; }
+        .card-desc { font-size: 0.9rem; color: #ccc; line-height: 1.5; }
+        .card-meta { margin-top: 10px; background: #1a1a1a; padding: 8px; border-radius: 4px; font-family: monospace; font-size: 0.85rem; color: var(--accent); border: 1px solid #333; }
     </style>
 </head>
 <body>
 
 <div class="builder">
     <div class="builder-header">Arrancar Builder</div>
-    <div class="builder-scroll">
+    
+    <div class="control-section">
+        <label>Character Name</label>
+        <input type="text" id="inName" value="Grimmjow" oninput="render()">
         
-        <div class="input-group">
-            <label>Name</label>
-            <input type="text" id="inName" value="Grimmjow" oninput="updateSheet()">
-        </div>
-        
-        <div class="stat-row">
-            <div style="flex:1">
+        <div class="stat-grid">
+            <div class="stat-box">
                 <label>Level</label>
-                <input type="number" id="inLevel" value="1" min="1" max="20" oninput="updateSheet()">
+                <input type="number" id="inLevel" value="1" min="1" max="20" oninput="render()">
             </div>
-            <div style="flex:1; margin-left:10px;">
-                 <label>Subclass</label>
-                 <select id="inSubclass" onchange="updateSheet()">
-                     <option value="Destruction">Destruction</option>
-                     <option value="Nihilism">Nihilism</option>
-                     <option value="Madness">Madness</option>
-                     <option value="Sacrifice">Sacrifice</option>
-                     <option value="Solitude">Solitude</option>
-                     <option value="Time">Time</option>
-                 </select>
+            <div class="stat-box">
+                <label>Subclass (Lvl 3)</label>
+                <select id="inSubclass" onchange="render()">
+                    <option value="Destruction">Destruction</option>
+                    <option value="Nihilism">Nihilism</option>
+                    <option value="Madness">Madness</option>
+                    <option value="Sacrifice">Sacrifice</option>
+                    <option value="Solitude">Solitude</option>
+                    <option value="Time">Time</option>
+                </select>
             </div>
         </div>
 
-        <div class="section-title">Ability Scores</div>
-        <div id="statInputs"></div>
+        <label style="margin-top:10px;">Hollow Art (Fighting Style)</label>
+        <select id="inArt" onchange="render()">
+            <option value="Brawler">Brawler (Unarmed Dmg + AC)</option>
+            <option value="Sniper">Sniper (Bala Buffs)</option>
+            <option value="Duelist">Duelist (Weapon Dueling)</option>
+            <option value="Tactician">Tactician (Bonus Initiative/Speed)</option>
+        </select>
+    </div>
 
-        <div class="section-title">Skill Proficiencies (Pick 2)</div>
-        <div class="skill-grid" id="skillSelector"></div>
+    <div class="control-section">
+        <h3>Ability Scores</h3>
+        <div class="stat-grid">
+            <div class="stat-box"><label>STR</label><input type="number" id="inSTR" value="16" oninput="render()"></div>
+            <div class="stat-box"><label>DEX</label><input type="number" id="inDEX" value="14" oninput="render()"></div>
+            <div class="stat-box"><label>CON</label><input type="number" id="inCON" value="16" oninput="render()"></div>
+            <div class="stat-box"><label>INT</label><input type="number" id="inINT" value="10" oninput="render()"></div>
+            <div class="stat-box"><label>WIS</label><input type="number" id="inWIS" value="12" oninput="render()"></div>
+            <div class="stat-box"><label>CHA</label><input type="number" id="inCHA" value="8" oninput="render()"></div>
+        </div>
+    </div>
 
-        <div class="section-title">Hollow Evolutions</div>
-        <div id="evoSelector"></div>
-
+    <div class="control-section">
+        <h3>Proficiencies (Choose 2)</h3>
+        <div class="skill-select" id="skillInputs"></div>
     </div>
 </div>
 
-<div class="sheet-container">
-    
+<div class="sheet">
     <div class="sheet-header">
-        <div class="char-info">
+        <div class="header-main">
             <h1 id="outName">Grimmjow</h1>
-            <p id="outSubclass">Arrancar (Aspect of Destruction) - Level 1</p>
+            <div class="header-sub" id="outMeta">Arrancar | Level 1</div>
         </div>
-        <div>
-            <button onclick="window.print()" style="background:#333; color:white; border:none; padding:8px 15px; cursor:pointer;">PRINT PDF</button>
+        <div style="text-align:right">
+            <div style="font-size:0.8rem; color:#888;">PROFICIENCY</div>
+            <div style="font-size:1.8rem; font-weight:800; color:var(--accent);" id="outProf">+2</div>
         </div>
     </div>
 
-    <div class="vitals-bar">
-        <div class="vital-box prof">
-            <span class="vital-val" id="outProf">+2</span>
-            <span class="vital-lbl">Proficiency</span>
-        </div>
-        <div class="vital-box">
-            <span class="vital-val" id="outAC">15</span>
+    <div class="vitals">
+        <div class="vital-tile">
+            <span class="vital-num" id="outAC">15</span>
             <span class="vital-lbl">Armor Class</span>
         </div>
-        <div class="vital-box">
-            <span class="vital-val" id="outInit">+2</span>
+        <div class="vital-tile">
+            <span class="vital-num" id="outInit">+2</span>
             <span class="vital-lbl">Initiative</span>
         </div>
-        <div class="vital-box">
-            <span class="vital-val" id="outSpeed">30</span>
-            <span class="vital-lbl">Speed</span>
+        <div class="vital-tile">
+            <span class="vital-num" id="outSpeed">30</span>
+            <span class="vital-lbl">Speed (ft)</span>
         </div>
-        <div class="vital-box" style="border-color:#ef4444">
-            <span class="vital-val" id="outHP">12</span>
+        <div class="vital-tile" style="border-color:var(--accent)">
+            <span class="vital-num" id="outHP">13</span>
             <span class="vital-lbl">Hit Points</span>
         </div>
-        <div class="vital-box" style="background:#111; border-color:#3b82f6;">
-            <span class="vital-val" id="outReiatsu">2</span>
+        <div class="vital-tile" style="background:#000; border-color:#00d2ff;">
+            <span class="vital-num" id="outReiatsu">2</span>
             <span class="vital-lbl">Reiatsu</span>
         </div>
     </div>
 
     <div class="sheet-body">
-        
         <div class="col-stats">
-            <div id="statDisplay"></div>
-            <div style="margin-top:20px; font-weight:bold; color:var(--text-muted); margin-bottom:5px; text-transform:uppercase; font-size:0.8rem;">Skills</div>
-            <div class="skill-list-view" id="skillDisplay"></div>
+            <div id="statRows"></div>
+            <div class="prof-list">
+                <div style="padding:5px 10px; background:#111; font-size:0.7rem; font-weight:bold; color:#666; text-transform:uppercase;">Saving Throws</div>
+                <div class="prof-item active"><span class="prof-dot on">●</span> Constitution <span style="float:right" id="saveCON">+5</span></div>
+                <div class="prof-item active"><span class="prof-dot on">●</span> Dexterity <span style="float:right" id="saveDEX">+4</span></div>
+            </div>
+            <div class="prof-list" id="skillList"></div>
         </div>
 
-        <div class="col-features">
+        <div class="col-content">
             <div class="tabs">
-                <button class="tab-btn active" onclick="switchTab('actions')">Actions</button>
-                <button class="tab-btn" onclick="switchTab('features')">Features</button>
-                <button class="tab-btn" onclick="switchTab('traits')">Traits</button>
+                <button class="tab active" onclick="setTab('actions')">Actions & Combat</button>
+                <button class="tab" onclick="setTab('features')">Features & Traits</button>
             </div>
 
-            <div id="tab-actions" class="tab-content">
-                </div>
-
-            <div id="tab-features" class="tab-content hidden">
-                </div>
-            
-            <div id="tab-traits" class="tab-content hidden">
-                <div class="action-card">
-                    <div class="act-header"><span class="act-name">Arrancar Physiology</span></div>
-                    <div class="act-detail">You are a hollow that has removed its mask. You require souls to survive, though you can subsist on normal food. You do not age naturally.</div>
-                </div>
-            </div>
+            <div id="tab-actions" class="tab-panel show"></div>
+            <div id="tab-features" class="tab-panel"></div>
         </div>
-
     </div>
 </div>
 
 <script>
-    /* --- DATABASE --- */
+    /* --- DATA & RULES --- */
     const STATS = ["STR", "DEX", "CON", "INT", "WIS", "CHA"];
-    const SKILLS = {
-        "Acrobatics": "DEX", "Athletics": "STR", "Deception": "CHA", "Insight": "WIS", 
-        "Intimidation": "CHA", "Perception": "WIS", "Stealth": "DEX", "Survival": "WIS"
-    };
-    
-    const LEVEL_DATA = [
-        { lvl: 1, prof: 2, reiatsu: 2, cDmg: "1d10" }, { lvl: 2, prof: 2, reiatsu: 3, cDmg: "1d10" },
-        { lvl: 3, prof: 2, reiatsu: 4, cDmg: "2d10" }, { lvl: 4, prof: 2, reiatsu: 5, cDmg: "2d10" },
-        { lvl: 5, prof: 3, reiatsu: 6, cDmg: "2d10" }, { lvl: 6, prof: 3, reiatsu: 7, cDmg: "3d10" },
-        { lvl: 7, prof: 3, reiatsu: 8, cDmg: "3d10" }, { lvl: 8, prof: 3, reiatsu: 9, cDmg: "3d10" },
-        { lvl: 9, prof: 4, reiatsu: 10, cDmg: "4d10" }, { lvl: 10, prof: 4, reiatsu: 11, cDmg: "4d10" },
-        { lvl: 11, prof: 4, reiatsu: 12, cDmg: "5d10" }, { lvl: 12, prof: 4, reiatsu: 13, cDmg: "5d10" },
-        { lvl: 13, prof: 5, reiatsu: 14, cDmg: "5d10" }, { lvl: 14, prof: 5, reiatsu: 15, cDmg: "6d10" },
-        { lvl: 15, prof: 5, reiatsu: 16, cDmg: "6d10" }, { lvl: 16, prof: 5, reiatsu: 17, cDmg: "6d10" },
-        { lvl: 17, prof: 6, reiatsu: 18, cDmg: "7d10" }, { lvl: 18, prof: 6, reiatsu: 19, cDmg: "8d10" },
-        { lvl: 19, prof: 6, reiatsu: 20, cDmg: "8d10" }, { lvl: 20, prof: 6, reiatsu: 25, cDmg: "10d10" }
+    const SKILLS = { "Acrobatics":"DEX", "Athletics":"STR", "Intimidation":"CHA", "Perception":"WIS", "Stealth":"DEX", "Survival":"WIS" };
+
+    const CLASS_TABLE = [
+        { lvl:1, prof:2, reiatsu:2 }, { lvl:2, prof:2, reiatsu:3 }, { lvl:3, prof:2, reiatsu:4 },
+        { lvl:4, prof:2, reiatsu:5 }, { lvl:5, prof:3, reiatsu:6 }, { lvl:6, prof:3, reiatsu:7 },
+        { lvl:7, prof:3, reiatsu:8 }, { lvl:8, prof:3, reiatsu:9 }, { lvl:9, prof:4, reiatsu:10 },
+        { lvl:10,prof:4, reiatsu:11 }, { lvl:11,prof:4, reiatsu:12 }, { lvl:12,prof:4, reiatsu:13 },
+        { lvl:13,prof:5, reiatsu:14 }, { lvl:14,prof:5, reiatsu:15 }, { lvl:15,prof:5, reiatsu:16 },
+        { lvl:16,prof:5, reiatsu:17 }, { lvl:17,prof:6, reiatsu:18 }, { lvl:18,prof:6, reiatsu:19 },
+        { lvl:19,prof:6, reiatsu:20 }, { lvl:20,prof:6, reiatsu:25 }
     ];
 
     const FEATURES_DB = [
-        // CORE
-        { name: "Hierro", lvl: 1, type: "Passive", desc: "Your AC equals 10 + DEX + CON. As a reaction when hit, reduce damage by 1d10 + Level." },
-        { name: "Bala", lvl: 1, type: "Action", tag: "attack", desc: "Fire a hardened spirit bullet. Range 60ft.", roll: "Ranged Spell Attack | Dmg: 1d6 (1d8 at lvl 5, 1d10 at lvl 11) Force" },
-        { name: "Cero", lvl: 2, type: "Action", tag: "attack", desc: "Spend 2 Reiatsu. Fire a blast in a 100ft Line or 30ft Cone. Targets make DEX Save.", roll: "Dmg: See Reiatsu Table (Force)" },
-        { name: "Sonído", lvl: 2, type: "Bonus Action", tag: "bonus", desc: "Spend 1 Reiatsu. Teleport up to 30 feet to an unoccupied space you can see." },
-        { name: "Extra Attack", lvl: 5, type: "Passive", desc: "You can attack twice, instead of once, whenever you take the Attack action on your turn." },
-        { name: "High-Speed Regen", lvl: 6, type: "Bonus Action", tag: "bonus", desc: "Spend Reiatsu to heal. 1 Reiatsu = 1d10 Hit Points. Can regrow limbs." },
-        { name: "Pesquisa", lvl: 7, type: "Action", tag: "action", desc: "Send out a sensory pulse to detect spiritual pressure within 1 mile." },
-        { name: "Gran Rey Cero", lvl: 9, type: "Action", tag: "attack", desc: "Spend 4 Reiatsu. A massive Cero. If you know the upgrade, it ignores resistances." },
-        { name: "Resurrección", lvl: 11, type: "Bonus Action", tag: "bonus", desc: "Spend 5 Reiatsu. Enter your true form for 1 minute. Fly Speed = Walk Speed. Regain HP = Level. Add Proficiency to melee damage." },
-        { name: "Cero Oscuras", lvl: 18, type: "Passive", desc: "Your Cero now deals Necrotic/Force damage and crits on a 19-20." },
+        // CORE PASSIVES & RIBBONS
+        { name: "Hierro (Iron Skin)", lvl: 1, type: "Passive", desc: "Your unarmored AC is 10 + DEX + CON." },
+        { name: "Spirit Sight", lvl: 1, type: "Passive", desc: "You can see 60ft into the Ethereal Plane and spot spirits/invisible creatures." },
+        { name: "Hollow Art", lvl: 2, type: "Passive", desc: "You have adopted a specialized fighting style (See Builder)." },
+        { name: "Extra Attack", lvl: 5, type: "Passive", desc: "You can attack twice whenever you take the Attack action." },
+        { name: "Reishi Tread", lvl: 5, type: "Passive", desc: "You can stand on and move across thin air as if it were solid ground." },
+        { name: "Pesquisa (Sonar)", lvl: 7, type: "Action", desc: "Concentrate to learn the location and relative power level of all creatures within 1 mile." },
+        { name: "Garganta (Gate)", lvl: 9, type: "Action", desc: "Spend 4 Reiatsu. Open a dimensional tear. You can transport yourself and up to 8 others to a known location on the same plane or a different plane." },
         
-        // SUBCLASS: DESTRUCTION (Grimmjow)
-        { name: "Primal Scream", lvl: 3, sub: "Destruction", type: "Bonus Action", tag: "bonus", desc: "Roar. Enemies within 10ft must make WIS save vs Fear." },
-        { name: "Pantera Form", lvl: 11, sub: "Destruction", type: "Passive", desc: "While in Resurrección, your reach increases by 5ft and you deal Force damage on melee hits." },
-        { name: "Desgarrón", lvl: 20, sub: "Destruction", type: "Action", tag: "attack", desc: "Segunda Etapa. Cast Steel Wind Strike at will (4 Reiatsu)." },
+        // COMBAT ACTIONS
+        { name: "Bala", lvl: 1, type: "Action", desc: "Ranged Spell Attack (DEX). Range 120ft.", meta: "Dmg: 1d6 Force (Scale: 1d8@5, 1d10@11)" },
+        { name: "Cero", lvl: 2, type: "Action", desc: "Spend 2 Reiatsu. 100ft Line or 30ft Cone. DEX Save.", meta: "Dmg: 3d8 Force (Scale: 4d8@5, 5d8@11, 8d8@17)" },
+        
+        // BONUS ACTIONS
+        { name: "Sonído", lvl: 2, type: "Bonus Action", desc: "Spend 1 Reiatsu. Teleport 30ft to an unoccupied space." },
+        { name: "Reiatsu Charge", lvl: 3, type: "Bonus Action", desc: "Focus your spirit energy. Regain 1d4 Reiatsu. You cannot use this again until you finish a Short Rest." },
+        { name: "High-Speed Regen", lvl: 6, type: "Bonus Action", desc: "Spend Reiatsu to heal. 1 Point = 1d10 HP." },
+        { name: "Resurrección", lvl: 11, type: "Bonus Action", desc: "True Form. Spend 5 Reiatsu. 1 Minute Duration. Fly Speed = Walk. Regain HP = Level. +Prof to Dmg." },
 
-        // SUBCLASS: NIHILISM (Ulquiorra)
-        { name: "Instant Regen", lvl: 5, sub: "Nihilism", type: "Passive", desc: "Add CON Mod to High-Speed Regeneration rolls." },
-        { name: "Murciélago", lvl: 11, sub: "Nihilism", type: "Passive", desc: "In Resurrección, Fly speed doubles and you can Dash as a Bonus Action." },
-        { name: "Lanza del Relámpago", lvl: 14, sub: "Nihilism", type: "Action", tag: "attack", desc: "300ft Range. 20ft Sphere. 5d10 Force damage." }
+        // REACTIONS
+        { name: "Hierro (Hardening)", lvl: 1, type: "Reaction", desc: "When you take damage, reduce it by 1d10 + your Level." },
+        { name: "Soul Feedback", lvl: 7, type: "Reaction", desc: "When a creature within 5ft hits you, force them to make a WIS save or take Psychic damage equal to half the damage they dealt." }
     ];
 
-    /* --- INITIALIZATION --- */
+    const SUBCLASS_DB = {
+        "Destruction": [
+            { name: "Primal Scream", lvl: 3, type: "Bonus Action", desc: "Roar. Enemies within 10ft must make WIS Save or be Frightened." },
+            { name: "Brutal Critical", lvl: 7, type: "Passive", desc: "You roll one additional weapon damage die when determining the extra damage for a critical hit." }
+        ],
+        "Nihilism": [
+            { name: "Void Step", lvl: 3, type: "Reaction", desc: "When hit by an attack, spend 1 Reiatsu to turn invisible until the start of your next turn." },
+            { name: "Nullify", lvl: 7, type: "Reaction", desc: "Cast *Counterspell* using 3 Reiatsu." }
+        ],
+        "Madness": [
+            { name: "Analyze", lvl: 3, type: "Bonus Action", desc: "Learn target's Immunities, Resistances, and Vulnerabilities." }
+        ],
+        "Sacrifice": [
+            { name: "Intercept", lvl: 3, type: "Reaction", desc: "When an ally within 30ft is hit, you teleport to them and take the damage instead (Resistance applies)." }
+        ],
+        "Solitude": [
+            { name: "Pack Tactics", lvl: 3, type: "Passive", desc: "You have advantage on attack rolls if one of your spirit wolves (or allies) is within 5ft of the target." }
+        ],
+        "Time": [
+            { name: "Decay", lvl: 3, type: "Reaction", desc: "When an enemy moves within 5ft of you, reduce their speed to 0." }
+        ]
+    };
+
+    /* --- INIT --- */
     window.onload = function() {
-        // Build Stat Inputs
-        const statDiv = document.getElementById("statInputs");
-        STATS.forEach(s => {
-            statDiv.innerHTML += `
-                <div class="stat-row">
-                    <label>${s}</label>
-                    <input type="number" id="val${s}" value="${(s==='DEX'||s==='CON')?16:10}" oninput="updateSheet()">
-                </div>`;
-        });
-
-        // Build Skills
-        const skillDiv = document.getElementById("skillSelector");
-        for(let key in SKILLS) {
-            skillDiv.innerHTML += `
-                <label class="skill-check">
-                    <input type="checkbox" id="chk${key}" onchange="updateSheet()"> ${key}
-                </label>`;
+        const skillDiv = document.getElementById('skillInputs');
+        for(let s in SKILLS) {
+            skillDiv.innerHTML += `<label class="skill-opt"><input type="checkbox" id="chk${s}" onchange="render()"> ${s}</label>`;
         }
-
-        updateSheet();
+        render();
     };
 
     /* --- LOGIC --- */
     function getMod(score) { return Math.floor((score - 10) / 2); }
     function fmtSign(n) { return n >= 0 ? "+" + n : n; }
 
-    function updateSheet() {
-        const lvl = parseInt(document.getElementById("inLevel").value);
-        const sub = document.getElementById("inSubclass").value;
-        const name = document.getElementById("inName").value;
-        const data = LEVEL_DATA[lvl - 1] || LEVEL_DATA[19];
+    function render() {
+        // GATHER DATA
+        const name = document.getElementById('inName').value;
+        const lvl = parseInt(document.getElementById('inLevel').value);
+        const sub = document.getElementById('inSubclass').value;
+        const art = document.getElementById('inArt').value;
+        
+        const data = CLASS_TABLE[lvl-1] || CLASS_TABLE[19];
         const prof = data.prof;
 
-        // 1. Header
-        document.getElementById("outName").innerText = name;
-        document.getElementById("outSubclass").innerText = `Arrancar (Aspect of ${sub}) - Level ${lvl}`;
-        document.getElementById("outProf").innerText = fmtSign(prof);
-        document.getElementById("outReiatsu").innerText = data.reiatsu;
-
-        // 2. Stats
+        // CALCULATE STATS
         const stats = {};
-        const statBox = document.getElementById("statDisplay");
-        statBox.innerHTML = "";
         STATS.forEach(s => {
-            let val = parseInt(document.getElementById(`val${s}`).value);
-            let mod = getMod(val);
-            stats[s] = mod;
-            statBox.innerHTML += `
-                <div class="stat-block">
-                    <span class="lbl">${s}</span>
-                    <span class="mod">${fmtSign(mod)}</span>
-                    <span class="raw">${val}</span>
-                </div>`;
+            let val = parseInt(document.getElementById(`in${s}`).value);
+            stats[s] = { val: val, mod: getMod(val) };
         });
 
-        // 3. Vitals
-        const ac = 10 + stats.DEX + stats.CON; // Hierro
-        document.getElementById("outAC").innerText = ac;
-        document.getElementById("outInit").innerText = fmtSign(stats.DEX);
-        document.getElementById("outSpeed").innerText = "30 ft"; // Base
-        
-        // HP: 10 + CON + (Level-1)*(6+CON)
-        const hp = (10 + stats.CON) + ((lvl - 1) * (6 + stats.CON));
-        document.getElementById("outHP").innerText = hp;
+        // UPDATE HEADER
+        document.getElementById('outName').innerText = name;
+        document.getElementById('outMeta').innerText = `Arrancar (${art}) | Aspect of ${sub} | Level ${lvl}`;
+        document.getElementById('outProf').innerText = fmtSign(prof);
+        document.getElementById('outReiatsu').innerText = data.reiatsu;
 
-        // 4. Skills Render
-        const skillBox = document.getElementById("skillDisplay");
-        skillBox.innerHTML = "";
-        for(let key in SKILLS) {
-            let attr = SKILLS[key];
-            let isProf = document.getElementById(`chk${key}`).checked;
-            let total = stats[attr] + (isProf ? prof : 0);
-            
-            skillBox.innerHTML += `
-                <div class="skill-row-view ${isProf ? 'proficient' : ''}">
-                    <span>
-                        <span class="dot ${isProf ? 'active' : ''}">●</span> 
-                        ${key} <span style="color:#666; font-size:0.7em">(${attr})</span>
-                    </span>
-                    <span>${fmtSign(total)}</span>
-                </div>`;
+        // UPDATE VITALS
+        let ac = 10 + stats.DEX.mod + stats.CON.mod; // Hierro
+        if(art === "Brawler") ac += 1;
+        document.getElementById('outAC').innerText = ac;
+
+        let init = stats.DEX.mod;
+        if(art === "Tactician") init += prof;
+        document.getElementById('outInit').innerText = fmtSign(init);
+
+        let speed = 30;
+        if(art === "Tactician") speed += 10;
+        document.getElementById('outSpeed').innerText = speed;
+
+        let hp = (10 + stats.CON.mod) + ((lvl-1)*(6+stats.CON.mod));
+        document.getElementById('outHP').innerText = hp;
+
+        // RENDER STATS COLUMN
+        const statRows = document.getElementById('statRows');
+        statRows.innerHTML = "";
+        STATS.forEach(s => {
+            statRows.innerHTML += `
+            <div class="stat-row">
+                <span class="stat-name">${s}</span>
+                <span class="stat-mod">${fmtSign(stats[s].mod)}</span>
+                <span class="stat-raw">${stats[s].val}</span>
+            </div>`;
+        });
+        document.getElementById('saveCON').innerText = fmtSign(stats.CON.mod + prof);
+        document.getElementById('saveDEX').innerText = fmtSign(stats.DEX.mod + prof);
+
+        // RENDER SKILLS
+        const skillList = document.getElementById('skillList');
+        skillList.innerHTML = `<div style="padding:5px 10px; background:#111; font-size:0.7rem; font-weight:bold; color:#666; text-transform:uppercase;">Skills</div>`;
+        for(let s in SKILLS) {
+            let isProf = document.getElementById(`chk${s}`).checked;
+            let mod = stats[SKILLS[s]].mod + (isProf ? prof : 0);
+            skillList.innerHTML += `
+            <div class="prof-item ${isProf?'active':''}">
+                <span><span class="prof-dot ${isProf?'on':''}">●</span> ${s}</span>
+                <span>${fmtSign(mod)}</span>
+            </div>`;
         }
 
-        // 5. Populate Tabs
-        const actionTab = document.getElementById("tab-actions");
-        const featTab = document.getElementById("tab-features");
-        actionTab.innerHTML = "";
-        featTab.innerHTML = "";
+        // GENERATE CARDS (Actions & Features)
+        const actPanel = document.getElementById('tab-actions');
+        const featPanel = document.getElementById('tab-features');
+        actPanel.innerHTML = "";
+        featPanel.innerHTML = "";
 
-        // Standard Attack Action
-        actionTab.innerHTML += `
-            <div class="action-card attack">
-                <div class="act-header">
-                    <span class="act-name">Unarmed Strike</span>
-                    <span class="act-type">Melee Attack</span>
-                </div>
-                <div class="act-detail">Strike with fists or weapon.</div>
-                <div class="act-roll">Hit: ${fmtSign(stats.STR + prof)} | Dmg: 1 + ${stats.STR}</div>
-            </div>`;
+        // 1. Basic Attacks (Based on Fighting Style)
+        let unarmedDmg = 1 + stats.STR.mod;
+        if(art === "Brawler") unarmedDmg = "1d6 + " + stats.STR.mod;
+        
+        actPanel.innerHTML += createCard("Unarmed Strike", "Action", `Standard Melee Attack.`, `Hit: ${fmtSign(stats.STR.mod + prof)} | Dmg: ${unarmedDmg} Bludgeoning`);
 
+        // 2. Class Features Loop
         FEATURES_DB.forEach(f => {
-            // Check Level & Subclass requirement
-            if (f.lvl <= lvl) {
-                if (!f.sub || f.sub === sub) {
-                    
-                    // Create HTML
-                    let html = `
-                        <div class="action-card ${f.tag || ''}">
-                            <div class="act-header">
-                                <span class="act-name">${f.name}</span>
-                                <span class="act-type">${f.type}</span>
-                            </div>
-                            <div class="act-detail">${f.desc}</div>
-                            ${f.roll ? `<div class="act-roll">${f.roll}</div>` : ''}
-                        </div>`;
+            if(f.lvl <= lvl) {
+                // Modifiers based on Fighting Style
+                let desc = f.desc;
+                let meta = f.meta;
 
-                    // Sort into Tabs
-                    if (f.type === "Action" || f.type === "Bonus Action" || f.type === "Reaction") {
-                        actionTab.innerHTML += html;
-                    } else {
-                        featTab.innerHTML += html;
-                    }
+                if(f.name === "Bala" && art === "Sniper") {
+                    meta += " (Sniper: Double Range, ignore 1/2 cover)";
                 }
+
+                let html = createCard(f.name, f.type, desc, meta);
+                if(f.type === "Passive") featPanel.innerHTML += html;
+                else actPanel.innerHTML += html;
             }
         });
+
+        // 3. Subclass Features
+        if(SUBCLASS_DB[sub]) {
+            SUBCLASS_DB[sub].forEach(f => {
+                if(f.lvl <= lvl) {
+                    let html = createCard(f.name, f.type, f.desc, f.meta);
+                    if(f.type === "Passive") featPanel.innerHTML += html;
+                    else actPanel.innerHTML += html;
+                }
+            });
+        }
     }
 
-    /* --- TABS --- */
-    function switchTab(tabName) {
-        document.querySelectorAll('.tab-content').forEach(d => d.classList.add('hidden'));
-        document.getElementById('tab-' + tabName).classList.remove('hidden');
-        
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    function createCard(title, type, desc, meta) {
+        // Determine type for color coding
+        let typeClass = type; 
+        if(type.includes("Bonus")) typeClass = "Bonus";
+        if(type.includes("Reaction")) typeClass = "Reaction";
+
+        return `
+        <div class="card ${typeClass}">
+            <div class="card-top">
+                <span class="card-title">${title}</span>
+                <span class="card-type">${type}</span>
+            </div>
+            <div class="card-desc">${desc}</div>
+            ${meta ? `<div class="card-meta">${meta}</div>` : ''}
+        </div>`;
+    }
+
+    function setTab(name) {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('show'));
         event.target.classList.add('active');
+        document.getElementById('tab-'+name).classList.add('show');
     }
 
 </script>
-
 </body>
 </html>
