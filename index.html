@@ -3,177 +3,125 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PG Performance Tracker</title>
+    <title>Athletic Performance Tracker</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
-            --primary: #3b82f6;
+            --primary: #ff4757;
             --bg: #0f172a;
             --card: #1e293b;
-            --text: #e2e8f0;
-            --success: #22c55e;
-            --danger: #ef4444;
+            --text: #f8fafc;
         }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: var(--bg);
-            color: var(--text);
-            margin: 0;
-            padding: 20px;
-            max-width: 600px;
-            margin: 0 auto;
-        }
-
-        h1 { font-size: 1.5rem; margin-bottom: 1rem; color: var(--primary); }
-        h2 { font-size: 1.2rem; margin-top: 2rem; border-bottom: 1px solid #334155; padding-bottom: 0.5rem; }
-
-        .card {
-            background-color: var(--card);
-            padding: 1.5rem;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-            margin-bottom: 1rem;
-        }
-
-        .form-group { margin-bottom: 1rem; }
-        label { display: block; margin-bottom: 0.5rem; font-size: 0.9rem; color: #94a3b8; }
-        
-        input, select, textarea {
-            width: 100%;
-            padding: 12px;
-            background: #334155;
-            border: none;
-            border-radius: 8px;
-            color: white;
-            font-size: 1rem;
-            box-sizing: border-box;
-        }
-
-        button {
-            width: 100%;
-            padding: 14px;
-            background-color: var(--primary);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-weight: bold;
-            cursor: pointer;
-            font-size: 1rem;
-            transition: opacity 0.2s;
-        }
-        button:hover { opacity: 0.9; }
-
-        .log-entry {
-            border-left: 4px solid var(--primary);
-            padding: 1rem;
-            background: var(--card);
-            margin-bottom: 10px;
-            border-radius: 4px;
-            position: relative;
-        }
-        
-        .log-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
-        .log-date { font-weight: bold; color: white; }
-        .log-type { font-size: 0.8rem; background: #334155; padding: 2px 8px; border-radius: 12px; }
-        .log-notes { font-size: 0.9rem; color: #cbd5e1; white-space: pre-wrap; }
-        .delete-btn { 
-            background: transparent; color: var(--danger); width: auto; padding: 4px; 
-            font-size: 0.8rem; margin-top: 10px; border: 1px solid var(--danger);
-        }
-
-        /* Status colors */
-        .type-Practice { border-left-color: var(--success); }
-        .type-Recovery { border-left-color: #f59e0b; }
-        .type-Strength { border-left-color: var(--primary); }
+        body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: auto; }
+        .card { background: var(--card); padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        h1, h2 { color: var(--primary); }
+        .day-nav { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 10px; margin-bottom: 20px; }
+        .day-btn { background: #334155; border: none; color: white; padding: 10px 15px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+        .day-btn.active { background: var(--primary); }
+        .exercise-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #334155; }
+        input[type="checkbox"] { transform: scale(1.5); accent-color: var(--primary); }
+        .weight-input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: white; margin-top: 10px; box-sizing: border-box; }
+        .btn-save { background: var(--primary); color: white; border: none; width: 100%; padding: 12px; border-radius: 8px; margin-top: 10px; font-weight: bold; cursor: pointer; }
+        canvas { margin-top: 20px; background: #1e293b; border-radius: 8px; padding: 10px; }
     </style>
 </head>
 <body>
 
-    <h1>🏀 PG Performance Log</h1>
+<div class="container">
+    <h1>Performance Tracker</h1>
 
     <div class="card">
-        <div class="form-group">
-            <label>Session Type</label>
-            <select id="type">
-                <option value="Practice">🏀 Team Practice</option>
-                <option value="Strength">🏋️ Strength & Vert</option>
-                <option value="Recovery">🧘 Recovery / Mobility</option>
-                <option value="Cardio">🏃 Treadmill / Row</option>
-            </select>
-        </div>
-
-        <div class="form-group">
-            <label>How did the body feel? (1=Pain, 10=Flying)</label>
-            <input type="number" id="rating" min="1" max="10" value="7">
-        </div>
-
-        <div class="form-group">
-            <label>Notes (Sets, Reps, Achilles Pain?)</label>
-            <textarea id="notes" rows="4" placeholder="Example: Right Achilles felt tight in warmups. 3x10 Split Squats."></textarea>
-        </div>
-
-        <button onclick="saveWorkout()">Log Workout</button>
+        <h2>Weight Log</h2>
+        <input type="number" id="weightInput" class="weight-input" placeholder="Enter weight (kg/lbs)">
+        <button class="btn-save" onclick="saveWeight()">Log Weight</button>
+        <canvas id="weightChart"></canvas>
     </div>
 
-    <h2>History</h2>
-    <div id="history"></div>
+    <div class="day-nav" id="dayNav"></div>
+    <div id="workoutContent" class="card">
+        <h2 id="dayTitle">Select a Day</h2>
+        <div id="exerciseList"></div>
+    </div>
+</div>
 
-    <script>
-        // Load workouts on startup
-        document.addEventListener('DOMContentLoaded', loadWorkouts);
+<script>
+    const workoutPlan = {
+        1: { name: "Day 1: Lower Power", exercises: ["Split squats (12 each)", "Jump squats (10)", "Glute bridges (15)", "Split squat jumps (8 each)", "Wall sit (45s)", "Fast high knees (30s)"] },
+        2: { name: "Day 2: Upper + Core", exercises: ["Push-ups (12-15)", "Decline push-ups (8-12)", "Sit-ups (20)", "Plank (45s)", "Shoulder taps (20)", "Fast push-ups (30s)", "Mountain climbers (30s)"] },
+        3: { name: "Day 3: Plyo + HIIT", exercises: ["Jump squats (10)", "Burpees (8-12)", "Split squat jumps (8 each)", "High knees (30s)", "HIIT Sprints (8 rounds)"] },
+        4: { name: "Day 4: Lower Strength", exercises: ["Slow split squats (10 each)", "Single-leg glute bridges (10 each)", "Squats (Pause)", "Calf raises (20)", "Jump squats (8)", "Hold squat (20s)"] },
+        5: { name: "Day 5: Upper Explosive", exercises: ["Explosive push-ups (8-10)", "Normal push-ups (12-15)", "Pike push-ups (8-12)", "Sit-ups (15-20)", "Plank (45s)", "Push-up hold (20s)", "Shoulder taps (30s)"] },
+        6: { name: "Day 6: Athletic + Core", exercises: ["Mountain climbers (30s)", "Jump squats (10)", "Sit-ups (20)", "Plank (45s)", "High knees (30s)", "Nonstop Movement (5 min)"] }
+    };
 
-        function saveWorkout() {
-            const type = document.getElementById('type').value;
-            const rating = document.getElementById('rating').value;
-            const notes = document.getElementById('notes').value;
-            const date = new Date().toLocaleString('en-GB', { 
-                weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute:'2-digit'
-            });
+    let weightData = JSON.parse(localStorage.getItem('weightLogs')) || [];
+    let completedWorkouts = JSON.parse(localStorage.getItem('completedWorkouts')) || {};
 
-            if (!notes) { alert("Add a quick note first!"); return; }
-
-            const workout = {
-                id: Date.now(),
-                date: date,
-                type: type,
-                rating: rating,
-                notes: notes
-            };
-
-            // Get existing, add new, save back
-            let workouts = JSON.parse(localStorage.getItem('pg_workouts') || '[]');
-            workouts.unshift(workout); // Add to top
-            localStorage.setItem('pg_workouts', JSON.stringify(workouts));
-
-            // Reset form and reload
-            document.getElementById('notes').value = "";
-            loadWorkouts();
+    function init() {
+        const nav = document.getElementById('dayNav');
+        for (let i = 1; i <= 6; i++) {
+            const btn = document.createElement('button');
+            btn.className = 'day-btn';
+            btn.innerText = `Day ${i}`;
+            btn.onclick = () => loadDay(i);
+            nav.appendChild(btn);
         }
+        updateChart();
+    }
 
-        function loadWorkouts() {
-            const historyDiv = document.getElementById('history');
-            const workouts = JSON.parse(localStorage.getItem('pg_workouts') || '[]');
-            
-            historyDiv.innerHTML = workouts.map(w => `
-                <div class="log-entry type-${w.type}">
-                    <div class="log-header">
-                        <span class="log-date">${w.date}</span>
-                        <span class="log-type">${w.type}</span>
-                    </div>
-                    <div><strong>Body Rating:</strong> ${w.rating}/10</div>
-                    <div class="log-notes">${w.notes}</div>
-                    <button class="delete-btn" onclick="deleteWorkout(${w.id})">Delete</button>
-                </div>
-            `).join('');
-        }
+    function loadDay(dayNum) {
+        document.querySelectorAll('.day-btn').forEach(btn => btn.classList.remove('active'));
+        event.target.classList.add('active');
 
-        function deleteWorkout(id) {
-            if(!confirm("Delete this entry?")) return;
-            let workouts = JSON.parse(localStorage.getItem('pg_workouts') || '[]');
-            workouts = workouts.filter(w => w.id !== id);
-            localStorage.setItem('pg_workouts', JSON.stringify(workouts));
-            loadWorkouts();
-        }
-    </script>
+        const day = workoutPlan[dayNum];
+        document.getElementById('dayTitle').innerText = day.name;
+        const list = document.getElementById('exerciseList');
+        list.innerHTML = '';
+
+        day.exercises.forEach((ex, idx) => {
+            const item = document.createElement('div');
+            item.className = 'exercise-item';
+            const isChecked = completedWorkouts[`${dayNum}-${idx}`] ? 'checked' : '';
+            item.innerHTML = `<span>${ex}</span> <input type="checkbox" ${isChecked} onchange="toggleEx(${dayNum}, ${idx})">`;
+            list.appendChild(item);
+        });
+    }
+
+    function toggleEx(day, idx) {
+        const key = `${day}-${idx}`;
+        completedWorkouts[key] = !completedWorkouts[key];
+        localStorage.setItem('completedWorkouts', JSON.stringify(completedWorkouts));
+    }
+
+    function saveWeight() {
+        const weight = document.getElementById('weightInput').value;
+        if (!weight) return;
+        const entry = { date: new Date().toLocaleDateString(), weight: parseFloat(weight) };
+        weightData.push(entry);
+        localStorage.setItem('weightLogs', JSON.stringify(weightData));
+        updateChart();
+    }
+
+    function updateChart() {
+        const ctx = document.getElementById('weightChart').getContext('2d');
+        if (window.myChart) window.myChart.destroy();
+        window.myChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: weightData.map(d => d.date),
+                datasets: [{
+                    label: 'Weight',
+                    data: weightData.map(d => d.weight),
+                    borderColor: '#ff4757',
+                    tension: 0.1
+                }]
+            },
+            options: { scales: { y: { beginAtZero: false } } }
+        });
+    }
+
+    init();
+</script>
 </body>
 </html>
