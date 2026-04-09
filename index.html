@@ -3,104 +3,125 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Athletic Performance Tracker</title>
+    <title>Athletic Pro Tracker</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        :root {
-            --primary: #ff4757;
-            --bg: #0f172a;
-            --card: #1e293b;
-            --text: #f8fafc;
-        }
-        body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
+        :root { --primary: #ff4757; --bg: #0f172a; --card: #1e293b; --text: #f8fafc; --success: #2ed573; }
+        body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 15px; }
         .container { max-width: 600px; margin: auto; }
-        .card { background: var(--card); padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
-        h1, h2 { color: var(--primary); }
-        .day-nav { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 10px; margin-bottom: 20px; }
-        .day-btn { background: #334155; border: none; color: white; padding: 10px 15px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
-        .day-btn.active { background: var(--primary); }
-        .exercise-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #334155; }
-        input[type="checkbox"] { transform: scale(1.5); accent-color: var(--primary); }
-        .weight-input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: white; margin-top: 10px; box-sizing: border-box; }
-        .btn-save { background: var(--primary); color: white; border: none; width: 100%; padding: 12px; border-radius: 8px; margin-top: 10px; font-weight: bold; cursor: pointer; }
-        canvas { margin-top: 20px; background: #1e293b; border-radius: 8px; padding: 10px; }
+        .card { background: var(--card); padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+        h1, h2 { color: var(--primary); margin-top: 0; }
+        .day-nav { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 10px; margin-bottom: 15px; scrollbar-width: none; }
+        .day-btn { background: #334155; border: none; color: white; padding: 10px 18px; border-radius: 8px; cursor: pointer; white-space: nowrap; transition: 0.2s; }
+        .day-btn.active { background: var(--primary); font-weight: bold; }
+        
+        .exercise-row { display: grid; grid-template-columns: 1fr 80px; gap: 10px; align-items: center; padding: 12px 0; border-bottom: 1px solid #334155; }
+        .exercise-info label { font-size: 0.95rem; display: block; margin-bottom: 4px; }
+        .exercise-info span { font-size: 0.75rem; color: #94a3b8; }
+        
+        input { background: #0f172a; border: 1px solid #334155; color: white; padding: 8px; border-radius: 6px; width: 100%; box-sizing: border-box; }
+        .btn-action { background: var(--primary); color: white; border: none; width: 100%; padding: 14px; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 15px; }
+        .btn-action:active { transform: scale(0.98); }
+        
+        .history-badge { font-size: 0.7rem; background: #334155; padding: 2px 6px; border-radius: 4px; color: var(--success); }
+        canvas { background: #1e293b; border-radius: 8px; margin-top: 15px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>Performance Tracker</h1>
+    <h1>Athlete Log</h1>
 
     <div class="card">
-        <h2>Weight Log</h2>
-        <input type="number" id="weightInput" class="weight-input" placeholder="Enter weight (kg/lbs)">
-        <button class="btn-save" onclick="saveWeight()">Log Weight</button>
-        <canvas id="weightChart"></canvas>
+        <h2>Weight tracking</h2>
+        <div style="display: flex; gap: 10px;">
+            <input type="number" id="weightInput" placeholder="Weight (kg/lbs)">
+            <button onclick="saveWeight()" style="background:var(--success); border:none; color:white; border-radius:8px; padding:0 15px; cursor:pointer;">Log</button>
+        </div>
+        <canvas id="weightChart" height="150"></canvas>
     </div>
 
     <div class="day-nav" id="dayNav"></div>
-    <div id="workoutContent" class="card">
+    
+    <div class="card">
         <h2 id="dayTitle">Select a Day</h2>
         <div id="exerciseList"></div>
+        <button class="btn-action" id="saveWorkoutBtn" onclick="saveWorkout()">Save Workout Session</button>
     </div>
 </div>
 
 <script>
     const workoutPlan = {
-        1: { name: "Day 1: Lower Power", exercises: ["Split squats (12 each)", "Jump squats (10)", "Glute bridges (15)", "Split squat jumps (8 each)", "Wall sit (45s)", "Fast high knees (30s)"] },
-        2: { name: "Day 2: Upper + Core", exercises: ["Push-ups (12-15)", "Decline push-ups (8-12)", "Sit-ups (20)", "Plank (45s)", "Shoulder taps (20)", "Fast push-ups (30s)", "Mountain climbers (30s)"] },
-        3: { name: "Day 3: Plyo + HIIT", exercises: ["Jump squats (10)", "Burpees (8-12)", "Split squat jumps (8 each)", "High knees (30s)", "HIIT Sprints (8 rounds)"] },
-        4: { name: "Day 4: Lower Strength", exercises: ["Slow split squats (10 each)", "Single-leg glute bridges (10 each)", "Squats (Pause)", "Calf raises (20)", "Jump squats (8)", "Hold squat (20s)"] },
-        5: { name: "Day 5: Upper Explosive", exercises: ["Explosive push-ups (8-10)", "Normal push-ups (12-15)", "Pike push-ups (8-12)", "Sit-ups (15-20)", "Plank (45s)", "Push-up hold (20s)", "Shoulder taps (30s)"] },
-        6: { name: "Day 6: Athletic + Core", exercises: ["Mountain climbers (30s)", "Jump squats (10)", "Sit-ups (20)", "Plank (45s)", "High knees (30s)", "Nonstop Movement (5 min)"] }
+        1: { name: "Lower Body Power", ex: ["Split Squats", "Jump Squats", "Glute Bridges", "Split Squat Jumps", "Wall Sit (sec)", "High Knees (sec)"] },
+        2: { name: "Upper Body + Core", ex: ["Push-ups", "Decline Push-ups", "Sit-ups", "Plank (sec)", "Shoulder Taps", "Fast Push-ups", "Mountain Climbers"] },
+        3: { name: "Plyometric + HIIT", ex: ["Jump Squats", "Burpees", "Split Squat Jumps", "High Knees", "HIIT Sprints (reps)"] },
+        4: { name: "Lower Strength", ex: ["Slow Split Squats", "SL Glute Bridges", "Pause Squats", "Calf Raises", "Jump Squats", "Hold Squat (sec)"] },
+        5: { name: "Upper Explosive", ex: ["Explosive Push-ups", "Normal Push-ups", "Pike Push-ups", "Sit-ups", "Plank (sec)", "Push-up Hold", "Shoulder Taps"] },
+        6: { name: "Athletic Conditioning", ex: ["Mountain Climbers", "Jump Squats", "Sit-ups", "Plank (sec)", "High Knees", "Nonstop Movement (min)"] }
     };
 
     let weightData = JSON.parse(localStorage.getItem('weightLogs')) || [];
-    let completedWorkouts = JSON.parse(localStorage.getItem('completedWorkouts')) || {};
+    let workoutHistory = JSON.parse(localStorage.getItem('workoutHistory')) || {};
+    let currentDay = 1;
 
     function init() {
         const nav = document.getElementById('dayNav');
         for (let i = 1; i <= 6; i++) {
             const btn = document.createElement('button');
-            btn.className = 'day-btn';
+            btn.className = 'day-btn' + (i === 1 ? ' active' : '');
             btn.innerText = `Day ${i}`;
-            btn.onclick = () => loadDay(i);
+            btn.onclick = (e) => {
+                document.querySelectorAll('.day-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                loadDay(i);
+            };
             nav.appendChild(btn);
         }
+        loadDay(1);
         updateChart();
     }
 
     function loadDay(dayNum) {
-        document.querySelectorAll('.day-btn').forEach(btn => btn.classList.remove('active'));
-        event.target.classList.add('active');
-
+        currentDay = dayNum;
         const day = workoutPlan[dayNum];
         document.getElementById('dayTitle').innerText = day.name;
         const list = document.getElementById('exerciseList');
         list.innerHTML = '';
 
-        day.exercises.forEach((ex, idx) => {
-            const item = document.createElement('div');
-            item.className = 'exercise-item';
-            const isChecked = completedWorkouts[`${dayNum}-${idx}`] ? 'checked' : '';
-            item.innerHTML = `<span>${ex}</span> <input type="checkbox" ${isChecked} onchange="toggleEx(${dayNum}, ${idx})">`;
-            list.appendChild(item);
+        day.ex.forEach((name) => {
+            const lastVal = workoutHistory[`d${dayNum}-${name}`] || '--';
+            const row = document.createElement('div');
+            row.className = 'exercise-row';
+            row.innerHTML = `
+                <div class="exercise-info">
+                    <label>${name}</label>
+                    <span>Last: <b class="history-badge">${lastVal}</b></span>
+                </div>
+                <input type="number" placeholder="Reps" data-ex="${name}">
+            `;
+            list.appendChild(row);
         });
     }
 
-    function toggleEx(day, idx) {
-        const key = `${day}-${idx}`;
-        completedWorkouts[key] = !completedWorkouts[key];
-        localStorage.setItem('completedWorkouts', JSON.stringify(completedWorkouts));
+    function saveWorkout() {
+        const inputs = document.querySelectorAll('[data-ex]');
+        inputs.forEach(input => {
+            if (input.value) {
+                workoutHistory[`d${currentDay}-${input.getAttribute('data-ex')}`] = input.value;
+            }
+        });
+        localStorage.setItem('workoutHistory', JSON.stringify(workoutHistory));
+        alert("Workout Logged! Keep pushing.");
+        loadDay(currentDay);
     }
 
     function saveWeight() {
-        const weight = document.getElementById('weightInput').value;
-        if (!weight) return;
-        const entry = { date: new Date().toLocaleDateString(), weight: parseFloat(weight) };
-        weightData.push(entry);
+        const val = document.getElementById('weightInput').value;
+        if (!val) return;
+        weightData.push({ date: new Date().toLocaleDateString(), weight: parseFloat(val) });
         localStorage.setItem('weightLogs', JSON.stringify(weightData));
         updateChart();
+        document.getElementById('weightInput').value = '';
     }
 
     function updateChart() {
@@ -111,13 +132,15 @@
             data: {
                 labels: weightData.map(d => d.date),
                 datasets: [{
-                    label: 'Weight',
+                    label: 'Body Weight',
                     data: weightData.map(d => d.weight),
                     borderColor: '#ff4757',
-                    tension: 0.1
+                    backgroundColor: 'rgba(255, 71, 87, 0.1)',
+                    fill: true,
+                    tension: 0.3
                 }]
             },
-            options: { scales: { y: { beginAtZero: false } } }
+            options: { plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#334155' } }, x: { grid: { display: false } } } }
         });
     }
 
